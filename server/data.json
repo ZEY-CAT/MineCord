@@ -1,0 +1,161 @@
+{
+  "users": {
+    "ZEYCAT101": {
+      "id": "usr-muxsg6wu-ea02c3",
+      "username": "ZEYCAT101",
+      "displayName": "ZEYENESE",
+      "createdAt": 1791358248703,
+      "minecraft": null,
+      "avatar": ""
+    },
+    "lol": {
+      "id": "usr-muxuwvz3-885591",
+      "username": "lol",
+      "displayName": "lol",
+      "createdAt": 1791362386912,
+      "minecraft": null
+    },
+    "Zayn": {
+      "id": "usr-muygmrwr-24df61",
+      "username": "Zayn",
+      "displayName": "Zayn",
+      "avatar": "https://lh3.googleusercontent.com/a/ACg8ocKF_IR6cCByb0VANU-AOQUTTJ2cdyFTEinT5poRsgGae4FpsQ8=s96-c",
+      "oauth": {
+        "provider": "google",
+        "id": "103408770962635180580"
+      },
+      "minecraft": null,
+      "createdAt": 1791398866635
+    },
+    "ZEY-CAT": {
+      "id": "usr-muymicxz-3641e7",
+      "username": "ZEY-CAT",
+      "displayName": "ZEY-CAT",
+      "avatar": "https://avatars.githubusercontent.com/u/293971596?v=4",
+      "oauth": {
+        "provider": "github",
+        "id": "293971596"
+      },
+      "minecraft": null,
+      "createdAt": 1791408738312
+    },
+    "lol man": {
+      "id": "usr-muypuw5u-60b8908c",
+      "username": "lol man",
+      "displayName": "lol man",
+      "avatar": "",
+      "minecraft": null,
+      "createdAt": 1791414361938
+    },
+    "Lol": {
+      "id": "usr-muyq2eoz-3166cec1",
+      "username": "Lol",
+      "displayName": "Lol",
+      "avatar": "",
+      "minecraft": null,
+      "createdAt": 1791414712547
+    }
+  },
+  "servers": [
+    {
+      "id": "srv-lobby",
+      "name": "Minecraft Friends",
+      "icon": "⛏️",
+      "owner": "system",
+      "members": [],
+      "channels": [
+        {
+          "id": "general",
+          "name": "general",
+          "type": "text"
+        },
+        {
+          "id": "minecraft",
+          "name": "minecraft",
+          "type": "text"
+        },
+        {
+          "id": "lounge",
+          "name": "Lounge",
+          "type": "voice"
+        }
+      ]
+    },
+    {
+      "id": "srv-muxsh0ex-f9e704",
+      "name": "lol",
+      "icon": "🟩",
+      "owner": "ZEYCAT101",
+      "members": [
+        "ZEYCAT101"
+      ],
+      "channels": [
+        {
+          "id": "general",
+          "name": "general",
+          "type": "text"
+        },
+        {
+          "id": "ch-muxsxqc9-e3173b",
+          "name": "oogala",
+          "type": "text"
+        }
+      ]
+    }
+  ],
+  "messages": {
+    "dm:ZEY-CAT::Zayn": [
+      {
+        "id": "dm-muyoc36t-c5dabb",
+        "from": "Zayn",
+        "to": "ZEY-CAT",
+        "text": "hello",
+        "at": 1791411804966
+      }
+    ],
+    "srv-lobby:general": [
+      {
+        "id": "msg-muyoc7t1-d2b887",
+        "from": "ZEY-CAT",
+        "text": "hwllo",
+        "at": 1791411810949
+      },
+      {
+        "id": "msg-muyoda5x-b78da8",
+        "from": "Zayn",
+        "text": "hello",
+        "at": 1791411860661
+      }
+    ]
+  },
+  "friends": {},
+  "invites": {
+    "a1H0zzs": {
+      "serverId": "srv-muxsh0ex-f9e704",
+      "createdBy": "ZEYCAT101",
+      "expires": 1791963872214
+    }
+  },
+  "oauthStates": {
+    "4d63c9bb17205303565c1ec1b895a2a038284a9a72041383": {
+      "provider": "github",
+      "createdAt": 1791408710518
+    },
+    "15a6f6c2997aa3a75653e9b940075d4d8f0e26fb1f0705f3": {
+      "provider": "google",
+      "createdAt": 1791414302758
+    },
+    "cda0e3cad029d15f1b15639a4afed097661fa848d583b9ff": {
+      "provider": "google",
+      "createdAt": 1791414351987
+    },
+    "c1e6dc5c2707d9f87a6720002e9ee6c7378584343c2bf267": {
+      "provider": "google",
+      "createdAt": 1791414689191
+    },
+    "016fd3519ae1a93a68ff9da2a1f752d5f4c27689446149cb": {
+      "provider": "google",
+      "createdAt": 1791450805261
+    }
+  }
+}

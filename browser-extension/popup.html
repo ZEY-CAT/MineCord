@@ -1,0 +1,25 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body{font:14px system-ui,sans-serif;width:300px;padding:14px;background:#1e1f22;color:#f2f4f7}
+    h3{margin:0 0 8px}p{color:#b5bac1;font-size:12px;line-height:1.45}
+    input,button{box-sizing:border-box;width:100%;padding:9px;margin:5px 0;border-radius:5px}
+    input{background:#111214;border:1px solid #4a4d53;color:#fff}button{border:0;background:#248046;color:#fff;cursor:pointer}
+    #status{min-height:20px;color:#b5bac1}
+  </style>
+</head>
+<body>
+  <h3>MINECORD Eaglercraft</h3>
+  <p>Pair once with the code generated in MINECORD Settings. Only Eaglercraft page activity is shared; player and server details are not read.</p>
+  <label for="server">MINECORD server URL</label>
+  <input id="server" type="url" placeholder="https://chat.example.com">
+  <label for="code">One-time pairing code</label>
+  <input id="code" autocomplete="off" placeholder="Paste code from MINECORD Settings">
+  <button id="pair">Pair activity sharing</button>
+  <button id="unpair">Unpair</button>
+  <div id="status" role="status"></div>
+  <script src="popup.js"></script>
+</body>
+</html>

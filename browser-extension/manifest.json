@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "MINECORD Eaglercraft Activity",
+  "version": "1.0.0",
+  "description": "Shares only whether the configured Eaglercraft game page is open and running.",
+  "permissions": ["storage", "tabs", "alarms"],
+  "optional_host_permissions": ["https://*/*", "http://localhost/*", "http://127.0.0.1/*"],
+  "host_permissions": ["https://eaglercraft-26-2-u1-cdn.u2471966200.workers.dev/*"],
+  "background": {
+    "service_worker": "service-worker.js"
+  },
+  "content_scripts": [{
+    "matches": ["https://eaglercraft-26-2-u1-cdn.u2471966200.workers.dev/eaglercraft-26.2-u1.html*"],
+    "js": ["detector.js"],
+    "run_at": "document_idle"
+  }],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "MINECORD Eaglercraft activity"
+  }
+}

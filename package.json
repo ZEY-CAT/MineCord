@@ -1,0 +1,52 @@
+{
+  "name": "minecraft-friends",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Minecraft-themed private friends chat with accounts, servers, channels, DMs and WebRTC voice.",
+  "main": "desktop/main.js",
+  "scripts": {
+    "desktop": "electron desktop/main.js",
+    "build:desktop": "electron-builder",
+    "start": "node server/server.js",
+    "dev": "node server/server.js",
+    "electron": "electron .",
+    "electron:serve": "concurrently -k \"node server/server.js\" \"electron .\"",
+    "build": "node -e \"console.log('Web app is ready in public/; Electron packaging can be added with electron-builder.')\""
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "dotenv": "^16.6.1",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "electron": "^39.8.10",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.minecord.app",
+    "productName": "MINECORD",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "desktop/**",
+      "public/**",
+      "package.json",
+      "!desktop/**/*.map",
+      "!**/.env",
+      "!**/.env.*",
+      "!server/**",
+      "!dist/**"
+    ],
+    "extraResources": [
+      {
+        "from": "browser-extension",
+        "to": "browser-extension"
+      }
+    ],
+    "win": {
+      "target": "nsis"
+    }
+  }
+}
