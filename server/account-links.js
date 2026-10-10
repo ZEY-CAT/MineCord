@@ -76,6 +76,7 @@ function accountLinkRoutes(app, context) {
       userId: req.minecordUser.id,
       createdAt: Date.now()
     });
+    context.bindBrowserToOAuthState(res, provider, state, appUrl);
     const redirectUri = process.env[`${prefix}_CALLBACK_URL`] || `${appUrl}/auth/${provider}/callback`;
     const query = new URLSearchParams({ client_id: clientId, redirect_uri: redirectUri, response_type: 'code', state });
     let authorizeUrl;
@@ -164,18 +165,22 @@ function saveOAuthState(context, key, value) {
 }
 
 function oauthCallback(context) {
-  const { data, save, authUser, setSession, database } = context;
+  const { data, save, authUser, setSession, database, hasBrowserOAuthState, clearBrowserOAuthState, appUrl } = context;
   return async (req, res, next) => {
     const provider = req.params.provider;
     if (!PROVIDERS.has(provider)) return next();
     const stateKey = typeof req.query.state === 'string' ? req.query.state : '';
     const pendingState = database.getOAuthState(stateKey);
     if (pendingState?.purpose !== 'account-link') return next();
-    const state = database.consumeOAuthState(stateKey);
-    if (state?.purpose !== 'account-link') return next();
-    if (state.provider !== provider) {
+    if (!hasBrowserOAuthState(req, provider, stateKey)) {
+      clearBrowserOAuthState(res, provider, appUrl);
+      return res.status(400).send('OAuth state is invalid or expired. Please restart sign-in.');
+    }
+    const state = database.consumeOAuthState(stateKey, provider);
+    if (!state || state.purpose !== 'account-link') {
       return res.status(400).send('OAuth state is invalid or expired. Please try again.');
     }
+    clearBrowserOAuthState(res, provider, appUrl);
 
     if (req.query.error) {
       return res.redirect(state.purpose === 'account-link'

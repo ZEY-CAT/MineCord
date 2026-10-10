@@ -317,11 +317,18 @@ function getOAuthState(state) {
   if (!entry || entry.expires_at <= Date.now()) return null;
   return JSON.parse(entry.value);
 }
-function consumeOAuthState(state) {
+function consumeOAuthState(state, expectedProvider) {
   if (typeof state !== 'string' || !state) return null;
   db.exec('BEGIN IMMEDIATE');
   try {
     const entry = db.prepare('SELECT value, expires_at FROM oauth_states WHERE state = ?').get(state);
+    if (entry && entry.expires_at > Date.now() && expectedProvider) {
+      const value = JSON.parse(entry.value);
+      if (value.provider !== expectedProvider) {
+        db.exec('COMMIT');
+        return null;
+      }
+    }
     run('DELETE FROM oauth_states WHERE state = ?', state);
     db.exec('COMMIT');
     return entry && entry.expires_at > Date.now() ? JSON.parse(entry.value) : null;

@@ -335,6 +335,7 @@ function mergeRoutes(app, context) {
     const state = createId('merge-state');
     const createdAt = Date.now();
     database.createOAuthState(state, { purpose: 'merge-target-proof', provider, userId: req.minecordUser.id, sessionHash: sessionHash(req), createdAt }, createdAt + PROOF_LIFETIME);
+    context.bindBrowserToOAuthState(res, provider, state, context.appUrl);
     res.json({ authorizeUrl: buildAuthorizationUrl(provider, state, context.appUrl) });
   });
 
@@ -358,6 +359,7 @@ function mergeRoutes(app, context) {
       sessionHash: sessionHash(req),
       createdAt
     }, createdAt + PROOF_LIFETIME);
+    context.bindBrowserToOAuthState(res, provider, state, context.appUrl);
     res.json({ authorizeUrl: buildAuthorizationUrl(provider, state, context.appUrl) });
   });
 
@@ -442,12 +444,16 @@ function mergeRoutes(app, context) {
     const stateKey = typeof req.query.state === 'string' ? req.query.state : '';
     const pendingState = database.getOAuthState(stateKey);
     if (!pendingState?.purpose?.startsWith('merge-')) return next();
-    const state = database.consumeOAuthState(stateKey);
-    if (!state?.purpose?.startsWith('merge-')) return next();
     const provider = req.params.provider;
-    if (state.provider !== provider) {
+    if (!context.hasBrowserOAuthState(req, provider, stateKey)) {
+      context.clearBrowserOAuthState(res, provider, context.appUrl);
+      return res.status(400).send('Account merge verification expired or did not match the browser.');
+    }
+    const state = database.consumeOAuthState(stateKey, provider);
+    if (!state?.purpose?.startsWith('merge-')) {
       return res.status(400).send('Account merge verification expired or did not match the provider.');
     }
+    context.clearBrowserOAuthState(res, provider, context.appUrl);
     if (req.query.error) return res.redirect('/#merge-error=cancelled');
     if (typeof req.query.code !== 'string' || !req.query.code) return res.status(400).send('The identity provider did not return an authorization code.');
     const currentSession = sessionHash(req);

@@ -159,9 +159,18 @@ test('Microsoft OAuth rejects a callback from a different provider', async t => 
     rmSync(files.directory, { recursive: true, force: true });
   });
 
-  const { state } = await beginMicrosoftSignIn(server.origin);
-  const mismatched = await fetch(`${server.origin}/auth/google/callback?state=${encodeURIComponent(state)}&code=approved-test-code`);
+  const { state, cookie } = await beginMicrosoftSignIn(server.origin);
+  const mismatched = await fetch(`${server.origin}/auth/google/callback?state=${encodeURIComponent(state)}&code=approved-test-code`, {
+    headers: { Cookie: cookie },
+    redirect: 'manual'
+  });
   assert.equal(mismatched.status, 400);
+  const correctProvider = await fetch(`${server.origin}/auth/microsoft/callback?state=${encodeURIComponent(state)}&code=approved-test-code`, {
+    headers: { Cookie: cookie },
+    redirect: 'manual'
+  });
+  assert.equal(correctProvider.status, 302);
+  assert.equal(correctProvider.headers.get('location'), '/?oauth=success');
 });
 
 test('Microsoft OAuth rejects expired state', async t => {
@@ -195,4 +204,117 @@ test('Microsoft OAuth refuses to begin when its state cannot be persisted', asyn
   const response = await fetch(`${server.origin}/auth/microsoft`, { redirect: 'manual' });
   assert.equal(response.status, 500);
   assert.equal(response.headers.get('location'), null);
+});
+
+test('OAuth account linking requires the initiating browser cookie and preserves the MINECORD session', async t => {
+  const files = createTestFiles();
+  const server = await startServer(files.databaseFile, files.preloadFile);
+  t.after(async () => {
+    await stopServer(server.child);
+    rmSync(files.directory, { recursive: true, force: true });
+  });
+
+  const registration = await fetch(`${server.origin}/api/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Origin: server.origin },
+    body: JSON.stringify({ username: 'oauth_link_user', password: 'Long-oauth-test-passphrase!' })
+  });
+  assert.equal(registration.status, 201);
+  const sessionCookie = registration.headers.getSetCookie().find(value => value.startsWith('mc_session=')).split(';', 1)[0];
+  const start = await fetch(`${server.origin}/api/auth/links/microsoft/start`, {
+    method: 'POST',
+    headers: { Cookie: sessionCookie, 'Content-Type': 'application/json', Origin: server.origin },
+    body: '{}'
+  });
+  assert.equal(start.status, 200);
+  const state = new URL((await start.json()).authorizeUrl).searchParams.get('state');
+  const stateSetCookie = start.headers.getSetCookie().find(value => value.startsWith('mc_oauth_state='));
+  const stateCookie = stateSetCookie.split(';', 1)[0];
+  assert.equal(decodeURIComponent(stateCookie.slice('mc_oauth_state='.length)), state);
+  assert.match(stateSetCookie, /httponly/i);
+  assert.match(stateSetCookie, /samesite=lax/i);
+  assert.match(stateSetCookie, /path=\/auth\/microsoft\/callback/i);
+
+  const callbackUrl = `${server.origin}/auth/microsoft/callback?state=${encodeURIComponent(state)}&code=approved-test-code`;
+  const unbound = await fetch(callbackUrl, { headers: { Cookie: sessionCookie }, redirect: 'manual' });
+  assert.equal(unbound.status, 400);
+  const linked = await fetch(callbackUrl, { headers: { Cookie: `${sessionCookie}; ${stateCookie}` }, redirect: 'manual' });
+  assert.equal(linked.status, 302);
+  assert.equal(linked.headers.get('location'), '/?account_link=success');
+
+  const currentSession = await fetch(`${server.origin}/api/auth/me`, { headers: { Cookie: sessionCookie } });
+  assert.equal(currentSession.status, 200);
+  assert.equal((await currentSession.json()).user.username, 'oauth_link_user');
+});
+
+test('Minecraft linking state is browser-bound and still requires the original MINECORD session', async t => {
+  const files = createTestFiles();
+  const server = await startServer(files.databaseFile, files.preloadFile);
+  t.after(async () => {
+    await stopServer(server.child);
+    rmSync(files.directory, { recursive: true, force: true });
+  });
+
+  const registration = await fetch(`${server.origin}/api/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Origin: server.origin },
+    body: JSON.stringify({ username: 'minecraft_link_user', password: 'Long-oauth-test-passphrase!' })
+  });
+  const sessionCookie = registration.headers.getSetCookie().find(value => value.startsWith('mc_session=')).split(';', 1)[0];
+  async function startMinecraftLink() {
+    const response = await fetch(`${server.origin}/auth/minecraft/link`, {
+      headers: { Cookie: sessionCookie },
+      redirect: 'manual'
+    });
+    assert.equal(response.status, 302);
+    const state = new URL(response.headers.get('location')).searchParams.get('state');
+    const cookie = response.headers.getSetCookie().find(value => value.startsWith('mc_oauth_state=')).split(';', 1)[0];
+    return {
+      state,
+      cookie,
+      callbackUrl: `${server.origin}/auth/microsoft/callback?state=${encodeURIComponent(state)}&code=approved-test-code`
+    };
+  }
+
+  const first = await startMinecraftLink();
+  const unbound = await fetch(first.callbackUrl, { headers: { Cookie: sessionCookie }, redirect: 'manual' });
+  assert.equal(unbound.status, 400);
+  const bound = await fetch(first.callbackUrl, { headers: { Cookie: `${sessionCookie}; ${first.cookie}` }, redirect: 'manual' });
+  assert.equal(bound.status, 302);
+  assert.equal(bound.headers.get('location'), '/?minecraft_link_error=link_failed');
+
+  const second = await startMinecraftLink();
+  const withoutSession = await fetch(second.callbackUrl, { headers: { Cookie: second.cookie }, redirect: 'manual' });
+  assert.equal(withoutSession.status, 401);
+});
+
+test('account-merge OAuth proof requires the originating browser and session', async t => {
+  const files = createTestFiles();
+  const server = await startServer(files.databaseFile, files.preloadFile);
+  t.after(async () => {
+    await stopServer(server.child);
+    rmSync(files.directory, { recursive: true, force: true });
+  });
+
+  const registration = await fetch(`${server.origin}/api/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Origin: server.origin },
+    body: JSON.stringify({ username: 'merge_oauth_user', password: 'Long-oauth-test-passphrase!' })
+  });
+  const sessionCookie = registration.headers.getSetCookie().find(value => value.startsWith('mc_session=')).split(';', 1)[0];
+  const start = await fetch(`${server.origin}/api/accounts/merge/target-oauth/start`, {
+    method: 'POST',
+    headers: { Cookie: sessionCookie, 'Content-Type': 'application/json', Origin: server.origin },
+    body: JSON.stringify({ provider: 'microsoft' })
+  });
+  assert.equal(start.status, 200);
+  const state = new URL((await start.json()).authorizeUrl).searchParams.get('state');
+  const stateCookie = start.headers.getSetCookie().find(value => value.startsWith('mc_oauth_state=')).split(';', 1)[0];
+  const callbackUrl = `${server.origin}/auth/microsoft/callback?state=${encodeURIComponent(state)}&code=approved-test-code`;
+
+  const unbound = await fetch(callbackUrl, { headers: { Cookie: sessionCookie }, redirect: 'manual' });
+  assert.equal(unbound.status, 400);
+  const verified = await fetch(callbackUrl, { headers: { Cookie: `${sessionCookie}; ${stateCookie}` }, redirect: 'manual' });
+  assert.equal(verified.status, 302);
+  assert.equal(verified.headers.get('location'), '/#merge-error=target-proof-failed');
 });

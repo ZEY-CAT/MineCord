@@ -60,7 +60,6 @@ async fn install_update(
         || {},
     ).await.map_err(|_| "The update could not be downloaded or verified. Your installed version was not replaced.".to_string())?;
     app.restart();
-    Ok(())
 }
 
 fn main() {

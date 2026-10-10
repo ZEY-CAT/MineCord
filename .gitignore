@@ -2,6 +2,8 @@ node_modules/
 dist/
 build/tauri-resources/
 build/tauri.release.conf.json
+/src-tauri/target/
+/src-tauri/gen/schemas/
 .env
 .env.*
 !.env.example
