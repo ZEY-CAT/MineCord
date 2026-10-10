@@ -1,0 +1,10 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main-capability",
+  "description": "Scope hosted MINECORD desktop APIs to the official hosted origin.",
+  "windows": ["main"],
+  "remote": {
+    "urls": ["https://minecord-8vg2.onrender.com"]
+  },
+  "permissions": ["core:default"]
+}

@@ -1,27 +1,37 @@
 {
   "name": "minecraft-friends",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Minecraft-themed private friends chat with accounts, servers, channels, DMs and WebRTC voice.",
   "main": "desktop/main.js",
   "scripts": {
     "desktop": "electron desktop/main.js",
-    "build:desktop": "electron-builder",
+    "build:desktop": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\generate-windows-icon.ps1 && electron-builder",
     "start": "node server/server.js",
     "dev": "node server/server.js",
     "electron": "electron .",
     "electron:serve": "concurrently -k \"node server/server.js\" \"electron .\"",
-    "build": "node -e \"console.log('Web app is ready in public/; Electron packaging can be added with electron-builder.')\""
+    "test": "node --test",
+    "build": "node scripts/build-web.js",
+    "tauri": "tauri",
+    "tauri:prepare": "npm run build",
+    "tauri:dev": "npm run tauri:prepare && tauri dev",
+    "tauri:build": "npm run tauri:prepare && node scripts/build-tauri.js"
   },
   "dependencies": {
-    "express": "^5.1.0",
     "dotenv": "^16.6.1",
+    "electron-updater": "^6.8.9",
+    "express": "^5.1.0",
     "ws": "^8.18.3"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",
-    "electron": "^39.8.10",
-    "electron-builder": "^26.15.3"
+    "electron": "^44.7.0",
+    "electron-builder": "^26.15.3",
+    "@tauri-apps/cli": "^2.8.4"
+  },
+  "engines": {
+    "node": ">=24"
   },
   "build": {
     "appId": "com.minecord.app",
@@ -46,7 +56,20 @@
       }
     ],
     "win": {
+      "icon": "assets/minecord.ico",
       "target": "nsis"
-    }
+    },
+    "nsis": {
+      "installerIcon": "assets/minecord.ico",
+      "uninstallerIcon": "assets/minecord.ico"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "ZEY-CAT",
+        "repo": "MineCord",
+        "releaseType": "draft"
+      }
+    ]
   }
 }

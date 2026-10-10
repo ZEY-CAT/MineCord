@@ -1,0 +1,181 @@
+:root {
+  color-scheme: dark;
+  font: 14px/1.5 system-ui, sans-serif;
+  color: #f2f4f7;
+  background: #313338;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 48px 20px;
+}
+
+.settings {
+  width: min(100%, 620px);
+  margin: 0 auto;
+  padding: 28px;
+  border: 1px solid #41434a;
+  border-radius: 12px;
+  background: #2b2d31;
+  box-shadow: 0 12px 40px #0003;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid #41434a;
+}
+
+.icon {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  color: #57d98a;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 21px;
+}
+
+h2 {
+  margin-bottom: 8px;
+  font-size: 16px;
+}
+
+header p,
+.description,
+.privacy p {
+  color: #b5bac1;
+}
+
+header p {
+  margin-top: 3px;
+}
+
+section {
+  padding-top: 24px;
+}
+
+.description {
+  margin-bottom: 20px;
+}
+
+label {
+  display: block;
+  margin: 14px 0 6px;
+  font-weight: 600;
+}
+
+input {
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid #4a4d53;
+  border-radius: 6px;
+  outline: none;
+  background: #1e1f22;
+  color: #f2f4f7;
+  font: inherit;
+}
+
+input:focus {
+  border-color: #57d98a;
+  box-shadow: 0 0 0 2px #57d98a33;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 6px;
+  background: #248046;
+  color: #fff;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  background: #2d9855;
+}
+
+button.secondary {
+  border: 1px solid #555860;
+  background: transparent;
+  color: #f2f4f7;
+}
+
+button.secondary:hover:not(:disabled) {
+  background: #3a3c42;
+}
+
+button:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+.button-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.status {
+  min-height: 22px;
+  margin-top: 12px;
+  color: #b5bac1;
+}
+
+.status[data-state="success"] {
+  color: #57d98a;
+}
+
+.status[data-state="error"] {
+  color: #f28b82;
+}
+
+.privacy {
+  margin-top: 24px;
+  padding: 16px;
+  border-radius: 8px;
+  background: #1e1f22;
+}
+
+.privacy p {
+  font-size: 13px;
+}
+
+@media (max-width: 480px) {
+  body {
+    padding: 16px 10px;
+  }
+
+  .settings {
+    padding: 20px;
+  }
+
+  .actions {
+    flex-direction: column;
+  }
+}

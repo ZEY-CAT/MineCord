@@ -1,4 +1,5 @@
 const { app, BrowserWindow, shell, session } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
 const { startActivityMonitor } = require('./activity-monitor');
@@ -48,13 +49,28 @@ function createWindow() {
   }
 
   win.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    try {
+      const target = new URL(url);
+      if (target.protocol === 'https:' || target.protocol === 'http:') {
+        shell.openExternal(target.href).catch(error => {
+          console.warn('Could not open external MINECORD link:', error.message);
+        });
+      }
+    } catch (error) {
+      console.warn('Could not open external MINECORD link:', error.message);
+    }
     return { action: 'deny' };
   });
 }
 
 app.whenReady().then(() => {
   createWindow();
+  if (app.isPackaged) {
+    autoUpdater.logger = console;
+    autoUpdater.checkForUpdatesAndNotify().catch(error => {
+      console.warn('MINECORD update check failed:', error.message);
+    });
+  }
 });
 
 app.on('window-all-closed', () => {

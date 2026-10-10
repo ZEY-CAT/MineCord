@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MINECORD</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#1e1f22;color:#f2f4f7;font:22px VT323,Consolas,monospace}
+    main{width:min(560px,90vw);padding:34px;border:1px solid #383a40;border-radius:12px;background:#25262a;text-align:center}
+    h1{margin:0 0 12px;color:#b9beff;font-size:44px}p{color:#b5bac1}#error{color:#ff858b;white-space:pre-wrap;overflow-wrap:anywhere}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>MINECORD</h1>
+    <p id="message">Starting your private MINECORD service…</p>
+    <p id="error" role="alert"></p>
+  </main>
+  <script>
+    window.showMinecordStartupError = message => {
+      document.getElementById('message').textContent = 'MINECORD could not start.';
+      document.getElementById('error').textContent = message;
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MINECORD Eaglercraft Pairing</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <main class="settings">
+    <header>
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M10 13.5 14 9.5M8.5 15l-2 2a3.54 3.54 0 0 1-5-5l4-4a3.54 3.54 0 0 1 5 0m5-3 2-2a3.54 3.54 0 0 1 5 5l-4 4a3.54 3.54 0 0 1-5 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      </svg>
+      <div>
+        <h1>Eaglercraft activity</h1>
+        <p>Connect this extension to your MINECORD account.</p>
+      </div>
+    </header>
+
+    <section aria-labelledby="pairing-heading">
+      <h2 id="pairing-heading">Pair extension</h2>
+      <p class="description">Generate a one-time code from <strong>MINECORD Settings → Eaglercraft browser integration</strong>. The code expires after five minutes and is validated by your MINECORD server.</p>
+      <label for="server">MINECORD server URL</label>
+      <input id="server" type="url" inputmode="url" autocomplete="url" spellcheck="false" placeholder="https://minecord-8vg2.onrender.com">
+      <label for="code">One-time pairing code</label>
+      <input id="code" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Paste the code from MINECORD Settings">
+      <div class="actions">
+        <button id="pair" type="button">
+          <svg class="button-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M10 13.5 14 9.5M8.5 15l-2 2a3.54 3.54 0 0 1-5-5l4-4a3.54 3.54 0 0 1 5 0m5-3 2-2a3.54 3.54 0 0 1 5 5l-4 4a3.54 3.54 0 0 1-5 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+          Pair activity sharing
+        </button>
+        <button id="unpair" class="secondary" type="button" disabled>Unpair</button>
+      </div>
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="privacy" aria-labelledby="privacy-heading">
+      <h2 id="privacy-heading">What is shared</h2>
+      <p>When paired, the extension reports only whether the supported Eaglercraft page is active. It does not read the game username, server address, browser history, cookies, passwords, or other websites.</p>
+    </section>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>
