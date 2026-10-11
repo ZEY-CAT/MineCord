@@ -1,0 +1,13 @@
+<resources>
+    <!-- MINECORD brand colors matching the desktop app -->
+    <color name="color_primary">#5865F2</color>
+    <color name="color_primary_dark">#4752C4</color>
+    <color name="color_secondary">#23A559</color>
+    <color name="color_secondary_dark">#1E8A4A</color>
+    <color name="background">#313338</color>
+    <color name="surface">#1E1F22</color>
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+    <color name="text_primary">#F2F4F7</color>
+    <color name="text_secondary">#B5BAC1</color>
+</resources>

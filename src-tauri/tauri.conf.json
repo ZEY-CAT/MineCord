@@ -5,7 +5,9 @@
   "identifier": "com.minecord.app",
   "build": {
     "devUrl": "https://minecord-8vg2.onrender.com",
-    "frontendDist": "splash"
+    "frontendDist": "splash",
+    "beforeBuildCommand": "",
+    "beforeDevCommand": ""
   },
   "app": {
     "withGlobalTauri": true,
@@ -27,9 +29,12 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
-    "icon": ["../assets/minecord.ico"],
-    "createUpdaterArtifacts": false,
+    "targets": "all",
+    "icon": [
+      "../assets/minecord.ico",
+      "../assets/minecord-icon.png"
+    ],
+    "createUpdaterArtifacts": true,
     "windows": {
       "webviewInstallMode": {
         "type": "downloadBootstrapper",
@@ -39,13 +44,50 @@
         "installMode": "currentUser",
         "startMenuFolder": "MINECORD"
       }
+    },
+    "macOS": {
+      "entitlements": null,
+      "exceptionDomain": "",
+      "frameworks": [],
+      "providerShortName": "ZEY-CAT",
+      "signingIdentity": null,
+      "minimumSystemVersion": "10.15"
+    },
+    "linux": {
+      "deb": {
+        "depends": [
+          "webkit2gtk-4.1-0",
+          "libssl3",
+          "libayatana-appindicator3-1"
+        ]
+      },
+      "rpm": {
+        "depends": [
+          "webkit2gtk-4.1",
+          "openssl-libs",
+          "libayatana-appindicator3"
+        ]
+      },
+      "appimage": {
+        "bundleMediaFramework": false
+      }
+    },
+    "android": {
+      "minSdkVersion": 24,
+      "versionCode": 1001
     }
   },
   "plugins": {
     "updater": {
-      "pubkey": "",
-      "endpoints": [],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXkgQ0JCOUM2NzJGRTIwQ0E4Qg0KUldTTHlpRCtjc2E1eTJob0FVVis2MWNqd1hRZnRXNDJsbThqYnQxenM5cFJHQjFNNGZrZ1pBMDkNCg==",
+      "endpoints": ["https://github.com/ZEY-CAT/MineCord/releases/latest/download/"],
       "windows": {
+        "installMode": "passive"
+      },
+      "macOS": {
+        "installMode": "passive"
+      },
+      "linux": {
         "installMode": "passive"
       }
     }

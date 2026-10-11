@@ -60,14 +60,80 @@ async fn install_update(
         || {},
     ).await.map_err(|_| "The update could not be downloaded or verified. Your installed version was not replaced.".to_string())?;
     app.restart();
+    Ok(())
+}
+
+#[cfg(target_os = "android")]
+#[tauri::command]
+fn request_microphone_permission() -> Result<(), String> {
+    use jni::objects::{JClass, JObject};
+    use jni::JNIEnv;
+    use ndk_context::android_context;
+
+    let ctx = unsafe { android_context() };
+    let env = unsafe { JNIEnv::from_raw(ctx.vm().cast()) }.map_err(|e| format!("JNIEnv error: {e}"))?;
+    let activity = unsafe { JObject::from_raw(ctx.context().cast()) };
+
+    // Request RECORD_AUDIO permission at runtime
+    let activity_class = env.get_object_class(&activity).map_err(|e| format!("Get class error: {e}"))?;
+    let request_permissions = env.get_method_id(activity_class, "requestPermissions", "([Ljava/lang/String;I)V")
+        .map_err(|e| format!("Get method error: {e}"))?;
+
+    let permissions = env.new_object_array(1, env.find_class("java/lang/String").map_err(|e| format!("Find String class error: {e}"))?, JObject::null())
+        .map_err(|e| format!("New array error: {e}"))?;
+    let permission_str = env.new_string("android.permission.RECORD_AUDIO").map_err(|e| format!("New string error: {e}"))?;
+    env.set_object_array_element(permissions, 0, permission_str).map_err(|e| format!("Set element error: {e}"))?;
+
+    env.call_method_unchecked(&activity, request_permissions, jni::signature::ReturnType::Void, &[permissions.into(), 42.into()])
+        .map_err(|e| format!("Call method error: {e}"))?;
+
+    Ok(())
 }
 
 fn main() {
-    let app = tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .manage(PendingUpdate(std::sync::Mutex::new(None)))
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![updates_enabled, check_update, install_update])
+        .invoke_handler(tauri::generate_handler![
+            updates_enabled,
+            check_update,
+            install_update,
+            #[cfg(target_os = "android")]
+            request_microphone_permission
+        ]);
+
+    #[cfg(target_os = "android")]
+    let builder = builder.setup(|app| {
+        // Android-specific setup: keep screen on for voice calls
+        use android_activity::AndroidApp;
+        use jni::objects::{JClass, JObject};
+        use jni::JNIEnv;
+        use ndk_context::android_context;
+
+        let ctx = unsafe { android_context() };
+        let env = unsafe { JNIEnv::from_raw(ctx.vm().cast()) }.map_err(|e| format!("JNIEnv error: {e}"))?;
+        let activity = unsafe { JObject::from_raw(ctx.context().cast()) };
+
+        let activity_class = env.get_object_class(&activity).map_err(|e| format!("Get class error: {e}"))?;
+        let get_window = env.get_method_id(activity_class, "getWindow", "()Landroid/view/Window;")
+            .map_err(|e| format!("Get getWindow error: {e}"))?;
+        let window = env.call_method_unchecked(&activity, get_window, jni::signature::ReturnType::Object, &[])
+            .map_err(|e| format!("Call getWindow error: {e}"))?.l().map_err(|e| format!("Get window object error: {e}"))?;
+
+        let window_class = env.get_object_class(&window).map_err(|e| format!("Get window class error: {e}"))?;
+        let add_flags = env.get_method_id(window_class, "addFlags", "(I)V")
+            .map_err(|e| format!("Get addFlags error: {e}"))?;
+
+        // FLAG_KEEP_SCREEN_ON = 0x08000000
+        env.call_method_unchecked(&window, add_flags, jni::signature::ReturnType::Void, &[0x08000000i32.into()])
+            .map_err(|e| format!("Call addFlags error: {e}"))?;
+
+        Ok(())
+    });
+
+    let app = builder
         .build(tauri::generate_context!())
-        .expect("MINECORD desktop initialization failed");
+        .expect("MINECORD initialization failed");
+
     app.run(|_, _| {});
 }

@@ -1,10 +1,12 @@
 [package]
 name = "minecord-desktop"
 version = "1.0.1"
-description = "MINECORD Windows desktop application"
+description = "MINECORD cross-platform desktop and mobile application"
 authors = ["MINECORD"]
 edition = "2021"
 rust-version = "1.90"
+license = "MIT"
+repository = "https://github.com/ZEY-CAT/MineCord"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -14,3 +16,10 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri = { version = "2", features = [] }
 tauri-plugin-updater = "2"
+
+# Mobile support (Android) - conditional compilation
+[target.'cfg(target_os = "android")'.dependencies]
+ndk-glue = "0.7"
+jni = { version = "0.22", features = ["invocation"] }
+log = "0.4"
+android-activity = "0.5"
