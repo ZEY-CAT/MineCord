@@ -86,7 +86,7 @@ jobs:
         run: npm ci
 
       - name: Build Electron Windows
-        run: npm run build:desktop
+        run: npm run build:desktop -- --publish never
 
       - name: Upload Windows Electron artifact
         uses: actions/upload-artifact@v4
@@ -268,11 +268,12 @@ jobs:
           cache: 'npm'
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
         with:
           api-level: 34
           ndk-version: r27c
           emulator: false
+          cmdline-tools-version: latest
           cache-key: android-sdk-${{ runner.os }}-${{ hashFiles('src-tauri/gen/android/**') }}
 
       - name: Setup Rust
