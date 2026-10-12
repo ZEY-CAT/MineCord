@@ -1,4 +1,4 @@
-name: Tauri Build & Release
+﻿name: Tauri Build & Release
 
 on:
   workflow_dispatch:
@@ -61,17 +61,24 @@ jobs:
           MINECORD_UPDATER_ENDPOINT: ${{ secrets.MINECORD_UPDATER_ENDPOINT }}
         run: npm run tauri:build
 
+      - name: Verify Windows Tauri artifacts exist
+        run: |
+          echo "Checking for NSIS installer..."
+          ls -la src-tauri/target/**/bundle/nsis/ || true
+
       - name: Upload Windows Tauri artifact
         uses: actions/upload-artifact@v4
         with:
           name: mincord-windows-tauri
           path: src-tauri/target/**/bundle/nsis/*.exe
           retention-days: 7
+          if-no-files-found: error
 
   windows-electron:
     name: Windows (Electron)
     runs-on: windows-latest
     timeout-minutes: 30
+    # Electron build kept for alternative distribution but excluded from main release
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -146,7 +153,31 @@ jobs:
           MINECORD_UPDATER_ENDPOINT: ${{ secrets.MINECORD_UPDATER_ENDPOINT }}
           APPLE_CERT_P12_BASE64: ${{ secrets.APPLE_CERT_P12_BASE64 }}
           APPLE_CERT_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
-        run: npm run tauri:build -- --bundles dmg,app
+        run: npm run tauri:build
+
+      - name: Verify macOS DMG exists
+        run: |
+          set -e
+          echo "Checking for DMG files..."
+          find src-tauri/target -name "*.dmg" -type f | head -5
+          DMG_COUNT=$(find src-tauri/target -name "*.dmg" -type f | wc -l)
+          if [ "$DMG_COUNT" -eq 0 ]; then
+            echo "ERROR: No DMG files found!"
+            exit 1
+          fi
+          echo "Found $DMG_COUNT DMG file(s)"
+
+      - name: Verify macOS App bundle exists
+        run: |
+          set -e
+          echo "Checking for .app bundles..."
+          find src-tauri/target -name "*.app" -type d | head -5
+          APP_COUNT=$(find src-tauri/target -name "*.app" -type d | wc -l)
+          if [ "$APP_COUNT" -eq 0 ]; then
+            echo "ERROR: No .app bundles found!"
+            exit 1
+          fi
+          echo "Found $APP_COUNT .app bundle(s)"
 
       - name: Notarize macOS artifacts
         if: ${{ env.APPLE_ID != '' && env.APPLE_TEAM_ID != '' && env.APPLE_APP_PASSWORD != '' }}
@@ -167,11 +198,14 @@ jobs:
       - name: Package macOS app bundle
         if: ${{ always() }}
         run: |
+          set -e
           if [ -d "src-tauri/target/release/bundle/macos" ]; then
             cd src-tauri/target/release/bundle/macos
             for app in *.app; do
               if [ -d "$app" ]; then
+                echo "Packaging $app..."
                 zip -r "${app}.zip" "$app"
+                tar -czf "${app}.tar.gz" "$app"
               fi
             done
           fi
@@ -182,9 +216,10 @@ jobs:
           name: mincord-macos
           path: |
             src-tauri/target/**/bundle/dmg/*.dmg
-            src-tauri/target/**/bundle/macos/*.app
-            src-tauri/target/**/bundle/macos/*.zip
+            src-tauri/target/release/bundle/macos/*.zip
+            src-tauri/target/release/bundle/macos/*.tar.gz
           retention-days: 7
+          if-no-files-found: error
 
   linux:
     name: Linux (Tauri)
@@ -241,7 +276,23 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           MINECORD_UPDATER_PUBKEY: ${{ secrets.MINECORD_UPDATER_PUBKEY }}
           MINECORD_UPDATER_ENDPOINT: ${{ secrets.MINECORD_UPDATER_ENDPOINT }}
-        run: npm run tauri:build -- --bundles appimage,deb,rpm
+        run: npm run tauri:build
+
+      - name: Verify Linux artifacts exist
+        run: |
+          set -e
+          echo "Checking for AppImage files..."
+          find src-tauri/target -name "*.AppImage" -type f | head -5
+          APPIMAGE_COUNT=$(find src-tauri/target -name "*.AppImage" -type f | wc -l)
+          if [ "$APPIMAGE_COUNT" -eq 0 ]; then
+            echo "ERROR: No AppImage files found!"
+            exit 1
+          fi
+          echo "Found $APPIMAGE_COUNT AppImage file(s)"
+          echo "Checking for DEB files..."
+          find src-tauri/target -name "*.deb" -type f | head -5
+          echo "Checking for RPM files..."
+          find src-tauri/target -name "*.rpm" -type f | head -5
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
@@ -252,6 +303,7 @@ jobs:
             src-tauri/target/**/bundle/deb/*.deb
             src-tauri/target/**/bundle/rpm/*.rpm
           retention-days: 7
+          if-no-files-found: error
 
   android:
     name: Android (Tauri)
@@ -327,7 +379,7 @@ jobs:
 
   release:
     name: Create Release
-    needs: [windows-tauri, windows-electron, macos, linux]
+    needs: [windows-tauri, macos, linux]
     if: github.event.inputs.create_release == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -340,7 +392,50 @@ jobs:
 
       - name: List artifacts
         run: |
-          find artifacts -type f -name "*.exe" -o -name "*.dmg" -o -name "*.zip" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" | sort
+          find artifacts -type f \( -name "*.exe" -o -name "*.dmg" -o -name "*.zip" -o -name "*.tar.gz" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" \) | sort
+
+      - name: Verify release artifacts exist
+        run: |
+          set -e
+          echo "Verifying required release artifacts..."
+
+          # Check Windows Tauri installer
+          WIN_EXE=$(find artifacts/mincord-windows-tauri -name "*.exe" -type f 2>/dev/null | head -1)
+          if [ -z "$WIN_EXE" ]; then
+            echo "ERROR: Windows Tauri installer not found!"
+            exit 1
+          fi
+          echo "âœ“ Windows Tauri installer: $WIN_EXE"
+
+          # Check macOS DMG
+          MAC_DMG=$(find artifacts/mincord-macos -name "*.dmg" -type f 2>/dev/null | head -1)
+          if [ -z "$MAC_DMG" ]; then
+            echo "ERROR: macOS DMG not found!"
+            exit 1
+          fi
+          echo "âœ“ macOS DMG: $MAC_DMG"
+
+          # Check Linux AppImage
+          LINUX_APPIMAGE=$(find artifacts/mincord-linux -name "*.AppImage" -type f 2>/dev/null | head -1)
+          if [ -z "$LINUX_APPIMAGE" ]; then
+            echo "ERROR: Linux AppImage not found!"
+            exit 1
+          fi
+          echo "âœ“ Linux AppImage: $LINUX_APPIMAGE"
+
+          # Check optional: macOS app bundles
+          MAC_ZIP=$(find artifacts/mincord-macos -name "*.zip" -type f 2>/dev/null | head -1)
+          MAC_TAR=$(find artifacts/mincord-macos -name "*.tar.gz" -type f 2>/dev/null | head -1)
+          if [ -n "$MAC_ZIP" ]; then echo "âœ“ macOS App zip: $MAC_ZIP"; fi
+          if [ -n "$MAC_TAR" ]; then echo "âœ“ macOS App tar.gz: $MAC_TAR"; fi
+
+          # Check optional: Linux DEB/RPM
+          LINUX_DEB=$(find artifacts/mincord-linux -name "*.deb" -type f 2>/dev/null | head -1)
+          LINUX_RPM=$(find artifacts/mincord-linux -name "*.rpm" -type f 2>/dev/null | head -1)
+          if [ -n "$LINUX_DEB" ]; then echo "âœ“ Linux DEB: $LINUX_DEB"; fi
+          if [ -n "$LINUX_RPM" ]; then echo "âœ“ Linux RPM: $LINUX_RPM"; fi
+
+          echo "All required artifacts verified!"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -351,9 +446,9 @@ jobs:
           prerelease: false
           files: |
             artifacts/mincord-windows-tauri/*.exe
-            artifacts/mincord-windows-electron/*.exe
             artifacts/mincord-macos/*.dmg
             artifacts/mincord-macos/*.zip
+            artifacts/mincord-macos/*.tar.gz
             artifacts/mincord-linux/*.AppImage
             artifacts/mincord-linux/*.deb
             artifacts/mincord-linux/*.rpm
@@ -361,12 +456,11 @@ jobs:
             ## MINECORD v${{ github.event.inputs.version }}
 
             ### Windows
-            - **Tauri (NSIS)**: `MINECORD_${{ github.event.inputs.version }}_x64-setup.exe` — Lightweight WebView2-based installer (~3 MB)
-            - **Electron (NSIS)**: `MINECORD Setup ${{ github.event.inputs.version }}.exe` — Full Electron bundle (~120 MB)
+            - **Tauri (NSIS)**: `MINECORD_${{ github.event.inputs.version }}_x64-setup.exe` â€” Lightweight WebView2-based installer (~3 MB)
 
             ### macOS
             - **DMG**: `MINECORD_${{ github.event.inputs.version }}_x64.dmg` / `MINECORD_${{ github.event.inputs.version }}_arm64.dmg`
-            - **App Bundle**: `MINECORD.app.zip` (unsigned if no Apple credentials)
+            - **App Bundle**: `MINECORD.app.zip` and `MINECORD.app.tar.gz` (unsigned if no Apple credentials)
 
             ### Linux
             - **AppImage**: `MINECORD_${{ github.event.inputs.version }}_amd64.AppImage`
@@ -375,7 +469,6 @@ jobs:
 
             ### Notes
             - Tauri builds use the MINECORD updater with minisign signature verification
-            - Electron builds use electron-updater with GitHub Releases
             - All Tauri artifacts are signed with minisign (public key embedded in app)
             - macOS artifacts are signed/notarized only if Apple Developer credentials are provided
 
