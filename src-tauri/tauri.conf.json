@@ -31,8 +31,8 @@
     "active": true,
     "targets": "all",
     "icon": [
-      "../assets/minecord.ico",
-      "../assets/minecord-icon.png"
+      "icons/icon.ico",
+      "icons/icon.png"
     ],
     "createUpdaterArtifacts": true,
     "windows": {
@@ -46,11 +46,11 @@
       }
     },
     "macOS": {
-      "entitlements": null,
+      "entitlements": "entitlements.plist",
       "exceptionDomain": "",
       "frameworks": [],
       "providerShortName": "ZEY-CAT",
-      "signingIdentity": null,
+      "signingIdentity": "-",
       "minimumSystemVersion": "10.15"
     },
     "linux": {

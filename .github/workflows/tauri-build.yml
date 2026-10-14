@@ -64,7 +64,17 @@ jobs:
       - name: Verify Windows Tauri artifacts exist
         run: |
           echo "Checking for NSIS installer..."
-          ls -la src-tauri/target/**/bundle/nsis/ || true
+          Get-ChildItem -Recurse -Path src-tauri/target -Filter "*.exe" -ErrorAction SilentlyContinue | Where-Object { $_.FullName -like "*bundle*nsis*" }
+          $msiCount = (Get-ChildItem -Recurse -Path src-tauri/target -Filter "*.msi" -ErrorAction SilentlyContinue | Measure-Object).Count
+          if ($msiCount -gt 0) {
+            echo "MSI installer also found"
+          }
+          $nsisCount = (Get-ChildItem -Recurse -Path src-tauri/target -Filter "*.exe" -ErrorAction SilentlyContinue | Where-Object { $_.FullName -like "*bundle*nsis*" } | Measure-Object).Count
+          if ($nsisCount -eq 0) {
+            Write-Error "ERROR: No NSIS installer found!"
+            exit 1
+          }
+        shell: pwsh
 
       - name: Upload Windows Tauri artifact
         uses: actions/upload-artifact@v4
@@ -105,7 +115,10 @@ jobs:
   macos:
     name: macOS (Tauri)
     runs-on: macos-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
+    strategy:
+      matrix:
+        target: [x86_64-apple-darwin, aarch64-apple-darwin]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -114,7 +127,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
-          targets: x86_64-apple-darwin,aarch64-apple-darwin
+          target: ${{ matrix.target }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -131,7 +144,7 @@ jobs:
             ~/.cargo/registry/cache
             ~/.cargo/git/db
             src-tauri/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-${{ matrix.target }}
 
       - name: Install dependencies
         run: npm ci
@@ -206,6 +219,39 @@ jobs:
                 echo "Packaging $app..."
                 zip -r "${app}.zip" "$app"
                 tar -czf "${app}.tar.gz" "$app"
+              fi
+            done
+          fi
+
+      - name: Rename macOS artifacts for release
+        if: ${{ always() }}
+        run: |
+          set -e
+          # Rename DMG files to include architecture
+          for f in src-tauri/target/**/bundle/dmg/*.dmg; do
+            if [ -f "$f" ]; then
+              if [[ "$f" == *"aarch64"* ]] || [[ "$f" == *"arm64"* ]]; then
+                mv "$f" "$(dirname "$f")/MineCord-macOS-AppleSilicon.dmg"
+              else
+                mv "$f" "$(dirname "$f")/MineCord-macOS-Intel.dmg"
+              fi
+            fi
+          done
+          # Rename app bundles
+          if [ -d "src-tauri/target/release/bundle/macos" ]; then
+            cd src-tauri/target/release/bundle/macos
+            for app in *.app; do
+              if [ -d "$app" ]; then
+                arch=$(echo "$app" | grep -oE '(aarch64|arm64|x86_64)' || echo 'x64')
+                if [[ "$arch" == "aarch64" ]] || [[ "$arch" == "arm64" ]]; then
+                  mv "$app" "MineCord-AppleSilicon.app"
+                  mv "${app}.zip" "MineCord-AppleSilicon.app.zip" 2>/dev/null || true
+                  mv "${app}.tar.gz" "MineCord-AppleSilicon.app.tar.gz" 2>/dev/null || true
+                else
+                  mv "$app" "MineCord-Intel.app"
+                  mv "${app}.zip" "MineCord-Intel.app.zip" 2>/dev/null || true
+                  mv "${app}.tar.gz" "MineCord-Intel.app.tar.gz" 2>/dev/null || true
+                fi
               fi
             done
           fi
@@ -328,6 +374,12 @@ jobs:
           cmdline-tools-version: latest
           cache-key: android-sdk-${{ runner.os }}-${{ hashFiles('src-tauri/gen/android/**') }}
 
+      - name: Regenerate Gradle wrapper
+        run: |
+          cd src-tauri/gen/android
+          chmod +x gradlew
+          ./gradlew wrapper --gradle-version 8.5 --distribution-type bin
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -351,14 +403,6 @@ jobs:
       - name: Build frontend
         run: npm run build
 
-      - name: Make gradlew executable
-        run: chmod +x src-tauri/gen/android/gradlew
-      - name: Diagnose gradlew before build
-        run: |
-          pwd
-          ls -l src-tauri/gen/android/gradlew
-          stat src-tauri/gen/android/gradlew
-          file src-tauri/gen/android/gradlew
       - name: Build Android APK
         env:
           MINECORD_ANDROID_KEYSTORE_PATH: ${{ secrets.MINECORD_ANDROID_KEYSTORE_PATH }}
@@ -379,7 +423,7 @@ jobs:
 
   release:
     name: Create Release
-    needs: [windows-tauri, macos, linux]
+    needs: [windows-tauri, windows-electron, macos, linux]
     if: github.event.inputs.create_release == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -407,13 +451,23 @@ jobs:
           fi
           echo "âœ“ Windows Tauri installer: $WIN_EXE"
 
-          # Check macOS DMG
-          MAC_DMG=$(find artifacts/mincord-macos -name "*.dmg" -type f 2>/dev/null | head -1)
-          if [ -z "$MAC_DMG" ]; then
+          # Check Windows Electron installer
+          WIN_ELECTRON_EXE=$(find artifacts/mincord-windows-electron -name "*.exe" -type f 2>/dev/null | head -1)
+          if [ -z "$WIN_ELECTRON_EXE" ]; then
+            echo "ERROR: Windows Electron installer not found!"
+            exit 1
+          fi
+          echo "âœ“ Windows Electron installer: $WIN_ELECTRON_EXE"
+
+          # Check macOS DMG (both architectures)
+          MAC_DMG_INTEL=$(find artifacts/mincord-macos -name "*Intel*.dmg" -type f 2>/dev/null | head -1)
+          MAC_DMG_ARM=$(find artifacts/mincord-macos -name "*AppleSilicon*.dmg" -type f 2>/dev/null | head -1)
+          if [ -z "$MAC_DMG_INTEL" ] && [ -z "$MAC_DMG_ARM" ]; then
             echo "ERROR: macOS DMG not found!"
             exit 1
           fi
-          echo "âœ“ macOS DMG: $MAC_DMG"
+          if [ -n "$MAC_DMG_INTEL" ]; then echo "âœ“ macOS Intel DMG: $MAC_DMG_INTEL"; fi
+          if [ -n "$MAC_DMG_ARM" ]; then echo "âœ“ macOS Apple Silicon DMG: $MAC_DMG_ARM"; fi
 
           # Check Linux AppImage
           LINUX_APPIMAGE=$(find artifacts/mincord-linux -name "*.AppImage" -type f 2>/dev/null | head -1)
@@ -446,9 +500,13 @@ jobs:
           prerelease: false
           files: |
             artifacts/mincord-windows-tauri/*.exe
-            artifacts/mincord-macos/*.dmg
-            artifacts/mincord-macos/*.zip
-            artifacts/mincord-macos/*.tar.gz
+            artifacts/mincord-windows-electron/*.exe
+            artifacts/mincord-macos/*Intel*.dmg
+            artifacts/mincord-macos/*AppleSilicon*.dmg
+            artifacts/mincord-macos/*Intel*.zip
+            artifacts/mincord-macos/*Intel*.tar.gz
+            artifacts/mincord-macos/*AppleSilicon*.zip
+            artifacts/mincord-macos/*AppleSilicon*.tar.gz
             artifacts/mincord-linux/*.AppImage
             artifacts/mincord-linux/*.deb
             artifacts/mincord-linux/*.rpm
@@ -457,10 +515,13 @@ jobs:
 
             ### Windows
             - **Tauri (NSIS)**: `MINECORD_${{ github.event.inputs.version }}_x64-setup.exe` â€” Lightweight WebView2-based installer (~3 MB)
+            - **Electron (NSIS)**: `MINECORD Setup ${{ github.event.inputs.version }}.exe` â€” Full Electron bundle (~120 MB)
 
             ### macOS
-            - **DMG**: `MINECORD_${{ github.event.inputs.version }}_x64.dmg` / `MINECORD_${{ github.event.inputs.version }}_arm64.dmg`
-            - **App Bundle**: `MINECORD.app.zip` and `MINECORD.app.tar.gz` (unsigned if no Apple credentials)
+            - **DMG (Intel)**: `MINECORD-macOS-Intel.dmg`
+            - **DMG (Apple Silicon)**: `MINECORD-macOS-AppleSilicon.dmg`
+            - **App Bundle (Intel)**: `MineCord-Intel.app.zip` and `MineCord-Intel.app.tar.gz` (unsigned if no Apple credentials)
+            - **App Bundle (Apple Silicon)**: `MineCord-AppleSilicon.app.zip` and `MineCord-AppleSilicon.app.tar.gz` (unsigned if no Apple credentials)
 
             ### Linux
             - **AppImage**: `MINECORD_${{ github.event.inputs.version }}_amd64.AppImage`
