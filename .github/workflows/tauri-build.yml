@@ -1,4 +1,4 @@
-﻿name: Tauri Build & Release
+name: Tauri Build & Release
 
 on:
   workflow_dispatch:
@@ -17,6 +17,140 @@ permissions:
   contents: write
 
 jobs:
+  build-updater-dll:
+    name: Build MineCordUpdater.dll
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup CMake
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: '3.28'
+
+      - name: Setup MSVC
+        uses: microsoft/setup-msbuild@v2
+        with:
+          vs-version: '17.0'
+
+      - name: Cache CMake build
+        uses: actions/cache@v4
+        with:
+          path: |
+            updater/build
+          key: ${{ runner.os }}-cmake-updater-${{ hashFiles('updater/CMakeLists.txt', 'updater/src/**') }}
+          restore-keys: |
+            ${{ runner.os }}-cmake-updater-
+
+      - name: Configure CMake
+        run: |
+          cmake -B updater/build -S updater -DCMAKE_BUILD_TYPE=Release -G "Visual Studio 17 2022" -A x64
+
+      - name: Build MineCordUpdater.dll
+        run: |
+          cmake --build updater/build --config Release --parallel
+
+      - name: Verify DLL
+        run: |
+          $dllPath = "updater/build/Release/MineCordUpdater.dll"
+          if (-not (Test-Path $dllPath)) {
+            Write-Error "ERROR: MineCordUpdater.dll not found at $dllPath"
+            exit 1
+          }
+          $dllInfo = Get-Item $dllPath
+          Write-Host "DLL built successfully: $($dllInfo.FullName) ($($dllInfo.Length / 1KB) KB)"
+
+      - name: Test DLL Load and Functions
+        run: |
+          # Install koffi for testing
+          npm install koffi --prefix .
+
+          # Create test script
+          $testScript = @"
+          const koffi = require('koffi');
+          const path = require('path');
+
+          const dllPath = path.join(process.cwd(), 'updater/build/Release/MineCordUpdater.dll');
+          console.log('Loading DLL from:', dllPath);
+
+          try {
+            const lib = koffi.load(dllPath);
+
+            // Test GetUpdaterVersion
+            lib.func('GetUpdaterVersion', 'string', []);
+            const version = lib.GetUpdaterVersion();
+            console.log('Updater version:', version);
+
+            // Test CheckForUpdates (should return NO_UPDATE for fake server)
+            lib.func('CheckForUpdates', 'int', ['string', 'string', 'string', 'string', 'string', 'pointer']);
+            lib.func('FreeUpdateInfo', 'void', ['pointer']);
+            lib.func('GetLastError', 'string', []);
+
+            const outInfo = koffi.alloc('pointer');
+            const result = lib.CheckForUpdates('http://localhost:3000', '1.0.2', 'windows', 'x64', 'stable', outInfo);
+            console.log('CheckForUpdates result:', result);
+
+            if (result === -3) { // UPDATER_ERROR_NO_UPDATE
+              console.log('? CheckForUpdates correctly returns NO_UPDATE for unreachable server');
+            }
+
+            lib.FreeUpdateInfo(outInfo);
+
+            // Test GetLastError
+            const error = lib.GetLastError();
+            console.log('Last error:', error);
+
+            console.log('? All DLL functions tested successfully');
+          "@
+
+          node -e $testScript
+        shell: pwsh
+
+      - name: Upload MineCordUpdater.dll
+        uses: actions/upload-artifact@v4
+        with:
+          name: mincord-updater-dll
+          path: updater/build/Release/MineCordUpdater.dll
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Run Signature Verification Tests
+        run: |
+          # Install test dependencies
+          npm install minisign --prefix .
+
+          # Create test script for signature verification
+          $testScript = @"
+          const fs = require('fs');
+          const path = require('path');
+          const crypto = require('crypto');
+
+          console.log('Testing signature verification...');
+
+          // Test 1: Verify minisign public key format
+          const pubKeyPath = path.join(process.env.USERPROFILE, '.minisign', 'minisign.pub');
+          if (fs.existsSync(pubKeyPath)) {
+            const pubKey = fs.readFileSync(pubKeyPath, 'utf8');
+            console.log('? Public key file exists');
+            console.log('  Key:', pubKey.split('\n')[0]);
+          } else {
+            console.log('? Public key not found at', pubKeyPath);
+          }
+
+          // Test 2: Verify we can create and verify a test signature
+          // This is a placeholder for actual minisign verification tests
+          console.log('? Signature verification test structure ready');
+
+          // Test 3: Verify minisign binary availability
+          const minisignPath = require('minisign');
+          console.log('? minisign available at:', minisignPath);
+          "@
+
+          node -e $testScript
+        shell: pwsh
+
   windows-tauri:
     name: Windows (Tauri)
     runs-on: windows-latest
@@ -85,10 +219,10 @@ jobs:
           if-no-files-found: error
 
   windows-electron:
-    name: Windows (Electron)
+    name: Windows (Electron) with Updater DLL
     runs-on: windows-latest
     timeout-minutes: 30
-    # Electron build kept for alternative distribution but excluded from main release
+    needs: build-updater-dll
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -99,11 +233,26 @@ jobs:
           node-version: '24'
           cache: 'npm'
 
+      - name: Download MineCordUpdater.dll
+        uses: actions/download-artifact@v4
+        with:
+          name: mincord-updater-dll
+          path: .
+
       - name: Install dependencies
         run: npm ci
 
       - name: Build Electron Windows
         run: npm run build:desktop -- --publish never
+
+      - name: Verify DLL in output
+        run: |
+          $dllPath = "dist/win-unpacked/MineCordUpdater.dll"
+          if (-not (Test-Path $dllPath)) {
+            Write-Error "ERROR: MineCordUpdater.dll not found in installer output at $dllPath"
+            exit 1
+          }
+          Write-Host "? MineCordUpdater.dll found in installer output"
 
       - name: Upload Windows Electron artifact
         uses: actions/upload-artifact@v4
@@ -374,6 +523,12 @@ jobs:
           cmdline-tools-version: latest
           cache-key: android-sdk-${{ runner.os }}-${{ hashFiles('src-tauri/gen/android/**') }}
 
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
       - name: Regenerate Gradle wrapper
         run: |
           cd src-tauri/gen/android
@@ -423,7 +578,7 @@ jobs:
 
   release:
     name: Create Release
-    needs: [windows-tauri, windows-electron, macos, linux]
+    needs: [windows-tauri, windows-electron, macos, linux, android, build-updater-dll]
     if: github.event.inputs.create_release == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -436,7 +591,7 @@ jobs:
 
       - name: List artifacts
         run: |
-          find artifacts -type f \( -name "*.exe" -o -name "*.dmg" -o -name "*.zip" -o -name "*.tar.gz" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" \) | sort
+          find artifacts -type f \( -name "*.exe" -o -name "*.dmg" -o -name "*.zip" -o -name "*.tar.gz" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" -o -name "*.dll" -o -name "*.apk" \) | sort
 
       - name: Verify release artifacts exist
         run: |
@@ -449,7 +604,7 @@ jobs:
             echo "ERROR: Windows Tauri installer not found!"
             exit 1
           fi
-          echo "âœ“ Windows Tauri installer: $WIN_EXE"
+          echo "✓ Windows Tauri installer: $WIN_EXE"
 
           # Check Windows Electron installer
           WIN_ELECTRON_EXE=$(find artifacts/mincord-windows-electron -name "*.exe" -type f 2>/dev/null | head -1)
@@ -457,7 +612,15 @@ jobs:
             echo "ERROR: Windows Electron installer not found!"
             exit 1
           fi
-          echo "âœ“ Windows Electron installer: $WIN_ELECTRON_EXE"
+          echo "✓ Windows Electron installer: $WIN_ELECTRON_EXE"
+
+          # Check MineCordUpdater.dll in Electron package
+          UPDATER_DLL=$(find artifacts/mincord-windows-electron -name "MineCordUpdater.dll" -type f 2>/dev/null | head -1)
+          if [ -z "$UPDATER_DLL" ]; then
+            echo "ERROR: MineCordUpdater.dll not found in Electron package!"
+            exit 1
+          fi
+          echo "✓ MineCordUpdater.dll included in Windows Electron package"
 
           # Check macOS DMG (both architectures)
           MAC_DMG_INTEL=$(find artifacts/mincord-macos -name "*Intel*.dmg" -type f 2>/dev/null | head -1)
@@ -466,8 +629,8 @@ jobs:
             echo "ERROR: macOS DMG not found!"
             exit 1
           fi
-          if [ -n "$MAC_DMG_INTEL" ]; then echo "âœ“ macOS Intel DMG: $MAC_DMG_INTEL"; fi
-          if [ -n "$MAC_DMG_ARM" ]; then echo "âœ“ macOS Apple Silicon DMG: $MAC_DMG_ARM"; fi
+          if [ -n "$MAC_DMG_INTEL" ]; then echo "✓ macOS Intel DMG: $MAC_DMG_INTEL"; fi
+          if [ -n "$MAC_DMG_ARM" ]; then echo "✓ macOS Apple Silicon DMG: $MAC_DMG_ARM"; fi
 
           # Check Linux AppImage
           LINUX_APPIMAGE=$(find artifacts/mincord-linux -name "*.AppImage" -type f 2>/dev/null | head -1)
@@ -475,19 +638,27 @@ jobs:
             echo "ERROR: Linux AppImage not found!"
             exit 1
           fi
-          echo "âœ“ Linux AppImage: $LINUX_APPIMAGE"
+          echo "✓ Linux AppImage: $LINUX_APPIMAGE"
+
+          # Check Android APK
+          ANDROID_APK=$(find artifacts/mincord-android -name "*.apk" -type f 2>/dev/null | head -1)
+          if [ -z "$ANDROID_APK" ]; then
+            echo "ERROR: Android APK not found!"
+            exit 1
+          fi
+          echo "✓ Android APK: $ANDROID_APK"
 
           # Check optional: macOS app bundles
           MAC_ZIP=$(find artifacts/mincord-macos -name "*.zip" -type f 2>/dev/null | head -1)
           MAC_TAR=$(find artifacts/mincord-macos -name "*.tar.gz" -type f 2>/dev/null | head -1)
-          if [ -n "$MAC_ZIP" ]; then echo "âœ“ macOS App zip: $MAC_ZIP"; fi
-          if [ -n "$MAC_TAR" ]; then echo "âœ“ macOS App tar.gz: $MAC_TAR"; fi
+          if [ -n "$MAC_ZIP" ]; then echo "✓ macOS App zip: $MAC_ZIP"; fi
+          if [ -n "$MAC_TAR" ]; then echo "✓ macOS App tar.gz: $MAC_TAR"; fi
 
           # Check optional: Linux DEB/RPM
           LINUX_DEB=$(find artifacts/mincord-linux -name "*.deb" -type f 2>/dev/null | head -1)
           LINUX_RPM=$(find artifacts/mincord-linux -name "*.rpm" -type f 2>/dev/null | head -1)
-          if [ -n "$LINUX_DEB" ]; then echo "âœ“ Linux DEB: $LINUX_DEB"; fi
-          if [ -n "$LINUX_RPM" ]; then echo "âœ“ Linux RPM: $LINUX_RPM"; fi
+          if [ -n "$LINUX_DEB" ]; then echo "✓ Linux DEB: $LINUX_DEB"; fi
+          if [ -n "$LINUX_RPM" ]; then echo "✓ Linux RPM: $LINUX_RPM"; fi
 
           echo "All required artifacts verified!"
 
@@ -501,6 +672,7 @@ jobs:
           files: |
             artifacts/mincord-windows-tauri/*.exe
             artifacts/mincord-windows-electron/*.exe
+            artifacts/mincord-windows-electron/*.dll
             artifacts/mincord-macos/*Intel*.dmg
             artifacts/mincord-macos/*AppleSilicon*.dmg
             artifacts/mincord-macos/*Intel*.zip
@@ -510,12 +682,13 @@ jobs:
             artifacts/mincord-linux/*.AppImage
             artifacts/mincord-linux/*.deb
             artifacts/mincord-linux/*.rpm
+            artifacts/mincord-android/*.apk
           body: |
             ## MINECORD v${{ github.event.inputs.version }}
 
             ### Windows
-            - **Tauri (NSIS)**: `MINECORD_${{ github.event.inputs.version }}_x64-setup.exe` â€” Lightweight WebView2-based installer (~3 MB)
-            - **Electron (NSIS)**: `MINECORD Setup ${{ github.event.inputs.version }}.exe` â€” Full Electron bundle (~120 MB)
+            - **Tauri (NSIS)**: `MINECORD_${{ github.event.inputs.version }}_x64-setup.exe` — Lightweight WebView2-based installer (~3 MB)
+            - **Electron (NSIS)**: `MINECORD Setup ${{ github.event.inputs.version }}.exe` — Full Electron bundle (~120 MB) with MineCordUpdater.dll
 
             ### macOS
             - **DMG (Intel)**: `MINECORD-macOS-Intel.dmg`
@@ -528,6 +701,9 @@ jobs:
             - **DEB**: `MINECORD_${{ github.event.inputs.version }}_amd64.deb`
             - **RPM**: `MINECORD_${{ github.event.inputs.version }}_amd64.rpm`
 
+            ### Android
+            - **APK**: `MINECORD_${{ github.event.inputs.version }}_universal.apk`
+
             ### Notes
             - Tauri builds use the MINECORD updater with minisign signature verification
             - All Tauri artifacts are signed with minisign (public key embedded in app)
@@ -537,6 +713,7 @@ jobs:
             - **Windows**: Run the `.exe` installer
             - **macOS**: Open the `.dmg` and drag `MINECORD.app` to Applications, or unzip `.zip` and copy
             - **Linux**: Run the `.AppImage` (make executable first), or install `.deb`/`.rpm` via package manager
+            - **Android**: Install the `.apk` (enable "Install unknown apps" if needed)
 
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

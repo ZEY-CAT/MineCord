@@ -1973,6 +1973,7 @@ dependencies = [
  "android-activity",
  "jni 0.22.4",
  "log",
+ "ndk-context",
  "ndk-glue",
  "serde",
  "serde_json",

@@ -23,3 +23,4 @@ ndk-glue = "0.7"
 jni = { version = "0.22", features = ["invocation"] }
 log = "0.4"
 android-activity = "0.5"
+ndk-context = "0.1"
