@@ -34,12 +34,7 @@ jobs:
         with:
           cmake-version: '3.28'
 
-      - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@v2
-        with:
-          msbuild-architecture: x64
-
-      - name: Setup VC++ environment
+      - name: Setup VC++ environment (Build Tools)
         run: |
           Write-Host "=== Setting up VC++ environment from VS Build Tools ==="
           $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
@@ -47,19 +42,28 @@ jobs:
             Write-Error "vswhere not found at $vswhere"
             exit 1
           }
-          # Find VS Build Tools (not full IDE)
+          Write-Host "Searching for VS Build Tools with VC++ tools..."
+          # Find VS Build Tools (not full IDE) - look for VC++ tools component
           $vsInstallPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
           if (-not $vsInstallPath) {
-            Write-Host "Trying to find VS Build Tools..."
+            Write-Host "Trying with -legacy flag..."
             $vsInstallPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath -legacy
           }
           if (-not $vsInstallPath) {
-            Write-Host "Trying to find any VS installation with VC++ tools..."
+            Write-Host "Trying with -prerelease flag..."
             $vsInstallPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath -prerelease
+          }
+          if (-not $vsInstallPath) {
+            Write-Host "Trying to find any VS installation with VC++ tools (no component filter)..."
+            $vsInstallPath = & $vswhere -latest -products * -property installationPath
+            if ($vsInstallPath) {
+              Write-Host "Found VS at: $vsInstallPath (no component filter)"
+            }
           }
           if (-not $vsInstallPath) {
             Write-Error "Visual Studio with VC++ tools not found"
             # List all VS installations for debugging
+            Write-Host "All VS installations found:"
             & $vswhere -format json | ConvertFrom-Json | ForEach-Object { Write-Host "Found: $($_.installationPath) - $($_.productName) $($_.installationVersion)" }
             exit 1
           }
