@@ -34,7 +34,21 @@ jobs:
         with:
           cmake-version: '3.28'
 
-      - name: Setup VC++ environment (vswhere search)
+      - name: Setup CMake
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: '3.28'
+
+      - name: Cache CMake build
+        uses: actions/cache@v4
+        with:
+          path: |
+            updater/build
+          key: ${{ runner.os }}-cmake-updater-${{ hashFiles('updater/CMakeLists.txt', 'updater/src/**') }}
+          restore-keys: |
+            ${{ runner.os }}-cmake-updater-
+
+      - name: Setup VC++ env, Configure & Build with Ninja
         run: |
           Write-Host "=== Setting up VC++ environment using vswhere ==="
           $vswhere = "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"
@@ -64,30 +78,15 @@ jobs:
             }
           }
           Write-Host "VC++ environment configured"
-          Write-Host "=== VC++ environment setup complete ==="
-        shell: pwsh
-
-      - name: Setup CMake
-        uses: jwlawson/actions-setup-cmake@v2
-        with:
-          cmake-version: '3.28'
-
-      - name: Cache CMake build
-        uses: actions/cache@v4
-        with:
-          path: |
-            updater/build
-          key: ${{ runner.os }}-cmake-updater-${{ hashFiles('updater/CMakeLists.txt', 'updater/src/**') }}
-          restore-keys: |
-            ${{ runner.os }}-cmake-updater-
-
-      - name: Configure CMake with Ninja
-        run: |
+          
+          Write-Host "=== Configuring CMake with Ninja ==="
           cmake -B updater/build -S updater -DCMAKE_BUILD_TYPE=Release -G Ninja
-
-      - name: Build MineCordUpdater.dll
-        run: |
+          
+          Write-Host "=== Building MineCordUpdater.dll ==="
           cmake --build updater/build --config Release --parallel
+          
+          Write-Host "=== Build complete ==="
+        shell: pwsh
 
       - name: Dump DLL exports (diagnostic)
         run: |
