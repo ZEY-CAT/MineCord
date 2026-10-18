@@ -214,7 +214,7 @@ jobs:
   # Update release job to include DLL verification
   release:
     name: Create Release
-    needs: [windows-tauri, windows-electron, macos, linux, build-updater-dll]
+    needs: [windows-electron, build-updater-dll]
     if: github.event.inputs.create_release == 'true'
     runs-on: ubuntu-latest
     permissions:
