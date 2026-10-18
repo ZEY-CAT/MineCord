@@ -34,45 +34,21 @@ jobs:
         with:
           cmake-version: '3.28'
 
-      - name: Setup VC++ environment (Build Tools)
+      - name: Setup VC++ environment (hardcoded Build Tools path)
         run: |
-          Write-Host "=== Setting up VC++ environment from VS Build Tools ==="
-          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-          if (-not (Test-Path $vswhere)) {
-            Write-Error "vswhere not found at $vswhere"
-            exit 1
-          }
-          Write-Host "Searching for VS Build Tools with VC++ tools..."
-          # Find VS Build Tools (not full IDE) - look for VC++ tools component
-          $vsInstallPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
-          if (-not $vsInstallPath) {
-            Write-Host "Trying with -legacy flag..."
-            $vsInstallPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath -legacy
-          }
-          if (-not $vsInstallPath) {
-            Write-Host "Trying with -prerelease flag..."
-            $vsInstallPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath -prerelease
-          }
-          if (-not $vsInstallPath) {
-            Write-Host "Trying to find any VS installation with VC++ tools (no component filter)..."
-            $vsInstallPath = & $vswhere -latest -products * -property installationPath
-            if ($vsInstallPath) {
-              Write-Host "Found VS at: $vsInstallPath (no component filter)"
+          Write-Host "=== Setting up VC++ environment from known Build Tools path ==="
+          $vcvarsall = "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvarsall.bat"
+          if (-not (Test-Path $vcvarsall)) {
+            Write-Host "VS 2022 Build Tools not found, trying VS 2019..."
+            $vcvarsall = "C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\VC\Auxiliary\Build\vcvarsall.bat"
+            if (-not (Test-Path $vcvarsall)) {
+              Write-Error "vcvarsall.bat not found in either VS 2022 or 2019 Build Tools"
+              Write-Host "Checking what's in Program Files (x86)..."
+              Get-ChildItem "C:\Program Files (x86)\Microsoft Visual Studio\" -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "Found: $($_.FullName)" }
+              exit 1
             }
           }
-          if (-not $vsInstallPath) {
-            Write-Error "Visual Studio with VC++ tools not found"
-            # List all VS installations for debugging
-            Write-Host "All VS installations found:"
-            & $vswhere -format json | ConvertFrom-Json | ForEach-Object { Write-Host "Found: $($_.installationPath) - $($_.productName) $($_.installationVersion)" }
-            exit 1
-          }
-          $vcvarsall = Join-Path $vsInstallPath "VC\Auxiliary\Build\vcvarsall.bat"
-          if (-not (Test-Path $vcvarsall)) {
-            Write-Error "vcvarsall.bat not found at $vcvarsall"
-            exit 1
-          }
-          Write-Host "Found VS at: $vsInstallPath"
+          Write-Host "Found vcvarsall at: $vcvarsall"
           Write-Host "Running vcvarsall.bat for x64..."
           $env:VCVARS_VER = "14.40"
           $output = cmd /c "`"$vcvarsall`" x64 && set" 2>&1
