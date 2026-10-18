@@ -34,20 +34,26 @@ jobs:
         with:
           cmake-version: '3.28'
 
-      - name: Setup VC++ environment (hardcoded Build Tools path)
+      - name: Setup VC++ environment (vswhere search)
         run: |
-          Write-Host "=== Setting up VC++ environment from known Build Tools path ==="
-          $vcvarsall = "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvarsall.bat"
-          if (-not (Test-Path $vcvarsall)) {
-            Write-Host "VS 2022 Build Tools not found, trying VS 2019..."
-            $vcvarsall = "C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\VC\Auxiliary\Build\vcvarsall.bat"
-            if (-not (Test-Path $vcvarsall)) {
-              Write-Error "vcvarsall.bat not found in either VS 2022 or 2019 Build Tools"
-              Write-Host "Checking what's in Program Files (x86)..."
-              Get-ChildItem "C:\Program Files (x86)\Microsoft Visual Studio\" -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "Found: $($_.FullName)" }
-              exit 1
-            }
+          Write-Host "=== Setting up VC++ environment using vswhere ==="
+          $vswhere = "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"
+          if (-not (Test-Path $vswhere)) {
+            Write-Error "vswhere.exe not found at $vswhere"
+            exit 1
           }
+          # Find latest VS installation (any edition) with VC++ tools
+          $vsPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vsPath) {
+            Write-Error "No Visual Studio installation with VC++ tools found"
+            exit 1
+          }
+          $vcvarsall = Join-Path $vsPath "VC\Auxiliary\Build\vcvarsall.bat"
+          if (-not (Test-Path $vcvarsall)) {
+            Write-Error "vcvarsall.bat not found at $vcvarsall"
+            exit 1
+          }
+          Write-Host "Found VS at: $vsPath"
           Write-Host "Found vcvarsall at: $vcvarsall"
           Write-Host "Running vcvarsall.bat for x64..."
           $env:VCVARS_VER = "14.40"
