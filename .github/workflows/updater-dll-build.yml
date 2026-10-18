@@ -34,11 +34,6 @@ jobs:
         with:
           cmake-version: '3.28'
 
-      - name: Setup NSIS
-        uses: Jimver/cmake-action@master
-        with:
-          cmake-version: '3.28'
-
       - name: Install NSIS
         run: |
           choco install nsis --no-progress --confirm
