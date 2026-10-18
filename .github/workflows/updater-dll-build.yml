@@ -275,6 +275,9 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Generate edition config (Electron Full)
+        run: node scripts/generate-edition.js electron
+
       - name: Generate Windows icon
         run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\generate-windows-icon.ps1
 
@@ -297,11 +300,118 @@ jobs:
           Write-Host "OK: MineCordUpdater.dll NOT bundled (uses shared installed DLL)"
         shell: pwsh
 
-      - name: Upload Windows Electron artifact
+      - name: Package Electron Full Edition ZIP
+        run: |
+          Write-Host "=== Creating Electron Full Edition ZIP ==="
+          $version = "${{ github.event.inputs.version || '1.0.2' }}"
+          $zipName = "MineCord-Electron-Full-v${version}-Windows-x64.zip"
+          $zipPath = "dist/${zipName}"
+          
+          # Create README
+          $readme = @"
+MINECORD ELECTRON FULL EDITION v${version}
+=========================================
+
+Full-featured Electron edition with all MineCord features including voice, shop, admin tools, and advanced account management.
+
+INSTALLATION
+============
+
+1. FIRST: Install the shared updater (required for automatic updates)
+   Download and run: MineCordUpdaterSetup.exe
+   This installs MineCordUpdater.dll to %ProgramFiles%\MineCord\
+
+2. LAUNCH THE APPLICATION
+   Extract this ZIP to a folder of your choice.
+   Run MINECORD.exe to start the application.
+
+REQUIREMENTS
+============
+
+- Windows 10/11 (x64)
+- WebView2 Runtime (included with Windows 11, auto-installed on Windows 10)
+- .NET Framework not required
+
+SHARED UPDATER
+==============
+
+Both MineCord editions share a single native updater DLL installed at:
+  %ProgramFiles%\MineCord\MineCordUpdater.dll
+
+The MineCordUpdaterSetup.exe installer (downloaded separately) handles
+installation with proper UAC elevation and safe upgrade handling.
+
+If the updater DLL is missing, the application will show a helpful
+error message with a link to download the installer.
+
+FEATURES INCLUDED
+=================
+- Full Electron-based application (~120 MB)
+- Complete voice calling (private & group calls)
+- WebRTC voice with TURN relay support
+- Shop, cosmetics, inventory & onboarding
+- Account merging with archive preservation
+- Admin/owner tools (role management, audit logs)
+- Eaglercraft browser extension integration
+- Minecraft Java/Bedrock account linking
+- Game activity display (Minecraft, Eaglercraft)
+- Desktop notifications & push notifications
+- Full settings & customization
+- Account merging with deduplication
+
+SUPPORT
+=======
+
+GitHub: https://github.com/ZEY-CAT/MineCord
+Issues: https://github.com/ZEY-CAT/MineCord/issues
+
+LICENSE
+=======
+
+MIT License - See LICENSE file for details.
+"@
+          
+          $readmePath = "dist/win-unpacked/README.txt"
+          Set-Content -Path $readmePath -Value $readme -Encoding UTF8
+          Write-Host "Created README.txt"
+          
+          # Create ZIP
+          $zipName = "MineCord-Electron-Full-v${version}-Windows-x64.zip"
+          $zipPath = "dist/${zipName}"
+          Write-Host "Creating ZIP: ${zipName}"
+          Compress-Archive -Path "dist/win-unpacked/*" -DestinationPath "dist/${zipName}" -Force
+          
+          $zipSize = (Get-Item "dist/${zipName}").Length
+          Write-Host "Created: ${zipPath} ($([math]::Round($zipSize/1MB, 1)) MB)"
+        shell: pwsh
+
+      - name: Verify Electron ZIP (no DLL)
+        run: |
+          $zipPath = "dist/MineCord-Electron-Full-v${{ github.event.inputs.version || '1.0.2' }}-Windows-x64.zip"
+          $tempDir = Join-Path $env:TEMP "verify_electron_$([guid]::NewGuid())"
+          New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
+          try {
+            $sevenZip = "C:\Program Files\7-Zip\7z.exe"
+            if (-not (Test-Path $sevenZip)) { $sevenZip = "C:\Program Files (x86)\7-Zip\7z.exe" }
+            & $sevenZip x "dist/MineCord-Electron-Full-v${{ github.event.inputs.version || '1.0.2' }}-Windows-x64.zip" -o$tempDir -y | Out-Null
+            $dllInZip = Get-ChildItem -Recurse -Path $tempDir -Filter "MineCordUpdater.dll" -ErrorAction SilentlyContinue
+            if ($dllInZip) {
+              Write-Error "FAIL: MineCordUpdater.dll found in Electron ZIP"
+            } else {
+              Write-Host "OK: No MineCordUpdater.dll in Electron ZIP"
+            }
+          } finally {
+            Remove-Item $tempDir -Recurse -Force -ErrorAction SilentlyContinue
+          }
+        shell: pwsh
+
+      - name: Upload Windows Electron artifacts
         uses: actions/upload-artifact@v4
         with:
           name: mincord-windows-electron
-          path: dist/*.exe
+          path: |
+            dist/*.exe
+            dist/MineCord-Electron-Full-v*.zip
           retention-days: 7
 
   # Update release job to include DLL verification
@@ -342,6 +452,14 @@ jobs:
             exit 1
           fi
           echo "Windows Electron installer: $WIN_ELECTRON_EXE"
+
+          # Check Windows Electron ZIP
+          WIN_ELECTRON_ZIP=$(find artifacts/mincord-windows-electron -name "MineCord-Electron-Full-*.zip" -type f 2>/dev/null | head -1)
+          if [ -z "$WIN_ELECTRON_ZIP" ]; then
+            echo "WARNING: Windows Electron ZIP not found!"
+          else
+            echo "Windows Electron ZIP: $WIN_ELECTRON_ZIP"
+          fi
 
           # Check MineCordUpdaterSetup.exe (shared installer)
           UPDATER_INSTALLER=$(find artifacts/mincord-updater-installer -name "*.exe" -type f 2>/dev/null | head -1)
@@ -401,6 +519,7 @@ jobs:
           files: |
             artifacts/mincord-windows-tauri/*.exe
             artifacts/mincord-windows-electron/*.exe
+            artifacts/mincord-windows-electron/MineCord-Electron-Full-*.zip
             artifacts/mincord-updater-installer/*.exe
             artifacts/mincord-macos/*Intel*.dmg
             artifacts/mincord-macos/*AppleSilicon*.dmg
@@ -417,8 +536,10 @@ jobs:
 
             ### Windows
             - **Tauri (NSIS)**: `MINECORD_${{ github.event.inputs.version }}_x64-setup.exe` — Lightweight WebView2-based installer (~3 MB)
+            - **Tauri Lite (ZIP)**: `MineCord-Tauri-Lite-v${{ github.event.inputs.version }}_Windows-x64.zip` — Lightweight portable edition (~10 MB)
             - **Electron (NSIS)**: `MINECORD Setup ${{ github.event.inputs.version }}.exe` — Full Electron bundle (~120 MB)
-            - **MineCord Updater (Shared)**: `MineCordUpdaterSetup.exe` — Installs shared MineCordUpdater.dll to `%ProgramFiles%\MineCord\` (required for both Electron and Tauri Lite on Windows)
+            - **Electron Full (ZIP)**: `MineCord-Electron-Full-v${{ github.event.inputs.version }}_Windows-x64.zip` — Full portable edition (~120 MB)
+            - **MineCord Updater (Shared)**: `MineCordUpdaterSetup.exe` — Installs shared MineCordUpdater.dll to `%ProgramFiles%\MineCord\` (required for both Windows editions)
 
             ### macOS
             - **DMG (Intel)**: `MINECORD-macOS-Intel.dmg`
@@ -443,8 +564,9 @@ jobs:
 
             ### Installation
             - **Windows**: 
-              1. Run `MineCordUpdaterSetup.exe` first (installs shared updater DLL)
-              2. Then run either Electron or Tauri installer
+              1. Run `MineCordUpdaterSetup.exe` first (installs shared updater DLL to `%ProgramFiles%\MineCord\`)
+              2. For portable ZIP editions: Extract ZIP and run `MINECORD.exe`
+              3. For installer editions: Run the `.exe` installer
             - **macOS**: Open the `.dmg` and drag `MINECORD.app` to Applications, or unzip `.zip` and copy
             - **Linux**: Run the `.AppImage` (make executable first), or install `.deb`/`.rpm` via package manager
             - **Android**: Install the `.apk` (enable "Install unknown apps" if needed)
