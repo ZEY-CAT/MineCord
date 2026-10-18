@@ -232,6 +232,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Copy DLL to resources for electron-builder
+        run: |
+          $src = "updater/build/Release/MineCordUpdater.dll"
+          $destDir = "resources"
+          $dest = "$destDir/MineCordUpdater.dll"
+          if (-not (Test-Path $src)) {
+            Write-Error "Source DLL not found at $src"
+            exit 1
+          }
+          if (-not (Test-Path $destDir)) { New-Item -ItemType Directory -Path $destDir | Out-Null }
+          Copy-Item $src $dest -Force
+          Write-Host "Copied DLL to $dest"
+        shell: pwsh
+
       - name: Build Electron Windows
         run: npm run build:desktop -- --publish never
 
@@ -243,7 +257,7 @@ jobs:
 
       - name: Verify DLL in output
         run: |
-          $dllPath = "dist/win-unpacked/MineCordUpdater.dll"
+          $dllPath = "dist/win-unpacked/resources/MineCordUpdater.dll"
           if (-not (Test-Path $dllPath)) {
             Write-Error "ERROR: MineCordUpdater.dll not found in installer output at $dllPath"
             exit 1
