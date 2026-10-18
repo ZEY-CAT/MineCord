@@ -235,6 +235,12 @@ jobs:
       - name: Build Electron Windows
         run: npm run build:desktop -- --publish never
 
+      - name: Debug output directory
+        run: |
+          Write-Host "=== Contents of dist ==="
+          Get-ChildItem dist -Recurse | Select-Object FullName, Length
+        shell: pwsh
+
       - name: Verify DLL in output
         run: |
           $dllPath = "dist/win-unpacked/MineCordUpdater.dll"
