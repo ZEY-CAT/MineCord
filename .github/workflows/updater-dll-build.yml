@@ -34,27 +34,36 @@ jobs:
         with:
           cmake-version: '3.28'
 
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+        with:
+          msbuild-architecture: x64
+
       - name: Setup VC++ environment
         run: |
-          Write-Host "=== Setting up VC++ environment ==="
+          Write-Host "=== Setting up VC++ environment from VS Build Tools ==="
           $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-          Write-Host "Checking vswhere at: $vswhere"
           if (-not (Test-Path $vswhere)) {
             Write-Error "vswhere not found at $vswhere"
             exit 1
           }
-          Write-Host "vswhere found, searching for VS..."
+          # Find VS Build Tools (not full IDE)
           $vsInstallPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
-          Write-Host "vswhere output: '$vsInstallPath'"
+          if (-not $vsInstallPath) {
+            Write-Host "Trying to find VS Build Tools..."
+            $vsInstallPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath -legacy
+          }
+          if (-not $vsInstallPath) {
+            Write-Host "Trying to find any VS installation with VC++ tools..."
+            $vsInstallPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath -prerelease
+          }
           if (-not $vsInstallPath) {
             Write-Error "Visual Studio with VC++ tools not found"
-            # Try without the component requirement
-            $vsInstallPath = & $vswhere -latest -products * -property installationPath
-            Write-Host "vswhere without component filter: '$vsInstallPath'"
+            # List all VS installations for debugging
+            & $vswhere -format json | ConvertFrom-Json | ForEach-Object { Write-Host "Found: $($_.installationPath) - $($_.productName) $($_.installationVersion)" }
             exit 1
           }
           $vcvarsall = Join-Path $vsInstallPath "VC\Auxiliary\Build\vcvarsall.bat"
-          Write-Host "Checking vcvarsall at: $vcvarsall"
           if (-not (Test-Path $vcvarsall)) {
             Write-Error "vcvarsall.bat not found at $vcvarsall"
             exit 1
@@ -63,7 +72,6 @@ jobs:
           Write-Host "Running vcvarsall.bat for x64..."
           $env:VCVARS_VER = "14.40"
           $output = cmd /c "`"$vcvarsall`" x64 && set" 2>&1
-          Write-Host "vcvarsall output captured, processing environment variables..."
           $output | ForEach-Object {
             if ($_ -match '^([^=]+)=(.*)$') {
               $env:$matches[1] = $matches[2]
