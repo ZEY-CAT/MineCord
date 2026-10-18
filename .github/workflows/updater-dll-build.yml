@@ -49,9 +49,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cmake-updater-
 
-      - name: Configure CMake
+      - name: Verify Ninja availability
         run: |
-          cmake -B updater/build -S updater -DCMAKE_BUILD_TYPE=Release -G "Visual Studio 17 2022" -A x64
+          ninja --version
+          echo "Ninja is available"
+
+      - name: Configure CMake with Ninja
+        run: |
+          cmake -B updater/build -S updater -DCMAKE_BUILD_TYPE=Release -G Ninja
 
       - name: Build MineCordUpdater.dll
         run: |
