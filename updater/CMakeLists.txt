@@ -41,6 +41,7 @@ set(SOURCES
     src/Install.cpp
     src/Verify.cpp
     src/Utils.cpp
+    MineCordUpdater.def
 )
 
 add_library(MineCordUpdater SHARED ${SOURCES})
