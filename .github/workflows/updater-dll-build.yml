@@ -57,6 +57,19 @@ jobs:
         run: |
           cmake --build updater/build --config Release --parallel
 
+      - name: Dump DLL exports (diagnostic)
+        run: |
+          $dllPath = "updater/build/Release/MineCordUpdater.dll"
+          if (Test-Path $dllPath) {
+            Write-Host "=== DLL Export Table ==="
+            dumpbin /exports $dllPath
+            Write-Host "========================="
+          } else {
+            Write-Error "DLL not found at $dllPath"
+            exit 1
+          }
+        shell: pwsh
+
       - name: Verify DLL
         run: |
           $dllPath = "updater/build/Release/MineCordUpdater.dll"
