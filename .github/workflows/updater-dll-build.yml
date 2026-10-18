@@ -54,7 +54,7 @@ jobs:
           $output = cmd /c "`"$vcvarsall`" x64 && set" 2>&1
           $output | ForEach-Object {
             if ($_ -match '^([^=]+)=(.*)$') {
-              $env:$matches[1] = $matches[2]
+              Set-Item -Path "Env:$($matches[1])" -Value $matches[2] -Force
             }
           }
           Write-Host "VC++ environment configured"
