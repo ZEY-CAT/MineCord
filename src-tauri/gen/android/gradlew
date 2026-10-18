@@ -2,7 +2,6 @@
 #
 # Gradle start up script for UN*X
 #
-
 # Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
 DEFAULT_JVM_OPTS='"-Xmx64m" "-Xms64m"'
 
@@ -89,11 +88,18 @@ if [ "$cygwin" = "true" -o "$msys" = "true" ] ; then
     JAVACMD=$(cygpath --unix "$JAVACMD")
 fi
 
-# Split up the JVM_OPTS And GRADLE_OPTS values into an array, following the shell quoting and substitution rules
-splitJvmOpts() {
-    JVM_OPTS=("$@")
+# Collect all JVM options into a single string (POSIX-compliant)
+# We build a string instead of using arrays for POSIX compliance
+collect_jvm_opts() {
+    # Collect all arguments into JVM_OPTS_STRING
+    JVM_OPTS_STRING=""
+    for arg in "$@" ; do
+        JVM_OPTS_STRING="$JVM_OPTS_STRING \"$arg\""
+    done
 }
-eval splitJvmOpts $DEFAULT_JVM_OPTS $JAVA_OPTS $GRADLE_OPTS
-JVM_OPTS[${#JVM_OPTS[*]}]="-Dorg.gradle.appname=$APP_BASE_NAME"
 
-exec "$JAVACMD" "${JVM_OPTS[@]}" -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain "$@"
+collect_jvm_opts $DEFAULT_JVM_OPTS $JAVA_OPTS $GRADLE_OPTS
+# Add the app name property
+JVM_OPTS_STRING="$JVM_OPTS_STRING \"-Dorg.gradle.appname=$APP_BASE_NAME\""
+
+exec "$JAVACMD" $JVM_OPTS_STRING -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain "$@"
