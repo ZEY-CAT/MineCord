@@ -1,10 +1,12 @@
 const koffi = require('koffi');
 const path = require('path');
 const fs = require('fs');
+const { fileURLToPath } = require('url');
 
 /**
  * MineCordUpdater DLL Bridge
  * Provides a safe JavaScript interface to the MineCordUpdater.dll
+ * C ABI: __stdcall, wchar_t* (UTF-16) strings, UpdateInfo** out-param
  */
 
 class MineCordUpdater {
@@ -22,20 +24,29 @@ class MineCordUpdater {
 
     /**
      * Load the MineCordUpdater.dll
+     * Priority order:
+     * 1. Installed shared location: %ProgramFiles%\MineCord\MineCordUpdater.dll
+     * 2. Electron packaged resources (fallback for existing installs)
+     * 3. Development locations
      * @returns {Promise<void>}
      */
     async load() {
         if (this.loaded) return;
 
-        // Try to find the DLL
+        // Try to find the DLL in priority order
         const possiblePaths = [
-            // Installed location
+            // 1. Shared installed location (Windows)
+            ...(process.platform === 'win32' ? [
+                path.join(process.env.ProgramFiles || 'C:\\Program Files', 'MineCord', 'MineCordUpdater.dll'),
+                path.join(process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)', 'MineCord', 'MineCordUpdater.dll'),
+            ] : []),
+            // 2. Electron packaged resources
             path.join(process.resourcesPath || process.cwd(), 'MineCordUpdater.dll'),
-            // Development location
+            // 3. Development location
             path.join(__dirname, '..', 'MineCordUpdater.dll'),
-            // Build output location
+            // 4. Build output location
             path.join(__dirname, '..', 'updater', 'build', 'Release', 'MineCordUpdater.dll'),
-            // Project root
+            // 5. Project root
             path.join(__dirname, '..', '..', 'MineCordUpdater.dll'),
         ];
 
@@ -67,49 +78,111 @@ class MineCordUpdater {
     _defineSymbols() {
         const lib = this.lib;
 
-        // Define the UpdateInfo struct
+        // Define the UpdateInfo struct (matches C++ std::wstring layout: pointer, length, capacity)
+        // On x64: 3 pointers (24 bytes) + int (4 bytes) + padding (4 bytes) = 32 bytes per wstring
+        // But we only need to read the pointer field for wstring since Koffi can read wstring from pointer
+        // The C++ struct is:
+        //   std::wstring version;      // 3 pointers
+        //   std::wstring downloadUrl;  // 3 pointers
+        //   std::wstring sha256Hash;   // 3 pointers
+        //   std::wstring minisigBase64;// 3 pointers
+        //   std::wstring releaseNotes; // 3 pointers
+        //   int critical;              // 4 bytes + 4 padding
+        // Total: 5 * 24 + 8 = 128 bytes on x64
+        // We define it as opaque pointer and read fields via Koffi's wstring from the internal pointers
+        
+        // Use opaque pointer type for UpdateInfo - we'll read fields manually
         const UpdateInfo = lib.struct('UpdateInfo', {
-            version: 'string',
-            downloadUrl: 'string',
-            sha256Hash: 'string',
-            minisigBase64: 'string',
-            releaseNotes: 'string',
-            critical: 'int'
+            // std::wstring internal layout: pointer, size, capacity
+            _version_ptr: 'pointer',
+            _version_size: 'size_t',
+            _version_cap: 'size_t',
+            _downloadUrl_ptr: 'pointer',
+            _downloadUrl_size: 'size_t',
+            _downloadUrl_cap: 'size_t',
+            _sha256Hash_ptr: 'pointer',
+            _sha256Hash_size: 'size_t',
+            _sha256Hash_cap: 'size_t',
+            _minisigBase64_ptr: 'pointer',
+            _minisigBase64_size: 'size_t',
+            _minisigBase64_cap: 'size_t',
+            _releaseNotes_ptr: 'pointer',
+            _releaseNotes_size: 'size_t',
+            _releaseNotes_cap: 'size_t',
+            critical: 'int32',
+            // padding to align
+            _pad: 'int32'
         });
 
-        // Define the ProgressCallback type
+        // Define the ProgressCallback type (matches C: int __stdcall(uint64_t, uint64_t, void*))
         const ProgressCallback = koffi.proto('int __stdcall(uint64_t, uint64_t, void*)');
 
-        // Define the API functions
-        lib.func('CheckForUpdates', 'int', [
-            'string',     // serverUrl
-            'string',     // currentVersion
-            'string',     // platform
-            'string',     // arch
-            'string',     // channel
-            'UpdateInfo*' // outInfo
+        // Define the API functions with correct C ABI types
+        // All string parameters are const wchar_t* (UTF-16) = 'wstring' in Koffi
+        // Return values: const wchar_t* = 'wstring'
+        // UpdateInfo** = 'pointer' (pointer to pointer)
+        // UpdateInfo* = 'pointer' (single pointer)
+        // Callback: function pointer = 'pointer'
+        
+        // GetUpdaterVersion: const wchar_t* UPDATER_CALL GetUpdaterVersion()
+        const GetUpdaterVersion = lib.func('GetUpdaterVersion', 'wstring', []);
+        
+        // GetUpdaterLastError: const wchar_t* UPDATER_CALL GetUpdaterLastError()
+        const GetUpdaterLastError = lib.func('GetUpdaterLastError', 'wstring', []);
+        
+        // CheckForUpdates: int UPDATER_CALL CheckForUpdates(const wchar_t*, const wchar_t*, const wchar_t*, const wchar_t*, const wchar_t*, UpdateInfo**)
+        const CheckForUpdates = lib.func('CheckForUpdates', 'int', [
+            'wstring',  // serverUrl
+            'wstring',  // currentVersion
+            'wstring',  // platform
+            'wstring',  // arch
+            'wstring',  // channel
+            'pointer'   // UpdateInfo** (pointer to pointer)
+        ]);
+        
+        // DownloadUpdate: int UPDATER_CALL DownloadUpdate(const wchar_t*, const wchar_t*, int (UPDATER_CALL*)(uint64_t, uint64_t, void*), void*)
+        const DownloadUpdate = lib.func('DownloadUpdate', 'int', [
+            'wstring',   // downloadUrl
+            'wstring',   // destPath
+            'pointer',   // progressCb (function pointer)
+            'pointer'    // userData
+        ]);
+        
+        // InstallUpdate: int UPDATER_CALL InstallUpdate(const wchar_t*, const wchar_t*, const wchar_t*, const wchar_t*)
+        const InstallUpdate = lib.func('InstallUpdate', 'int', [
+            'wstring',  // installerPath
+            'wstring',  // installDir
+            'wstring',  // signatureBase64
+            'wstring'   // expectedHash
+        ]);
+        
+        // FreeUpdateInfo: void UPDATER_CALL FreeUpdateInfo(UpdateInfo*)
+        const FreeUpdateInfo = lib.func('FreeUpdateInfo', 'void', ['pointer']);
+        
+        // VerifyMinisignSignature: int UPDATER_CALL VerifyMinisignSignature(const wchar_t*, const wchar_t*, const wchar_t*)
+        const VerifyMinisignSignature = lib.func('VerifyMinisignSignature', 'int', [
+            'wstring',  // filePath
+            'wstring',  // signatureBase64
+            'wstring'   // publicKeyBase64
         ]);
 
-        lib.func('DownloadUpdate', 'int', [
-            'string',           // downloadUrl
-            'string',           // destPath
-            'pointer',          // progressCb (pointer to callback)
-            'pointer'           // userData
-        ]);
+        // Store function references
+        this._GetUpdaterVersion = GetUpdaterVersion;
+        this._GetUpdaterLastError = GetUpdaterLastError;
+        this._CheckForUpdates = CheckForUpdates;
+        this._DownloadUpdate = DownloadUpdate;
+        this._InstallUpdate = InstallUpdate;
+        this._FreeUpdateInfo = FreeUpdateInfo;
+        this._VerifyMinisignSignature = VerifyMinisignSignature;
+        this._UpdateInfo = UpdateInfo;
+        this._ProgressCallback = ProgressCallback;
+    }
 
-        lib.func('InstallUpdate', 'int', [
-            'string', // installerPath
-            'string', // installDir
-            'string', // signatureBase64
-            'string'  // expectedHash
-        ]);
-
-        lib.func('FreeUpdateInfo', 'void', ['UpdateInfo*']);
-        lib.func('GetUpdaterLastError', 'string', []);
-        lib.func('GetUpdaterVersion', 'string', []);
-
-        this.UpdateInfo = UpdateInfo;
-        this.ProgressCallback = ProgressCallback;
+    // Helper to read wstring from std::wstring internal pointer
+    _readWString(ptrObj, ptrField) {
+        const ptr = ptrObj[ptrField];
+        if (!ptr || ptr.isNull()) return '';
+        return ptr.readWString();
     }
 
     /**
@@ -125,37 +198,44 @@ class MineCordUpdater {
     async checkForUpdates({ serverUrl, currentVersion, platform = 'windows', arch = 'x64', channel = 'stable' }) {
         if (!this.loaded) await this.load();
 
-        const outInfo = koffi.alloc(this.UpdateInfo);
+        // Allocate pointer-to-pointer (void**) for UpdateInfo** out parameter
+        const outInfoPtr = koffi.alloc('pointer', 1);
         
-        const result = this.lib.CheckForUpdates(
+        const result = this._CheckForUpdates(
             serverUrl,
             currentVersion,
             platform,
             arch,
             channel,
-            outInfo
+            outInfoPtr
         );
 
         if (result !== 0) {
-            const error = this.lib.GetUpdaterLastError();
+            const error = this._GetUpdaterLastError();
             if (result === -3) { // UPDATER_ERROR_NO_UPDATE
                 return null;
             }
             throw new Error(`Update check failed (${result}): ${error}`);
         }
 
-        // Read the update info
+        // Dereference the pointer to get UpdateInfo*
+        const infoPtr = outInfoPtr.deref();
+        if (!infoPtr || infoPtr.isNull()) {
+            throw new Error('Update check succeeded but returned null info pointer');
+        }
+
+        // Read the update info from the C++ std::wstring fields
         const updateInfo = {
-            version: outInfo.version.readString(),
-            downloadUrl: outInfo.downloadUrl.readString(),
-            sha256Hash: outInfo.sha256Hash.readString(),
-            minisigBase64: outInfo.minisigBase64.readString(),
-            releaseNotes: outInfo.releaseNotes.readString(),
-            critical: outInfo.critical
+            version: this._readWString(infoPtr, '_version_ptr'),
+            downloadUrl: this._readWString(infoPtr, '_downloadUrl_ptr'),
+            sha256Hash: this._readWString(infoPtr, '_sha256Hash_ptr'),
+            minisigBase64: this._readWString(infoPtr, '_minisigBase64_ptr'),
+            releaseNotes: this._readWString(infoPtr, '_releaseNotes_ptr'),
+            critical: infoPtr.critical
         };
 
-        // Free the allocated memory
-        this.lib.FreeUpdateInfo(outInfo);
+        // Free the allocated memory (pass UpdateInfo*, not UpdateInfo**)
+        this._FreeUpdateInfo(infoPtr);
 
         // Verify the Ed25519 signature using the pinned public key via the native DLL
         if (updateInfo.minisigBase64 && updateInfo.sha256Hash && updateInfo.downloadUrl) {
@@ -243,7 +323,7 @@ class MineCordUpdater {
     async verifyFileWithDLL(filePath, signatureBase64) {
         if (!this.loaded) await this.load();
 
-        const result = this.lib.VerifyMinisignSignature(
+        const result = this._VerifyMinisignSignature(
             filePath,
             signatureBase64,
             this.PINNED_MINISIGN_PUBLIC_KEY // Use pinned key, ignore server-provided
@@ -273,10 +353,10 @@ class MineCordUpdater {
                     return 0; // Cancel on error
                 }
             };
-            progressCbPtr = this.lib.alloc(this.ProgressCallback, progressCbWrapper);
+            progressCbPtr = this.lib.alloc(this._ProgressCallback, progressCbWrapper);
         }
 
-        const result = this.lib.DownloadUpdate(
+        const result = this._DownloadUpdate(
             downloadUrl,
             destPath,
             progressCbPtr,
@@ -284,7 +364,7 @@ class MineCordUpdater {
         );
 
         if (result !== 0) {
-            const error = this.lib.GetUpdaterLastError();
+            const error = this._GetUpdaterLastError();
             throw new Error(`Download failed (${result}): ${error}`);
         }
     }
@@ -304,10 +384,10 @@ class MineCordUpdater {
             throw new Error('Install failed: signature and hash are required for verification');
         }
 
-        const result = this.lib.InstallUpdate(installerPath, installDir, signatureBase64, expectedHash);
+        const result = this._InstallUpdate(installerPath, installDir, signatureBase64, expectedHash);
 
         if (result !== 0) {
-            const error = this.lib.GetUpdaterLastError();
+            const error = this._GetUpdaterLastError();
             throw new Error(`Install failed (${result}): ${error}`);
         }
     }
@@ -318,7 +398,7 @@ class MineCordUpdater {
      */
     getVersion() {
         if (!this.loaded) throw new Error('Updater not loaded');
-        return this.lib.GetUpdaterVersion();
+        return this._GetUpdaterVersion();
     }
 
     /**
@@ -327,7 +407,7 @@ class MineCordUpdater {
      */
     getLastError() {
         if (!this.loaded) return null;
-        const error = this.lib.GetUpdaterLastError();
+        const error = this._GetUpdaterLastError();
         return error || null;
     }
 }

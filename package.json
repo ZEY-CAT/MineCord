@@ -58,10 +58,6 @@
       {
         "from": "browser-extension",
         "to": "browser-extension"
-      },
-      {
-        "from": "resources/MineCordUpdater.dll",
-        "to": "MineCordUpdater.dll"
       }
     ],
     "win": {
