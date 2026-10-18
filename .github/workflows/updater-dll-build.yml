@@ -85,11 +85,7 @@ jobs:
           Write-Host "=== Building MineCordUpdater.dll ==="
           cmake --build updater/build --config Release --parallel
           
-          Write-Host "=== Build complete ==="
-        shell: pwsh
-
-      - name: Dump DLL exports (diagnostic)
-        run: |
+          Write-Host "=== Dump DLL exports (diagnostic) ==="
           $dllPath = "updater/build/Release/MineCordUpdater.dll"
           if (Test-Path $dllPath) {
             Write-Host "=== DLL Export Table ==="
@@ -99,6 +95,8 @@ jobs:
             Write-Error "DLL not found at $dllPath"
             exit 1
           }
+          
+          Write-Host "=== Build complete ==="
         shell: pwsh
 
       - name: Verify DLL
