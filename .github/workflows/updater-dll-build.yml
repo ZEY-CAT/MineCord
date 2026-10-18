@@ -326,5 +326,5 @@ jobs:
             - **macOS**: Open the `.dmg` and drag `MINECORD.app` to Applications, or unzip `.zip` and copy
             - **Linux**: Run the `.AppImage` (make executable first), or install `.deb`/`.rpm` via package manager
 
-          env:
-              GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
