@@ -34,12 +34,6 @@ jobs:
         with:
           cmake-version: '3.28'
 
-      - name: Setup Visual Studio Build Tools
-        uses: microsoft/setup-vsbuildtools@v1
-        with:
-          vs-version: '17.0'
-          workloads: 'native-desktop'
-
       - name: Cache CMake build
         uses: actions/cache@v4
         with:
