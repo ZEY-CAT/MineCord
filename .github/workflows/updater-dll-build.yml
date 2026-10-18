@@ -1,4 +1,4 @@
-name: MineCordUpdater DLL Build
+﻿name: MineCordUpdater DLL Build
 
 on:
   workflow_dispatch:
@@ -300,90 +300,8 @@ jobs:
           Write-Host "OK: MineCordUpdater.dll NOT bundled (uses shared installed DLL)"
         shell: pwsh
 
-      - name: Package Electron Full Edition ZIP
-        run: |
-          Write-Host "=== Creating Electron Full Edition ZIP ==="
-          $version = "${{ github.event.inputs.version || '1.0.2' }}"
-          $zipName = "MineCord-Electron-Full-v${version}-Windows-x64.zip"
-          $zipPath = "dist/${zipName}"
-          
-          # Create README
-          $readme = @"
-MINECORD ELECTRON FULL EDITION v${version}
-=========================================
-
-Full-featured Electron edition with all MineCord features including voice, shop, admin tools, and advanced account management.
-
-INSTALLATION
-============
-
-1. FIRST: Install the shared updater (required for automatic updates)
-   Download and run: MineCordUpdaterSetup.exe
-   This installs MineCordUpdater.dll to %ProgramFiles%\MineCord\
-
-2. LAUNCH THE APPLICATION
-   Extract this ZIP to a folder of your choice.
-   Run MINECORD.exe to start the application.
-
-REQUIREMENTS
-============
-
-- Windows 10/11 (x64)
-- WebView2 Runtime (included with Windows 11, auto-installed on Windows 10)
-- .NET Framework not required
-
-SHARED UPDATER
-==============
-
-Both MineCord editions share a single native updater DLL installed at:
-  %ProgramFiles%\MineCord\MineCordUpdater.dll
-
-The MineCordUpdaterSetup.exe installer (downloaded separately) handles
-installation with proper UAC elevation and safe upgrade handling.
-
-If the updater DLL is missing, the application will show a helpful
-error message with a link to download the installer.
-
-FEATURES INCLUDED
-=================
-- Full Electron-based application (~120 MB)
-- Complete voice calling (private & group calls)
-- WebRTC voice with TURN relay support
-- Shop, cosmetics, inventory & onboarding
-- Account merging with archive preservation
-- Admin/owner tools (role management, audit logs)
-- Eaglercraft browser extension integration
-- Minecraft Java/Bedrock account linking
-- Game activity display (Minecraft, Eaglercraft)
-- Desktop notifications & push notifications
-- Full settings & customization
-- Account merging with deduplication
-
-SUPPORT
-=======
-
-GitHub: https://github.com/ZEY-CAT/MineCord
-Issues: https://github.com/ZEY-CAT/MineCord/issues
-
-LICENSE
-=======
-
-MIT License - See LICENSE file for details.
-"@
-          
-          $readmePath = "dist/win-unpacked/README.txt"
-          Set-Content -Path $readmePath -Value $readme -Encoding UTF8
-          Write-Host "Created README.txt"
-          
-          # Create ZIP
-          $zipName = "MineCord-Electron-Full-v${version}-Windows-x64.zip"
-          $zipPath = "dist/${zipName}"
-          Write-Host "Creating ZIP: ${zipName}"
-          Compress-Archive -Path "dist/win-unpacked/*" -DestinationPath "dist/${zipName}" -Force
-          
-          $zipSize = (Get-Item "dist/${zipName}").Length
-          Write-Host "Created: ${zipPath} ($([math]::Round($zipSize/1MB, 1)) MB)"
-        shell: pwsh
+  - name: Package Electron Full Edition ZIP
+        run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\package-electron-zip.ps1 -Version "${{ github.event.inputs.version || '1.0.2' }}"
 
       - name: Verify Electron ZIP (no DLL)
         run: |
@@ -535,11 +453,11 @@ MIT License - See LICENSE file for details.
             ## MINECORD v${{ github.event.inputs.version }}
 
             ### Windows
-            - **Tauri (NSIS)**: `MINECORD_${{ github.event.inputs.version }}_x64-setup.exe` — Lightweight WebView2-based installer (~3 MB)
-            - **Tauri Lite (ZIP)**: `MineCord-Tauri-Lite-v${{ github.event.inputs.version }}_Windows-x64.zip` — Lightweight portable edition (~10 MB)
-            - **Electron (NSIS)**: `MINECORD Setup ${{ github.event.inputs.version }}.exe` — Full Electron bundle (~120 MB)
-            - **Electron Full (ZIP)**: `MineCord-Electron-Full-v${{ github.event.inputs.version }}_Windows-x64.zip` — Full portable edition (~120 MB)
-            - **MineCord Updater (Shared)**: `MineCordUpdaterSetup.exe` — Installs shared MineCordUpdater.dll to `%ProgramFiles%\MineCord\` (required for both Windows editions)
+            - **Tauri (NSIS)**: `MINECORD_${{ github.event.inputs.version }}_x64-setup.exe` â€” Lightweight WebView2-based installer (~3 MB)
+            - **Tauri Lite (ZIP)**: `MineCord-Tauri-Lite-v${{ github.event.inputs.version }}_Windows-x64.zip` â€” Lightweight portable edition (~10 MB)
+            - **Electron (NSIS)**: `MINECORD Setup ${{ github.event.inputs.version }}.exe` â€” Full Electron bundle (~120 MB)
+            - **Electron Full (ZIP)**: `MineCord-Electron-Full-v${{ github.event.inputs.version }}_Windows-x64.zip` â€” Full portable edition (~120 MB)
+            - **MineCord Updater (Shared)**: `MineCordUpdaterSetup.exe` â€” Installs shared MineCordUpdater.dll to `%ProgramFiles%\MineCord\` (required for both Windows editions)
 
             ### macOS
             - **DMG (Intel)**: `MINECORD-macOS-Intel.dmg`
