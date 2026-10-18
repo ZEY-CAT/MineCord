@@ -246,8 +246,11 @@ jobs:
           Write-Host "Copied DLL to $dest"
         shell: pwsh
 
+      - name: Generate Windows icon
+        run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\generate-windows-icon.ps1
+
       - name: Build Electron Windows
-        run: npm run build:desktop -- --publish never
+        run: npx electron-builder --publish never
 
       - name: Debug output directory
         run: |
