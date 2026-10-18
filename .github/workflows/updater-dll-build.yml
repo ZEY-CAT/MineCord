@@ -70,7 +70,7 @@ jobs:
       - name: Test DLL Load and Functions
         run: |
           if (-not (Test-Path "node_modules/koffi")) { npm install koffi --prefix . }
-          $testPath = Join-Path $env:TEMP 'test-dll.cjs'
+          $testPath = Join-Path $PWD 'test-dll.cjs'
           $jsCode = @(
             "const koffi = require('koffi');"
             "const path = require('path');"
@@ -85,13 +85,17 @@ jobs:
             "  console.log('Updater version:', version);"
             "  lib.func('CheckForUpdates', 'int', ['string', 'string', 'string', 'string', 'string', 'pointer']);"
             "  lib.func('FreeUpdateInfo', 'void', ['pointer']);"
-            "  lib.func('GetLastError', 'string', []);"
+            "  lib.func('GetUpdaterLastError', 'string', []);"
             "  const outInfo = koffi.alloc('pointer');"
             "  const result = lib.CheckForUpdates('http://localhost:3000', '1.0.2', 'windows', 'x64', 'stable', outInfo);"
             "  console.log('CheckForUpdates result:', result);"
             "  if (result === -3) { console.log('CheckForUpdates correctly returns NO_UPDATE for unreachable server'); }"
-            "  lib.FreeUpdateInfo(outInfo);"
-            "  const error = lib.GetLastError();"
+            "  else if (result === 0) {"
+            "    const infoPtr = outInfo.deref();"
+            "    console.log('Update version:', infoPtr.version);"
+            "    lib.FreeUpdateInfo(infoPtr);"
+            "  }"
+            "  const error = lib.GetUpdaterLastError();"
             "  console.log('Last error:', error);"
             "  console.log('All DLL functions tested successfully');"
             "} catch (err) {"
@@ -100,7 +104,7 @@ jobs:
             "}"
           ) -join "`n"
           Set-Content -Path $testPath -Value $jsCode -Encoding UTF8
-          node $testPath
+          try { node $testPath } finally { Remove-Item -Force $testPath -ErrorAction SilentlyContinue }
         shell: pwsh
 
       - name: Upload MineCordUpdater.dll
