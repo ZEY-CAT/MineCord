@@ -326,4 +326,4 @@ jobs:
             - **Linux**: Run the `.AppImage` (make executable first), or install `.deb`/`.rpm` via package manager
 
           env:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
