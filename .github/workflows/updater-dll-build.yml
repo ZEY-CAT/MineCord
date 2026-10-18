@@ -69,7 +69,7 @@ jobs:
 
       - name: Test DLL Load and Functions
         run: |
-          if (!Test-Path "node_modules/koffi") { npm install koffi --prefix . }
+          if (-not (Test-Path "node_modules/koffi")) { npm install koffi --prefix . }
           $testPath = Join-Path $env:TEMP 'test-dll.cjs'
           $jsCode = @(
             "const koffi = require('koffi');"
