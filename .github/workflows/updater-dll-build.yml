@@ -34,10 +34,33 @@ jobs:
         with:
           cmake-version: '3.28'
 
-      - name: Setup MSVC environment
-        uses: microsoft/setup-msbuild@v2
-        with:
-          msbuild-architecture: x64
+      - name: Setup VC++ environment
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          if (-not (Test-Path $vswhere)) {
+            Write-Error "vswhere not found"
+            exit 1
+          }
+          $vsInstallPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          if (-not $vsInstallPath) {
+            Write-Error "Visual Studio with VC++ tools not found"
+            exit 1
+          }
+          $vcvarsall = Join-Path $vsInstallPath "VC\Auxiliary\Build\vcvarsall.bat"
+          if (-not (Test-Path $vcvarsall)) {
+            Write-Error "vcvarsall.bat not found at $vcvarsall"
+            exit 1
+          }
+          Write-Host "Found VS at: $vsInstallPath"
+          Write-Host "Running vcvarsall.bat for x64..."
+          $env:VCVARS_VER = "14.40"
+          cmd /c "`"$vcvarsall`" x64 && set" | ForEach-Object {
+            if ($_ -match '^([^=]+)=(.*)$') {
+              $env:$matches[1] = $matches[2]
+            }
+          }
+          Write-Host "VC++ environment configured"
+        shell: pwsh
 
       - name: Cache CMake build
         uses: actions/cache@v4
