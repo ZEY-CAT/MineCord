@@ -34,44 +34,11 @@ jobs:
         with:
           cmake-version: '3.28'
 
-      - name: Setup VC++ environment
-        run: |
-          Write-Host "=== Setting up VC++ environment ==="
-          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-          Write-Host "Checking vswhere at: $vswhere"
-          if (-not (Test-Path $vswhere)) {
-            Write-Error "vswhere not found at $vswhere"
-            exit 1
-          }
-          Write-Host "vswhere found, searching for VS..."
-          $vsInstallPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
-          Write-Host "vswhere output: '$vsInstallPath'"
-          if (-not $vsInstallPath) {
-            Write-Error "Visual Studio with VC++ tools not found"
-            # Try without the component requirement
-            $vsInstallPath = & $vswhere -latest -products * -property installationPath
-            Write-Host "vswhere without component filter: '$vsInstallPath'"
-            exit 1
-          }
-          $vcvarsall = Join-Path $vsInstallPath "VC\Auxiliary\Build\vcvarsall.bat"
-          Write-Host "Checking vcvarsall at: $vcvarsall"
-          if (-not (Test-Path $vcvarsall)) {
-            Write-Error "vcvarsall.bat not found at $vcvarsall"
-            exit 1
-          }
-          Write-Host "Found VS at: $vsInstallPath"
-          Write-Host "Running vcvarsall.bat for x64..."
-          $env:VCVARS_VER = "14.40"
-          $output = cmd /c "`"$vcvarsall`" x64 && set" 2>&1
-          Write-Host "vcvarsall output: $output"
-          $output | ForEach-Object {
-            if ($_ -match '^([^=]+)=(.*)$') {
-              $env:$matches[1] = $matches[2]
-            }
-          }
-          Write-Host "VC++ environment configured"
-          Write-Host "=== VC++ environment setup complete ==="
-        shell: pwsh
+      - name: Setup MSVC environment
+        uses: ashutoshvarma/setup-msvc@v1
+        with:
+          vs-version: '17.0'
+          architecture: x64
 
       - name: Cache CMake build
         uses: actions/cache@v4
@@ -196,9 +163,10 @@ jobs:
             "console.log('Signature verification test structure ready');"
           ) -join "`n"
           Set-Content -Path $testPath -Value $jsCode -Encoding UTF8
-          node $testPath
+          try { node $testPath } finally { Remove-Item -Force $testPath -ErrorAction SilentlyContinue }
         shell: pwsh
 
+  # Windows Electron packaging job - runs after DLL is built
   windows-electron:
     name: Windows (Electron) with Updater DLL
     runs-on: windows-latest
@@ -207,20 +175,25 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: 'npm'
+
       - name: Download MineCordUpdater.dll
         uses: actions/download-artifact@v4
         with:
           name: mincord-updater-dll
           path: .
+
       - name: Install dependencies
         run: npm ci
+
       - name: Build Electron Windows
         run: npm run build:desktop -- --publish never
+
       - name: Verify DLL in output
         run: |
           $dllPath = "dist/win-unpacked/MineCordUpdater.dll"
@@ -229,6 +202,7 @@ jobs:
             exit 1
           }
           Write-Host "MineCordUpdater.dll found in installer output"
+
       - name: Upload Windows Electron artifact
         uses: actions/upload-artifact@v4
         with:
@@ -236,6 +210,7 @@ jobs:
           path: dist/*.exe
           retention-days: 7
 
+  # Update release job to include DLL verification
   release:
     name: Create Release
     needs: [windows-electron, build-updater-dll]
@@ -248,42 +223,80 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
+
       - name: List artifacts
         run: |
           find artifacts -type f \( -name "*.exe" -o -name "*.dmg" -o -name "*.zip" -o -name "*.tar.gz" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" -o -name "*.dll" \) | sort
+
       - name: Verify release artifacts exist
         run: |
           set -e
           echo "Verifying required release artifacts..."
+
+          # Check Windows Tauri installer
           WIN_EXE=$(find artifacts/mincord-windows-tauri -name "*.exe" -type f 2>/dev/null | head -1)
-          if [ -z "$WIN_EXE" ]; then echo "ERROR: Windows Tauri installer not found!"; exit 1; fi
+          if [ -z "$WIN_EXE" ]; then
+            echo "ERROR: Windows Tauri installer not found!"
+            exit 1
+          fi
           echo "Windows Tauri installer: $WIN_EXE"
+
+          # Check Windows Electron installer
           WIN_ELECTRON_EXE=$(find artifacts/mincord-windows-electron -name "*.exe" -type f 2>/dev/null | head -1)
-          if [ -z "$WIN_ELECTRON_EXE" ]; then echo "ERROR: Windows Electron installer not found!"; exit 1; fi
+          if [ -z "$WIN_ELECTRON_EXE" ]; then
+            echo "ERROR: Windows Electron installer not found!"
+            exit 1
+          fi
           echo "Windows Electron installer: $WIN_ELECTRON_EXE"
+
+          # Check MineCordUpdater.dll in Electron package
           UPDATER_DLL=$(find artifacts/mincord-windows-electron -name "MineCordUpdater.dll" -type f 2>/dev/null | head -1)
-          if [ -z "$UPDATER_DLL" ]; then echo "ERROR: MineCordUpdater.dll not found in Electron package!"; exit 1; fi
+          if [ -z "$UPDATER_DLL" ]; then
+            echo "ERROR: MineCordUpdater.dll not found in Electron package!"
+            exit 1
+          fi
           echo "MineCordUpdater.dll included in Windows Electron package"
+
+          # Check macOS DMG (both architectures)
           MAC_DMG_INTEL=$(find artifacts/mincord-macos -name "*Intel*.dmg" -type f 2>/dev/null | head -1)
           MAC_DMG_ARM=$(find artifacts/mincord-macos -name "*AppleSilicon*.dmg" -type f 2>/dev/null | head -1)
-          if [ -z "$MAC_DMG_INTEL" ] && [ -z "$MAC_DMG_ARM" ]; then echo "ERROR: macOS DMG not found!"; exit 1; fi
+          if [ -z "$MAC_DMG_INTEL" ] && [ -z "$MAC_DMG_ARM" ]; then
+            echo "ERROR: macOS DMG not found!"
+            exit 1
+          fi
           if [ -n "$MAC_DMG_INTEL" ]; then echo "macOS Intel DMG: $MAC_DMG_INTEL"; fi
           if [ -n "$MAC_DMG_ARM" ]; then echo "macOS Apple Silicon DMG: $MAC_DMG_ARM"; fi
+
+          # Check Linux AppImage
           LINUX_APPIMAGE=$(find artifacts/mincord-linux -name "*.AppImage" -type f 2>/dev/null | head -1)
-          if [ -z "$LINUX_APPIMAGE" ]; then echo "ERROR: Linux AppImage not found!"; exit 1; fi
+          if [ -z "$LINUX_APPIMAGE" ]; then
+            echo "ERROR: Linux AppImage not found!"
+            exit 1
+          fi
           echo "Linux AppImage: $LINUX_APPIMAGE"
+
+          # Check Android APK
           ANDROID_APK=$(find artifacts/mincord-android -name "*.apk" -type f 2>/dev/null | head -1)
-          if [ -z "$ANDROID_APK" ]; then echo "ERROR: Android APK not found!"; exit 1; fi
+          if [ -z "$ANDROID_APK" ]; then
+            echo "ERROR: Android APK not found!"
+            exit 1
+          fi
           echo "Android APK: $ANDROID_APK"
+
+          # Check optional: macOS app bundles
           MAC_ZIP=$(find artifacts/mincord-macos -name "*.zip" -type f 2>/dev/null | head -1)
           MAC_TAR=$(find artifacts/mincord-macos -name "*.tar.gz" -type f 2>/dev/null | head -1)
           if [ -n "$MAC_ZIP" ]; then echo "macOS App zip: $MAC_ZIP"; fi
           if [ -n "$MAC_TAR" ]; then echo "macOS App tar.gz: $MAC_TAR"; fi
+
+          # Check optional: Linux DEB/RPM
           LINUX_DEB=$(find artifacts/mincord-linux -name "*.deb" -type f 2>/dev/null | head -1)
           LINUX_RPM=$(find artifacts/mincord-linux -name "*.rpm" -type f 2>/dev/null | head -1)
           if [ -n "$LINUX_DEB" ]; then echo "Linux DEB: $LINUX_DEB"; fi
           if [ -n "$LINUX_RPM" ]; then echo "Linux RPM: $LINUX_RPM"; fi
+
           echo "All required artifacts verified!"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
