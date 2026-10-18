@@ -34,11 +34,49 @@ jobs:
         with:
           cmake-version: '3.28'
 
-      - name: Setup MSVC environment
-        uses: ilammy/msvc-dev-cmd@v1
+      - name: Setup VC++ environment
+        run: |
+          Write-Host "=== Setting up VC++ environment ==="
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          Write-Host "Checking vswhere at: $vswhere"
+          if (-not (Test-Path $vswhere)) {
+            Write-Error "vswhere not found at $vswhere"
+            exit 1
+          }
+          Write-Host "vswhere found, searching for VS..."
+          $vsInstallPath = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          Write-Host "vswhere output: '$vsInstallPath'"
+          if (-not $vsInstallPath) {
+            Write-Error "Visual Studio with VC++ tools not found"
+            # Try without the component requirement
+            $vsInstallPath = & $vswhere -latest -products * -property installationPath
+            Write-Host "vswhere without component filter: '$vsInstallPath'"
+            exit 1
+          }
+          $vcvarsall = Join-Path $vsInstallPath "VC\Auxiliary\Build\vcvarsall.bat"
+          Write-Host "Checking vcvarsall at: $vcvarsall"
+          if (-not (Test-Path $vcvarsall)) {
+            Write-Error "vcvarsall.bat not found at $vcvarsall"
+            exit 1
+          }
+          Write-Host "Found VS at: $vsInstallPath"
+          Write-Host "Running vcvarsall.bat for x64..."
+          $env:VCVARS_VER = "14.40"
+          $output = cmd /c "`"$vcvarsall`" x64 && set" 2>&1
+          Write-Host "vcvarsall output captured, processing environment variables..."
+          $output | ForEach-Object {
+            if ($_ -match '^([^=]+)=(.*)$') {
+              $env:$matches[1] = $matches[2]
+            }
+          }
+          Write-Host "VC++ environment configured"
+          Write-Host "=== VC++ environment setup complete ==="
+        shell: pwsh
+
+      - name: Setup CMake
+        uses: jwlawson/actions-setup-cmake@v2
         with:
-          arch: x64
-          vsversion: '16'
+          cmake-version: '3.28'
 
       - name: Cache CMake build
         uses: actions/cache@v4
