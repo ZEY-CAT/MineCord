@@ -1,4 +1,10 @@
 (() => {
+  // Check edition - skip shop/cosmetics/onboarding/account-merge/admin in Lite edition
+  if (window.MineCordEdition && window.MineCordEdition.isLite()) {
+    console.log('[MineCord] Lite edition: skipping shop, cosmetics, onboarding, account merge, admin features');
+    return;
+  }
+
   const labels = {
     new_member: 'New Member',
     member: 'Member',

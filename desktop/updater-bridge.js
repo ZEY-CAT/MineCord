@@ -59,7 +59,9 @@ class MineCordUpdater {
         }
 
         if (!dllPath) {
-            throw new Error('MineCordUpdater.dll not found in any expected location');
+            const message = 'MineCordUpdater.dll not found. Please install the MineCord Updater first by running MineCordUpdaterSetup.exe (available from the MINECORD releases page). The shared updater installs to %ProgramFiles%\\MineCord\\MineCordUpdater.dll';
+            console.warn(message);
+            throw new Error(message);
         }
 
         this.dllPath = dllPath;
