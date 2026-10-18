@@ -35,10 +35,10 @@ jobs:
           cmake-version: '3.28'
 
       - name: Setup MSVC environment
-        uses: ashutoshvarma/setup-msvc@v1
+        uses: ilammy/msvc-dev-cmd@v1
         with:
-          vs-version: '17.0'
-          architecture: x64
+          arch: x64
+          vs-version: '17'
 
       - name: Cache CMake build
         uses: actions/cache@v4
