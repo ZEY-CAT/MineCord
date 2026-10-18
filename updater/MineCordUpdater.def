@@ -1,0 +1,10 @@
+LIBRARY "MineCordUpdater"
+
+EXPORTS
+    CheckForUpdates
+    DownloadUpdate
+    InstallUpdate
+    FreeUpdateInfo
+    GetUpdaterLastError
+    GetUpdaterVersion
+    VerifyMinisignSignature

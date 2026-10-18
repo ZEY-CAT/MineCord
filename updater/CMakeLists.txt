@@ -59,9 +59,9 @@ target_link_libraries(MineCordUpdater PRIVATE
     shlwapi.lib
 )
 
-# Export all symbols on Windows
+# Export all symbols on Windows using .def file for undecorated names
 if(WIN32)
-    target_link_options(MineCordUpdater PRIVATE /EXPORT:CheckForUpdates /EXPORT:DownloadUpdate /EXPORT:InstallUpdate /EXPORT:GetUpdaterLastError /EXPORT:GetUpdaterVersion /EXPORT:FreeUpdateInfo /EXPORT:VerifyMinisignSignature)
+    target_link_options(MineCordUpdater PRIVATE "/DEF:${CMAKE_CURRENT_SOURCE_DIR}/MineCordUpdater.def")
 endif()
 
 # Install targets
