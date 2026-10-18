@@ -37,8 +37,8 @@ jobs:
       - name: Setup MSVC environment
         uses: ilammy/msvc-dev-cmd@v1
         with:
-          architecture: x64
-          vs-version: '17.0'
+          arch: x64
+          vsversion: '17.0'
 
       - name: Cache CMake build
         uses: actions/cache@v4
