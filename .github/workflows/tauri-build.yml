@@ -17,35 +17,10 @@ permissions:
   contents: write
 
 jobs:
-  # Download shared DLL artifact from MineCordUpdater DLL Build workflow
-  download-updater-dll:
-    name: Download MineCordUpdater.dll (Shared)
-    runs-on: windows-latest
-    timeout-minutes: 10
-    steps:
-      - name: Download MineCordUpdater.dll
-        uses: actions/download-artifact@v4
-        with:
-          name: mincord-updater-dll
-          path: updater/build/Release
-          repository: ZEY-CAT/MineCord
-          workflow: updater-dll-build.yml
-
-      - name: Verify DLL
-        run: |
-          $dllPath = "updater/build/Release/MineCordUpdater.dll"
-          if (-not (Test-Path $dllPath)) {
-            Write-Error "ERROR: MineCordUpdater.dll not found at $dllPath"
-            exit 1
-          }
-          $dllInfo = Get-Item $dllPath
-          Write-Host "DLL downloaded successfully: $($dllInfo.FullName) ($($dllInfo.Length / 1KB) KB)"
-
   windows-tauri:
     name: Windows (Tauri)
     runs-on: windows-latest
     timeout-minutes: 30
-    needs: download-updater-dll
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -61,12 +36,6 @@ jobs:
         with:
           node-version: '24'
           cache: 'npm'
-
-      - name: Download MineCordUpdater.dll (shared artifact)
-        uses: actions/download-artifact@v4
-        with:
-          name: mincord-updater-dll
-          path: updater/build/Release
 
       - name: Cache Cargo
         uses: actions/cache@v4
@@ -383,12 +352,6 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Regenerate Gradle wrapper
-        run: |
-          cd src-tauri/gen/android
-          chmod +x gradlew
-          ./gradlew wrapper --gradle-version 8.5 --distribution-type bin
-
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -429,150 +392,3 @@ jobs:
           name: mincord-android
           path: src-tauri/gen/android/app/build/outputs/apk/release/*.apk
           retention-days: 7
-
-  release:
-    name: Create Release
-    needs: [windows-tauri, macos, linux, android, download-updater-dll]
-    if: github.event.inputs.create_release == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: List artifacts
-        run: |
-          find artifacts -type f \( -name "*.exe" -o -name "*.dmg" -o -name "*.zip" -o -name "*.tar.gz" -o -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" -o -name "*.dll" -o -name "*.apk" \) | sort
-
-      - name: Verify release artifacts exist
-        run: |
-          set -e
-          echo "Verifying required release artifacts..."
-
-          # Check Windows Tauri installer
-          WIN_EXE=$(find artifacts/mincord-windows-tauri -name "*.exe" -type f 2>/dev/null | head -1)
-          if [ -z "$WIN_EXE" ]; then
-            echo "ERROR: Windows Tauri installer not found!"
-            exit 1
-          fi
-          echo "Windows Tauri installer: $WIN_EXE"
-
-          # Check Windows Electron installer (from updater-dll-build workflow)
-          WIN_ELECTRON_EXE=$(find artifacts/mincord-windows-electron -name "*.exe" -type f 2>/dev/null | head -1)
-          if [ -z "$WIN_ELECTRON_EXE" ]; then
-            echo "ERROR: Windows Electron installer not found!"
-            exit 1
-          fi
-          echo "Windows Electron installer: $WIN_ELECTRON_EXE"
-
-          # Check MineCordUpdaterSetup.exe (shared installer from updater-dll-build)
-          UPDATER_INSTALLER=$(find artifacts/mincord-updater-installer -name "*.exe" -type f 2>/dev/null | head -1)
-          if [ -z "$UPDATER_INSTALLER" ]; then
-            echo "ERROR: MineCordUpdaterSetup.exe not found!"
-            exit 1
-          fi
-          echo "MineCordUpdaterSetup.exe: $UPDATER_INSTALLER"
-
-          # Check macOS DMG (both architectures)
-          MAC_DMG_INTEL=$(find artifacts/mincord-macos -name "*Intel*.dmg" -type f 2>/dev/null | head -1)
-          MAC_DMG_ARM=$(find artifacts/mincord-macos -name "*AppleSilicon*.dmg" -type f 2>/dev/null | head -1)
-          if [ -z "$MAC_DMG_INTEL" ] && [ -z "$MAC_DMG_ARM" ]; then
-            echo "ERROR: macOS DMG not found!"
-            exit 1
-          fi
-          if [ -n "$MAC_DMG_INTEL" ]; then echo "macOS Intel DMG: $MAC_DMG_INTEL"; fi
-          if [ -n "$MAC_DMG_ARM" ]; then echo "macOS Apple Silicon DMG: $MAC_DMG_ARM"; fi
-
-          # Check Linux AppImage
-          LINUX_APPIMAGE=$(find artifacts/mincord-linux -name "*.AppImage" -type f 2>/dev/null | head -1)
-          if [ -z "$LINUX_APPIMAGE" ]; then
-            echo "ERROR: Linux AppImage not found!"
-            exit 1
-          fi
-          echo "Linux AppImage: $LINUX_APPIMAGE"
-
-          # Check Android APK
-          ANDROID_APK=$(find artifacts/mincord-android -name "*.apk" -type f 2>/dev/null | head -1)
-          if [ -z "$ANDROID_APK" ]; then
-            echo "ERROR: Android APK not found!"
-            exit 1
-          fi
-          echo "Android APK: $ANDROID_APK"
-
-          # Check optional: macOS app bundles
-          MAC_ZIP=$(find artifacts/mincord-macos -name "*.zip" -type f 2>/dev/null | head -1)
-          MAC_TAR=$(find artifacts/mincord-macos -name "*.tar.gz" -type f 2>/dev/null | head -1)
-          if [ -n "$MAC_ZIP" ]; then echo "macOS App zip: $MAC_ZIP"; fi
-          if [ -n "$MAC_TAR" ]; then echo "macOS App tar.gz: $MAC_TAR"; fi
-
-          # Check optional: Linux DEB/RPM
-          LINUX_DEB=$(find artifacts/mincord-linux -name "*.deb" -type f 2>/dev/null | head -1)
-          LINUX_RPM=$(find artifacts/mincord-linux -name "*.rpm" -type f 2>/dev/null | head -1)
-          if [ -n "$LINUX_DEB" ]; then echo "Linux DEB: $LINUX_DEB"; fi
-          if [ -n "$LINUX_RPM" ]; then echo "Linux RPM: $LINUX_RPM"; fi
-
-          echo "All required artifacts verified!"
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ github.event.inputs.version }}
-          name: MINECORD v${{ github.event.inputs.version }}
-          draft: false
-          prerelease: false
-          files: |
-            artifacts/mincord-windows-tauri/*.exe
-            artifacts/mincord-windows-electron/*.exe
-            artifacts/mincord-updater-installer/*.exe
-            artifacts/mincord-macos/*Intel*.dmg
-            artifacts/mincord-macos/*AppleSilicon*.dmg
-            artifacts/mincord-macos/*Intel*.zip
-            artifacts/mincord-macos/*Intel*.tar.gz
-            artifacts/mincord-macos/*AppleSilicon*.zip
-            artifacts/mincord-macos/*AppleSilicon*.tar.gz
-            artifacts/mincord-linux/*.AppImage
-            artifacts/mincord-linux/*.deb
-            artifacts/mincord-linux/*.rpm
-            artifacts/mincord-android/*.apk
-          body: |
-            ## MINECORD v${{ github.event.inputs.version }}
-
-            ### Windows
-            - **Tauri (NSIS)**: `MINECORD_${{ github.event.inputs.version }}_x64-setup.exe` — Lightweight WebView2-based installer (~3 MB)
-            - **Electron (NSIS)**: `MINECORD Setup ${{ github.event.inputs.version }}.exe` — Full Electron bundle (~120 MB)
-            - **MineCord Updater (Shared)**: `MineCordUpdaterSetup.exe` — Installs shared MineCordUpdater.dll to `%ProgramFiles%\MineCord\` (required for both Electron and Tauri Lite on Windows)
-
-            ### macOS
-            - **DMG (Intel)**: `MINECORD-macOS-Intel.dmg`
-            - **DMG (Apple Silicon)**: `MINECORD-macOS-AppleSilicon.dmg`
-            - **App Bundle (Intel)**: `MineCord-Intel.app.zip` and `MineCord-Intel.app.tar.gz` (unsigned if no Apple credentials)
-            - **App Bundle (Apple Silicon)**: `MineCord-AppleSilicon.app.zip` and `MineCord-AppleSilicon.app.tar.gz` (unsigned if no Apple credentials)
-
-            ### Linux
-            - **AppImage**: `MINECORD_${{ github.event.inputs.version }}_amd64.AppImage`
-            - **DEB**: `MINECORD_${{ github.event.inputs.version }}_amd64.deb`
-            - **RPM**: `MINECORD_${{ github.event.inputs.version }}_amd64.rpm`
-
-            ### Android
-            - **APK**: `MINECORD_${{ github.event.inputs.version }}_universal.apk`
-
-            ### Notes
-            - Windows editions use shared MineCordUpdater.dll installed via MineCordUpdaterSetup.exe
-            - Tauri builds use the MINECORD updater with minisign signature verification
-            - All Tauri artifacts are signed with minisign (public key embedded in app)
-            - macOS artifacts are signed/notarized only if Apple Developer credentials are provided
-            - Windows Electron and Tauri Lite use the same native updater DLL
-
-            ### Installation
-            - **Windows**: 
-              1. Run `MineCordUpdaterSetup.exe` first (installs shared updater DLL)
-              2. Then run either Electron or Tauri installer
-            - **macOS**: Open the `.dmg` and drag `MINECORD.app` to Applications, or unzip `.zip` and copy
-            - **Linux**: Run the `.AppImage` (make executable first), or install `.deb`/`.rpm` via package manager
-            - **Android**: Install the `.apk` (enable "Install unknown apps" if needed)
-
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
