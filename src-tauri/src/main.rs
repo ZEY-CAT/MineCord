@@ -8,14 +8,18 @@ use libloading::{Library, Symbol};
 use tauri_plugin_updater::{Update, UpdaterExt};
 
 #[cfg(target_os = "windows")]
-use std::os::windows::ffi::OsStrExt;
+use std::os::windows::ffi::{OsStrExt, OsStringExt};
 
 #[cfg(target_os = "windows")]
 use std::ffi::c_void;
 
+#[cfg(not(target_os = "windows"))]
 struct PendingUpdate(std::sync::Mutex<Option<Update>>);
 
-#[derive(Serialize)]
+#[cfg(target_os = "windows")]
+struct PendingUpdate(std::sync::Mutex<Option<UpdateInfo>>);
+
+#[derive(Serialize, Clone)]
 struct UpdateInfo {
     version: String,
     notes: Option<String>,
@@ -101,7 +105,8 @@ async fn check_update(
             unsafe { free_update_info(out_info) };
         }
         
-        *pending.0.lock().map_err(|_| "The updater state is unavailable.")? = Some(Update { version: info.version.clone(), body: info.notes.clone() });
+        // Store the UpdateInfo in PendingUpdate for Windows
+        *pending.0.lock().map_err(|_| "The updater state is unavailable.")? = Some(info.clone());
         Ok(Some(info))
     }
     
@@ -142,7 +147,7 @@ async fn install_update(
         let get_last_error: Symbol<GetUpdaterLastErrorFn> = unsafe { lib.get(b"GetUpdaterLastError") }.map_err(|e| format!("GetUpdaterLastError not found: {e}"))?;
         
         // Get update info from pending
-        let update = pending.0.lock().map_err(|_| "The updater state is unavailable.")?
+        let update_info = pending.0.lock().map_err(|_| "The updater state is unavailable.")?
             .take().ok_or("There is no verified update ready to install.")?;
         
         // For Windows native updater, we need to download the installer first
