@@ -19,48 +19,55 @@ if (-not (Test-Path "dist")) {
     New-Item -ItemType Directory -Path "dist" -Force | Out-Null
 }
 
-# Find the NSIS installer for the correct version
-$nsisInstaller = Get-ChildItem -Recurse -Path src-tauri/target -Filter "*.exe" -ErrorAction SilentlyContinue | Where-Object { $_.FullName -like "*bundle*nsis*" -and $_.FullName -like "*v${Version}*" } | Select-Object -First 1
-
-if (-not $nsisInstaller) {
-    # Fallback: try without version filter (in case version format differs)
-    $nsisInstaller = Get-ChildItem -Recurse -Path src-tauri/target -Filter "*.exe" -ErrorAction SilentlyContinue | Where-Object { $_.FullName -like "*bundle*nsis*" } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-}
-
-if (-not $nsisInstaller) {
-    Write-Error "Tauri NSIS installer not found"
+# Find the built executable
+$exePath = "src-tauri/target/release/minecord-desktop.exe"
+if (-not (Test-Path $exePath)) {
+    Write-Error "Tauri executable not found at $exePath"
     exit 1
 }
 
-Write-Host "Found Tauri installer: $($nsisInstaller.FullName)" -ForegroundColor Green
+Write-Host "Found Tauri executable: $exePath" -ForegroundColor Green
 
-# Use NSIS silent install to extract app files
+# Create temp directory for packaging
 $tempDir = Join-Path $env:TEMP "MineCordTauriLite_${Version}"
 if (Test-Path $tempDir) { Remove-Item $tempDir -Recurse -Force }
 New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
 
-Write-Host "Installing Tauri app silently to extract files..." -ForegroundColor Yellow
-& $nsisInstaller.FullName /S /D=$tempDir
+# Copy the executable
+$appDir = Join-Path $tempDir "MineCord"
+New-Item -ItemType Directory -Path $appDir -Force | Out-Null
+Copy-Item $exePath -Destination (Join-Path $appDir "MINECORD.exe") -Force
 
-# Find the app directory in extracted files
-$appDir = Get-ChildItem -Recurse -Path $tempDir -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "*MineCord*" -or $_.Name -eq "app" -or $_.Name -eq "MINECORD" } | Select-Object -First 1
+# Copy any additional files from the release directory (DLLs, etc.)
+$releaseDir = "src-tauri/target/release"
+$filesToCopy = Get-ChildItem -Path $releaseDir -File -ErrorAction SilentlyContinue | Where-Object { 
+    $_.Extension -in @(".dll", ".dat", ".bin", ".pak", ".json") -and 
+    $_.Name -notlike "*.pdb" -and
+    $_.Name -ne "minecord-desktop.exe"
+}
+foreach ($file in $filesToCopy) {
+    Copy-Item $file.FullName -Destination (Join-Path $appDir $file.Name) -Force
+    Write-Host "Copied: $($file.Name)" -ForegroundColor Gray
+}
 
-if (-not $appDir) {
-    $exeFile = Get-ChildItem -Recurse -Path $tempDir -Filter "MINECORD.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($exeFile) {
-        $appDir = $exeFile.Directory
+# Check if there's a bundle/msi or bundle/nsis directory with additional resources
+$bundleDir = "src-tauri/target/release/bundle"
+if (Test-Path $bundleDir) {
+    # Look for any additional resources in the bundle directories
+    $bundleResources = Get-ChildItem -Path $bundleDir -Recurse -File -ErrorAction SilentlyContinue | Where-Object {
+        $_.Extension -in @(".dll", ".dat", ".bin", ".pak", ".json", ".ini") -and $_.Name -notlike "*.pdb"
+    }
+    foreach ($file in $bundleResources) {
+        $destPath = Join-Path $appDir $file.Name
+        if (-not (Test-Path $destPath)) {
+            Copy-Item $file.FullName -Destination $destPath -Force
+            Write-Host "Copied from bundle: $($file.Name)" -ForegroundColor Gray
+        }
     }
 }
 
-if (-not $appDir) {
-    Write-Error "Could not find Tauri app directory in extracted installer"
-    exit 1
-}
-
-Write-Host "Found app directory: $($appDir.FullName)" -ForegroundColor Green
-
 # Verify no DLL
-$dllPath = Join-Path $appDir.FullName "MineCordUpdater.dll"
+$dllPath = Join-Path $appDir "MineCordUpdater.dll"
 if (Test-Path $dllPath) {
     Write-Error "ERROR: MineCordUpdater.dll found in Tauri output - should not be bundled!"
     exit 1
@@ -139,13 +146,13 @@ $readmeLines = @(
 )
 
 $readme = $readmeLines -join "`r`n"
-$readmePath = Join-Path $appDir.FullName "README.txt"
+$readmePath = Join-Path $appDir "README.txt"
 Set-Content -Path $readmePath -Value $readme -Encoding UTF8
 Write-Host "Created README.txt" -ForegroundColor Green
 
 # Create ZIP
 Write-Host "Creating ZIP: ${zipName}" -ForegroundColor Yellow
-Compress-Archive -Path (Join-Path $appDir.FullName "*") -DestinationPath "dist/${zipName}" -Force
+Compress-Archive -Path (Join-Path $appDir "*") -DestinationPath "dist/${zipName}" -Force
 
 # Cleanup
 Remove-Item $tempDir -Recurse -Force -ErrorAction SilentlyContinue
