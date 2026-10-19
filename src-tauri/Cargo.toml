@@ -15,11 +15,14 @@ tauri-build = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri = { version = "2", features = [] }
-tauri-plugin-updater = { version = "2", default-features = false, features = [] }
 
 # Windows native updater bridge
 [target.'cfg(target_os = "windows")'.dependencies]
 libloading = "0.8"
+
+# Non-Windows platforms use tauri-plugin-updater
+[target.'cfg(not(target_os = "windows"))'.dependencies]
+tauri-plugin-updater = { version = "2", default-features = false, features = [] }
 
 # Mobile support (Android) - conditional compilation
 [target.'cfg(target_os = "android")'.dependencies]
@@ -28,8 +31,3 @@ jni = { version = "0.22", features = ["invocation"] }
 log = "0.4"
 android-activity = "0.5"
 ndk-context = "0.1"
-
-# Patch crates.io to force reqwest 0.12 for tauri-plugin-updater compatibility
-# (tauri-plugin-updater 2.13 uses deprecated reqwest methods removed in 0.13+)
-[patch.crates-io]
-reqwest = { version = "=0.12.28" }
