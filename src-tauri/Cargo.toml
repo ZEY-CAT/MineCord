@@ -17,6 +17,10 @@ serde_json = "1"
 tauri = { version = "2", features = [] }
 tauri-plugin-updater = { version = "2", default-features = false, features = [] }
 
+# Pin reqwest to 0.12 for compatibility with tauri-plugin-updater 2.x
+# (tauri-plugin-updater 2.13 uses deprecated reqwest methods removed in 0.13+)
+reqwest = { version = "0.12", features = ["json", "rustls-tls", "trust-dns"], optional = true }
+
 # Windows native updater bridge
 [target.'cfg(target_os = "windows")'.dependencies]
 libloading = "0.8"
