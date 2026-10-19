@@ -34,23 +34,13 @@ if (-not $nsisInstaller) {
 
 Write-Host "Found Tauri installer: $($nsisInstaller.FullName)" -ForegroundColor Green
 
-# Use 7zip to extract NSIS installer
-$sevenZip = "C:\Program Files\7-Zip\7z.exe"
-if (-not (Test-Path $sevenZip)) {
-    $sevenZip = "C:\Program Files (x86)\7-Zip\7z.exe"
-}
-
-if (-not (Test-Path $sevenZip)) {
-    Write-Error "7-Zip not found. Cannot extract NSIS installer."
-    exit 1
-}
-
+# Use NSIS silent install to extract app files
 $tempDir = Join-Path $env:TEMP "MineCordTauriLite_${Version}"
 if (Test-Path $tempDir) { Remove-Item $tempDir -Recurse -Force }
 New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
 
-Write-Host "Extracting Tauri installer to create ZIP..." -ForegroundColor Yellow
-& $sevenZip x $nsisInstaller.FullName -o$tempDir -y | Out-Null
+Write-Host "Installing Tauri app silently to extract files..." -ForegroundColor Yellow
+& $nsisInstaller.FullName /S /D=$tempDir
 
 # Find the app directory in extracted files
 $appDir = Get-ChildItem -Recurse -Path $tempDir -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -like "*MineCord*" -or $_.Name -eq "app" -or $_.Name -eq "MINECORD" } | Select-Object -First 1
