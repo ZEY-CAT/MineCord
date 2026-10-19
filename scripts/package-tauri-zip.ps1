@@ -19,8 +19,13 @@ if (-not (Test-Path "dist")) {
     New-Item -ItemType Directory -Path "dist" -Force | Out-Null
 }
 
-# Find the NSIS installer
-$nsisInstaller = Get-ChildItem -Recurse -Path src-tauri/target -Filter "*.exe" -ErrorAction SilentlyContinue | Where-Object { $_.FullName -like "*bundle*nsis*" } | Select-Object -First 1
+# Find the NSIS installer for the correct version
+$nsisInstaller = Get-ChildItem -Recurse -Path src-tauri/target -Filter "*.exe" -ErrorAction SilentlyContinue | Where-Object { $_.FullName -like "*bundle*nsis*" -and $_.FullName -like "*v${Version}*" } | Select-Object -First 1
+
+if (-not $nsisInstaller) {
+    # Fallback: try without version filter (in case version format differs)
+    $nsisInstaller = Get-ChildItem -Recurse -Path src-tauri/target -Filter "*.exe" -ErrorAction SilentlyContinue | Where-Object { $_.FullName -like "*bundle*nsis*" } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+}
 
 if (-not $nsisInstaller) {
     Write-Error "Tauri NSIS installer not found"
