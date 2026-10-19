@@ -32,4 +32,4 @@ ndk-context = "0.1"
 # Patch crates.io to force reqwest 0.12 for tauri-plugin-updater compatibility
 # (tauri-plugin-updater 2.13 uses deprecated reqwest methods removed in 0.13+)
 [patch.crates-io]
-reqwest = { version = "0.12", features = ["json", "rustls-tls", "trust-dns"] }
+reqwest = { version = "=0.12.28" }
