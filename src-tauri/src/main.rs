@@ -84,7 +84,7 @@ async fn check_update(
         if result != 0 {
             let error_ptr = unsafe { get_last_error() };
             let error_msg = if !error_ptr.is_null() {
-                let error_wide = unsafe { std::ffi::OsString::from_wide(null_terminated_wide(error_ptr)).to_string_lossy().into_owned() };
+                let error_wide = unsafe { std::ffi::OsString::from_wide(&null_terminated_wide(error_ptr)).to_string_lossy().into_owned() };
                 error_wide
             } else {
                 "Unknown error".to_string()
