@@ -300,7 +300,7 @@ jobs:
           Write-Host "OK: MineCordUpdater.dll NOT bundled (uses shared installed DLL)"
         shell: pwsh
 
-  - name: Package Electron Full Edition ZIP
+      - name: Package Electron Full Edition ZIP
         run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\package-electron-zip.ps1 -Version "${{ github.event.inputs.version || '1.0.2' }}"
 
       - name: Verify Electron ZIP (no DLL)
