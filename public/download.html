@@ -84,6 +84,9 @@
   .card h2 { font-size: 18px; margin: 0; }
   .card p { color: var(--muted); font-size: 14px; margin: 0; }
   .card .meta { color: #7f8a99; font-size: 12px; }
+  .card .alt { color: var(--muted); font-size: 12px; margin: 0; }
+  .card .alt a { color: var(--accent); text-decoration: none; }
+  .card .alt a:hover { text-decoration: underline; }
   .btn {
     display: inline-flex; align-items: center; justify-content: center; gap: 8px;
     text-decoration: none; font-weight: 700; font-size: 14px;
@@ -220,8 +223,8 @@
     return value.toFixed(value >= 10 || i === 0 ? 0 : 1) + ' ' + units[i];
   }
 
-  function card(asset) {
-    var info = classify(asset.name);
+  function card(asset, info) {
+    info = info || classify(asset.name);
     var article = document.createElement('article');
     article.className = 'card';
     var size = formatSize(asset.size);
@@ -242,12 +245,87 @@
     return article;
   }
 
+  function priority(name) {
+    var n = name.toLowerCase();
+    if (/\.apk$/.test(n) || /\.dmg$/.test(n)) return 50;
+    if (/\.exe$/.test(n) || /\.appimage$/.test(n)) return 45;
+    if (/\.msi$/.test(n)) return 40;
+    if (/\.deb$/.test(n)) return 30;
+    if (/\.rpm$/.test(n)) return 25;
+    if (/\.zip$/.test(n)) return 20;
+    if (/\.tar\.gz$/.test(n)) return 10;
+    return 0;
+  }
+
+  function groupRank(key) {
+    if (key === 'android') return 1;
+    if (key === 'windows') return 2;
+    if (/Apple Silicon/.test(key)) return 3;
+    if (/Intel/.test(key)) return 4;
+    if (key === 'linux') return 5;
+    return 6;
+  }
+
+  function label(name, groupKey) {
+    var n = name.toLowerCase();
+    if (/\.tar\.gz$/.test(n)) return 'tar.gz';
+    if (/\.app\.zip$/.test(n)) return 'app ZIP';
+    if (groupKey === 'windows' && /\.zip$/.test(n)) return 'Portable ZIP';
+    if (/\.zip$/.test(n)) return 'ZIP';
+    if (/\.appimage$/.test(n)) return 'AppImage';
+    if (/\.deb$/.test(n)) return 'DEB';
+    if (/\.rpm$/.test(n)) return 'RPM';
+    if (/\.dmg$/.test(n)) return 'DMG';
+    if (/\.exe$/.test(n)) return 'EXE';
+    return 'download';
+  }
+
   fetch('/api/downloads', { headers: { Accept: 'application/json' } })
     .then(function (response) { if (!response.ok) throw new Error('HTTP ' + response.status); return response.json(); })
     .then(function (data) {
       if (loading) loading.remove();
       var assets = Array.isArray(data.assets) ? data.assets : [];
-      assets.forEach(function (asset) { grid.appendChild(card(asset)); });
+      var groups = {}, keys = [];
+      assets.forEach(function (asset) {
+        var info = classify(asset.name);
+        if (info.key === 'other' && /web.*\.zip$/.test(asset.name.toLowerCase())) {
+          info = { key: 'web', title: 'Web \u2014 Portable', note: 'Static web build' };
+        }
+        var key = info.key === 'mac' ? info.title : info.key;
+        var rank = priority(asset.name);
+        if (!groups[key]) {
+          groups[key] = { best: asset, rank: rank, others: [], info: info };
+          keys.push(key);
+        } else if (rank > groups[key].rank) {
+          groups[key].others.push(groups[key].best);
+          groups[key].best = asset;
+          groups[key].rank = rank;
+          groups[key].info = info;
+        } else {
+          groups[key].others.push(asset);
+        }
+      });
+      keys.sort(function (a, b) { return groupRank(a) - groupRank(b); });
+      keys.forEach(function (key) {
+        var group = groups[key];
+        group.others.sort(function (a, b) { return priority(b.name) - priority(a.name); });
+        var article = card(group.best, group.info);
+        if (group.others.length) {
+          var alt = document.createElement('p');
+          alt.className = 'alt';
+          alt.appendChild(document.createTextNode('Also: '));
+          group.others.forEach(function (asset, index) {
+            if (index) alt.appendChild(document.createTextNode(' \u00b7 '));
+            var link = document.createElement('a');
+            link.href = asset.url;
+            link.rel = 'noopener';
+            link.textContent = label(asset.name, key);
+            alt.appendChild(link);
+          });
+          article.insertBefore(alt, article.querySelector('a'));
+        }
+        grid.appendChild(article);
+      });
       if (!assets.length) emptyNotice.hidden = false;
       if (data.release && data.release.tag) {
         releaseLine.hidden = false;
