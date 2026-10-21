@@ -308,6 +308,14 @@
       keys.sort(function (a, b) { return groupRank(a) - groupRank(b); });
       keys.forEach(function (key) {
         var group = groups[key];
+        var seen = {};
+        seen[group.best.name.toLowerCase()] = true;
+        group.others = group.others.filter(function (asset) {
+          var name = asset.name.toLowerCase();
+          if (seen[name]) return false;
+          seen[name] = true;
+          return true;
+        });
         group.others.sort(function (a, b) { return priority(b.name) - priority(a.name); });
         var article = card(group.best, group.info);
         if (group.others.length) {

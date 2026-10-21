@@ -113,10 +113,7 @@ async function fallbackDownloads(){
     `MineCord-Tauri-Lite-v${version}-Windows-x64.zip`,
     `MINECORD_${version}_amd64.AppImage`,
     `MINECORD_${version}_amd64.deb`,
-    `MINECORD-${version}-1.x86_64.rpm`,
-    `minecord_${version}_amd64.AppImage`,
-    `minecord_${version}_amd64.deb`,
-    `minecord-${version}-1.x86_64.rpm`
+    `MINECORD-${version}-1.x86_64.rpm`
   ];
   const assets=[];
   await Promise.all(names.map(async name=>{
