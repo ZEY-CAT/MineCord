@@ -119,6 +119,7 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 60
     strategy:
+      fail-fast: false
       matrix:
         target: [x86_64-apple-darwin, aarch64-apple-darwin]
     env:
@@ -235,8 +236,7 @@ jobs:
         if: ${{ always() }}
         run: |
           set -e
-          shopt -s globstar nullglob
-          for app in src-tauri/target/**/release/bundle/macos/*.app; do
+          for app in src-tauri/target/${{ matrix.target }}/release/bundle/macos/*.app; do
             if [ -d "$app" ]; then
               echo "Packaging $app..."
               dir=$(dirname "$app")
@@ -249,25 +249,20 @@ jobs:
         if: ${{ always() }}
         run: |
           set -e
-          shopt -s globstar nullglob
-          for f in src-tauri/target/**/release/bundle/dmg/*.dmg; do
+          if [[ "${{ matrix.target }}" == aarch64* ]]; then
+            target="MineCord-AppleSilicon"
+          else
+            target="MineCord-Intel"
+          fi
+          for f in src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg; do
             if [ -f "$f" ]; then
-              if [[ "$f" == *"aarch64"* ]] || [[ "$f" == *"arm64"* ]]; then
-                mv "$f" "$(dirname "$f")/MineCord-macOS-AppleSilicon.dmg"
-              else
-                mv "$f" "$(dirname "$f")/MineCord-macOS-Intel.dmg"
-              fi
+              mv "$f" "$(dirname "$f")/$target.dmg"
             fi
           done
-          for app in src-tauri/target/**/release/bundle/macos/*.app; do
+          for app in src-tauri/target/${{ matrix.target }}/release/bundle/macos/*.app; do
             if [ -d "$app" ]; then
               dir=$(dirname "$app")
               base=$(basename "$app")
-              if [[ "$app" == *"aarch64"* ]] || [[ "$app" == *"arm64"* ]]; then
-                target="MineCord-AppleSilicon"
-              else
-                target="MineCord-Intel"
-              fi
               mv "$app" "$dir/$target.app"
               [ -f "$dir/${base}.zip" ] && mv "$dir/${base}.zip" "$dir/$target.app.zip"
               [ -f "$dir/${base}.tar.gz" ] && mv "$dir/${base}.tar.gz" "$dir/$target.app.tar.gz"
