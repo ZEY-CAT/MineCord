@@ -207,20 +207,23 @@ label{display:block;margin:12px 0 4px;font-size:13px;font-weight:500;color:var(-
 .featuredHeader{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
 .featuredHeader h3{font-family:var(--font-minecraft);font-size:20px;margin:0}
 .featuredGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
-.featuredCard{background:var(--panel);border:1px solid var(--panel-border);border-radius:12px;overflow:hidden;transition:transform 0.15s ease}
+.featuredCard{background:var(--panel);border:1px solid var(--panel-border);border-radius:12px;overflow:hidden;transition:transform 0.15s ease;display:flex;flex-direction:column}
 .featuredCard:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(0,0,0,0.4)}
 .featuredCard .featuredImage{height:140px;background:linear-gradient(135deg,#1e3a5f 0%,#0d1b2a 100%);display:grid;place-items:center;position:relative;overflow:hidden}
 .featuredCard .featuredImage::before{content:'';position:absolute;inset:0;background:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="none" stroke="%235865f2" stroke-width="1" opacity="0.1"/></svg>') center/cover}
 .featuredCard .featuredImage svg{width:64px;height:64px;color:var(--blue);filter:drop-shadow(0 4px 12px #0008)}
-.featuredCard .featuredBody{padding:16px}
+.featuredCard .featuredBody{padding:16px;display:flex;flex-direction:column;flex:1}
 .featuredCard .featuredTitle{font-weight:600;font-size:15px;margin:0 0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .featuredCard .featuredMeta{font-size:12px;color:var(--muted);margin-bottom:12px;display:flex;gap:12px;flex-wrap:wrap}
 .featuredCard .featuredMeta span{display:flex;align-items:center;gap:4px}
 .featuredCard .featuredTags{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
 .featuredTag{font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;background:rgba(88,101,242,0.2);color:var(--blue);text-transform:uppercase;letter-spacing:0.5px}
+.featuredAction{margin-top:auto;padding-top:14px;display:inline-flex;align-items:center;gap:6px;align-self:flex-start;color:var(--blue);font-size:13px;font-weight:700;text-decoration:none;border-radius:6px}
+.featuredAction:hover{text-decoration:underline}
+.featuredAction:focus-visible{outline:2px solid var(--blue);outline-offset:3px}
 
 /* ===== NEW: Seasonal Events ===== */
-.seasonalBanner{position:relative;background:linear-gradient(90deg,rgba(88,101,242,0.15),rgba(35,165,89,0.15));border:1px solid rgba(88,101,242,0.3);border-radius:12px;padding:20px 24px;margin-bottom:24px;overflow:hidden}
+.seasonalBanner{position:relative;background:linear-gradient(90deg,rgba(88,101,242,0.15),rgba(35,165,89,0.15));border:1px solid rgba(88,101,242,0.3);border-radius:12px;padding:20px 24px;margin-bottom:24px;overflow:hidden;flex:0 0 auto}
 .seasonalBanner::before{content:'';position:absolute;inset:0;background:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100"><circle cx="20" cy="20" r="15" fill="%235865f2" opacity="0.1"/><circle cx="180" cy="80" r="12" fill="%2323a559" opacity="0.1"/><circle cx="100" cy="50" r="8" fill="%23faa61a" opacity="0.1"/></svg>') center/cover;pointer-events:none}
 .seasonalContent{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
 .seasonalInfo h4{font-family:var(--font-minecraft);font-size:18px;margin:0 0 6px;color:var(--blue)}
@@ -232,10 +235,18 @@ label{display:block;margin:12px 0 4px;font-size:13px;font-weight:500;color:var(-
 .seasonalEvent:hover{border-color:var(--blue)}
 .seasonalEvent .eventIcon{width:48px;height:48px;border-radius:10px;display:grid;place-items:center;flex:none;background:rgba(88,101,242,0.15);color:var(--blue)}
 .seasonalEvent .eventDetails{flex:1;min-width:0}
-.seasonalEvent .eventTitle{font-weight:600;font-size:14px;margin:0 0 4px}
+.seasonalEvent .eventTitleRow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.seasonalEvent .eventTitle{font-weight:600;font-size:14px;margin:0}
 .seasonalEvent .eventDesc{font-size:12px;color:var(--muted);margin:0 0 8px}
 .seasonalEvent .eventMeta{display:flex;gap:12px;font-size:11px;color:var(--muted);flex-wrap:wrap}
 .seasonalEvent .eventMeta span{display:flex;align-items:center;gap:4px}
+.eventStatus{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;padding:2px 7px;border-radius:999px;border:1px solid var(--panel-border);color:var(--muted);background:rgba(255,255,255,0.05)}
+.eventStatus.upcoming{color:var(--green);border-color:rgba(35,165,89,0.45);background:rgba(35,165,89,0.12)}
+.eventLink{display:inline-flex;align-items:center;gap:5px;margin-top:10px;color:var(--blue);font-size:12px;font-weight:700;text-decoration:none;border-radius:6px}
+.eventLink:hover{text-decoration:underline}
+.eventLink:focus-visible{outline:2px solid var(--blue);outline-offset:3px}
+.eventNote{margin-top:4px;padding:12px 16px;border:1px dashed var(--panel-border);border-radius:10px;color:var(--muted);font-size:12px;line-height:1.6}
+.eventNote a{color:var(--blue);font-weight:600}
 
 /* ===== NEW: Mobile Drawer Toggle Buttons ===== */
 .drawerToggle{display:none;background:none;border:none;color:var(--muted);padding:8px;cursor:pointer;border-radius:6px;transition:all 0.15s ease}
@@ -301,6 +312,8 @@ label{display:block;margin:12px 0 4px;font-size:13px;font-weight:500;color:var(-
 <symbol id="icon-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0z"/></symbol>
 <symbol id="icon-microsoft" viewBox="0 0 24 24"><path d="M2 2h9v9H2zM13 2h9v9h-9zM2 13h9v9H2zM13 13h9v9h-9z" stroke="none"/></symbol>
 <symbol id="icon-minecraft" viewBox="0 0 24 24"><path d="M3 6 12 2l9 4v12l-9 4-9-4z"/><path d="m3 6 9 4 9-4M12 10v12" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="m6 7 2.5-1.2 2.5 1.1v2l-2.5-1L6 9z" stroke="none"/></symbol>
+<symbol id="icon-server-crown" viewBox="0 0 24 24"><path d="M5 12h14v9H5z"/><path d="m5 12-1-7 5 3 3-5 3 5 5-3-1 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 16h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+<symbol id="icon-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 3v4M16 3v4M3 10h18M8 14h2M14 14h2M8 18h2M14 18h2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
 <symbol id="icon-minecraft-bedrock" viewBox="0 0 24 24"><path d="M3 6 12 2l9 4v12l-9 4-9-4z"/><path d="M12 10v12" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="m6 7 2.5-1.2 2.5 1.1v2l-2.5-1L6 9z" stroke="none"/><text x="12" y="16" font-size="8" text-anchor="middle" fill="currentColor">BE</text></symbol>
 <symbol id="icon-eaglercraft" viewBox="0 0 24 24"><path d="M2 12 9 9l3-6 3 5 7 1-4 4 2 7-7-3-6 3 1-6z"/><path d="m8 13 4-3 4 2-3 1-2 3z" fill="#313338" stroke="none"/></symbol>
 <symbol id="icon-activity" viewBox="0 0 24 24"><path d="M2 12h4l3-8 5 16 3-8h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
@@ -369,13 +382,12 @@ label{display:block;margin:12px 0 4px;font-size:13px;font-weight:500;color:var(-
 
   <!-- ===== NEW: Seasonal Events ===== -->
   <div class="seasonalBanner" id="seasonalBanner" style="display:none;position:relative;background:linear-gradient(90deg,rgba(88,101,242,0.15),rgba(35,165,89,0.15));border:1px solid rgba(88,101,242,0.3);border-radius:12px;padding:20px 24px;margin-bottom:24px;overflow:hidden">
-    <div class="seasonalBanner::before" style="content:'';position:absolute;inset:0;background:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100"><circle cx="20" cy="20" r="15" fill="%235865f2" opacity="0.1"/><circle cx="180" cy="80" r="12" fill="%2323a559" opacity="0.1"/><circle cx="100" cy="50" r="8" fill="%23faa61a" opacity="0.1"/></svg>') center/cover;pointer-events:none"></div>
     <div class="seasonalContent" style="position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
       <div class="seasonalInfo">
-        <h4 class="seasonalTitle" style="font-family:var(--font-minecraft);font-size:18px;margin:0 0 6px;color:var(--blue)"></h4>
-        <p class="seasonalDesc" style="margin:0;font-size:13px;color:var(--muted);max-width:400px"></p>
+        <h4 class="seasonalTitle" id="seasonalTitle" style="font-family:var(--font-minecraft);font-size:18px;margin:0 0 6px;color:var(--blue)"></h4>
+        <p class="seasonalDesc" id="seasonalDesc" style="margin:0;font-size:13px;color:var(--muted);max-width:400px"></p>
       </div>
-      <button class="seasonalBtn" id="seasonalBtn" onclick="scrollToSeasonalEvents()" style="background:var(--blue);color:#fff;border:none;padding:10px 20px;border-radius:8px;font-weight:600;cursor:pointer;transition:background 0.15s ease;white-space:nowrap">View Events</button>
+      <a class="seasonalBtn" id="seasonalBtn" href="https://www.minecraft.net/en-us/live" target="_blank" rel="noopener noreferrer" style="background:var(--blue);color:#fff;border:none;padding:10px 20px;border-radius:8px;font-weight:600;cursor:pointer;transition:background 0.15s ease;white-space:nowrap;text-decoration:none">Minecraft LIVE</a>
     </div>
   </div>
   
@@ -1915,51 +1927,6 @@ function renderHomeServers() {
   list.innerHTML = servers.map(s => `<li onclick="showHome(false);selectServer('${s.id}')"><div class="serverAvatar">${esc(s.name[0].toUpperCase())}</div><div class="serverInfo"><div class="serverName">${esc(s.name)}</div><div class="serverMeta">${s.channels?.length||0} channels · ${s.members?.length||0} members</div></div></li>`).join('');
 }
 
-function renderFeaturedContent() {
-  const grid = $('featuredGrid');
-  if (!grid) return;
-  grid.innerHTML = featuredContent.map(item => `<article class="featuredCard"><div class="featuredImage"><svg class="uiIcon" style="width:64px;height:64px"><use href="#icon-${item.icon}"></use></svg></div><div class="featuredBody"><h4 class="featuredTitle">${esc(item.title)}</h4><p class="muted" style="font-size:13px;margin:0 0 8px;line-height:1.5">${esc(item.desc)}</p><div class="featuredMeta"><span><svg class="uiIcon" style="width:14px;height:14px"><use href="#icon-${item.type==='server'?'server-crown':item.type==='guide'?'calendar':item.type==='app'?'eaglercraft':'minecraft'}"></use></svg> ${esc(item.type.charAt(0).toUpperCase()+item.type.slice(1))}</span></div><div class="featuredTags">${item.tags.map(t=>`<span class="featuredTag">${esc(t)}</span>`).join('')}</div></div></article>`).join('');
-}
-
-function updateSeasonalBanner() {
-  const now = new Date();
-  const month = now.getMonth();
-  const activeEvent = seasonalEvents.find(e => {
-    const [start] = e.period.split(' - ');
-    return e.type === 'event' && (month === 11 || month === 0); // Dec/Jan
-  });
-  if (activeEvent) {
-    const banner = $('seasonalBanner');
-    if (banner) {
-      banner.style.display = 'block';
-      $('seasonalTitle').textContent = activeEvent.title;
-      $('seasonalDesc').textContent = activeEvent.desc;
-    }
-  }
-  renderSeasonalEvents();
-}
-
-function renderSeasonalEvents() {
-  const now = Date.now();
-  const active = seasonalEvents.filter(e => {
-    const [start, end] = e.period.split(' - ');
-    return true; // Show all for now
-  });
-  const upcoming = seasonalEvents.filter(e => !active.includes(e));
-  
-  const activeHtml = active.map(e => `<div class="seasonalEvent"><div class="eventIcon"><svg class="uiIcon" style="width:24px;height:24px"><use href="#icon-${e.icon}"></use></svg></div><div class="eventDetails"><h4 class="eventTitle">${esc(e.title)}</h4><p class="eventDesc">${esc(e.desc)}</p><div class="eventMeta"><span><svg class="uiIcon" style="width:12px;height:12px"><use href="#icon-calendar"></use></svg> ${esc(e.period)}</span><span><svg class="uiIcon" style="width:12px;height:12px"><use href="#icon-${e.type==='contest'?'gift':'calendar'}"></use></svg> ${esc(e.type.charAt(0).toUpperCase()+e.type.slice(1))}</span></div></div></div>`).join('');
-  
-  const upcomingHtml = upcoming.map(e => `<div class="seasonalEvent" style="opacity:0.7"><div class="eventIcon"><svg class="uiIcon" style="width:24px;height:24px"><use href="#icon-${e.icon}"></use></svg></div><div class="eventDetails"><h4 class="eventTitle">${esc(e.title)}</h4><p class="eventDesc">${esc(e.desc)}</p><div class="eventMeta"><span><svg class="uiIcon" style="width:12px;height:12px"><use href="#icon-calendar"></use></svg> ${esc(e.period)}</span><span><svg class="uiIcon" style="width:12px;height:12px"><use href="#icon-${e.type==='contest'?'gift':'calendar'}"></use></svg> ${esc(e.type.charAt(0).toUpperCase()+e.type.slice(1))}</span></div></div></div>`).join('');
-  
-  const list = $('seasonalEventsList');
-  if (list) list.innerHTML = activeHtml + upcomingHtml || '<div class="muted" style="padding:16px">No seasonal events at this time.</div>';
-}
-
-function scrollToSeasonalEvents() {
-  const list = $('seasonalEventsList');
-  if (list) list.scrollIntoView({ behavior: 'smooth' });
-}
-
 // ===== NEW: Drawer Functions =====
 function openDrawer(side) {
   closeDrawer(side === 'side' ? 'right' : 'side');
@@ -1984,19 +1951,18 @@ function closeDrawer(side) {
 
 // ===== NEW: Featured & Seasonal Content =====
 const featuredContent = [
-  {title:'Minecraft Java Edition Server List',desc:'Discover the best Java Edition servers curated by the community. Survival, Creative, Minigames, and more.',type:'server',tags:['Java','Survival','Creative'],icon:'server-crown'},
-  {title:'Bedrock Cross-Play Guide',desc:'How to play with friends across Xbox, PlayStation, Switch, Mobile, and Windows 10/11.',type:'guide',tags:['Bedrock','Cross-Play'],icon:'minecraft-bedrock'},
-  {title:'Eaglercraft Browser Client',desc:'Play Minecraft in your browser - no install needed. Works on Chromebooks, school computers, and more.',type:'app',tags:['Browser','Free'],icon:'eaglercraft'},
-  {title:'Resource Pack Showcase',desc:'Top rated texture packs and resource packs for Java and Bedrock. HD, PvP, Faithful, and more.',type:'content',tags:['Resource Packs','Java','Bedrock'],icon:'minecraft'},
-  {title:'Redstone Tutorial Series',desc:'Learn redstone from basics to advanced. Build farms, doors, computers, and flying machines.',type:'guide',tags:['Redstone','Tutorial'],icon:'minecraft'},
-  {title:'Modded Minecraft Starter Pack',desc:'Best modpacks for beginners. Forge, Fabric, and Neoforge modloaders explained.',type:'guide',tags:['Mods','Forge','Fabric'],icon:'minecraft'}
+  {title:'Official Minecraft Server List',desc:'Browse community-run Java and Bedrock servers for survival, creative, minigames, and more.',type:'server',tags:['Java','Bedrock','Multiplayer'],icon:'server-crown',href:'https://www.minecraft.net/en-us/servers',cta:'Open server list'},
+  {title:'How to Play on a Minecraft Server',desc:'Mojang’s official guide to joining and hosting Bedrock and Java multiplayer worlds with friends.',type:'guide',tags:['Bedrock','Java','Cross-Play'],icon:'minecraft-bedrock',href:'https://www.minecraft.net/en-us/article/how-play-minecraft-server',cta:'Read official guide'},
+  {title:'Eaglercraft Browser Client',desc:'Play Minecraft in your browser without installing the game. Opens the Eaglercraft project site in a new tab.',type:'app',tags:['Browser','Free'],icon:'eaglercraft',href:'https://eaglercraft.com/',cta:'Open Eaglercraft'},
+  {title:'Minecraft Marketplace Texture Packs',desc:'Browse official Marketplace texture packs that change the look of blocks, items, and the world around you.',type:'content',tags:['Texture Packs','Bedrock'],icon:'minecraft',href:'https://www.minecraft.net/en-us/marketplace/category/texture-packs',cta:'Browse texture packs'},
+  {title:'Researching Redstone',desc:'Mojang’s creator guide to redstone components and circuits, with links to build your first contraptions.',type:'guide',tags:['Redstone','Creator Guide'],icon:'minecraft',href:'https://www.minecraft.net/en-us/creator/article/redstone',cta:'Read redstone guide'},
+  {title:'Community Modpacks on Modrinth',desc:'Browse open-source modpacks for Fabric, Forge, and NeoForge. Modrinth is a third-party mod hosting platform.',type:'guide',tags:['Mods','Fabric','Forge','NeoForge'],icon:'minecraft',href:'https://modrinth.com/modpacks',cta:'Browse Modrinth'}
 ];
 
 const seasonalEvents = [
-  {title:'Winter Festival 2024',desc:'Celebrate the season with exclusive cosmetics, snow-themed maps, and daily login rewards!',icon:'snowflake',period:'Dec 15 - Jan 15',type:'event'},
-  {title:'New Year Countdown',desc:'Join the global countdown event with fireworks, party games, and a special midnight surprise.',icon:'sparkles',period:'Dec 31 - Jan 1',type:'event'},
-  {title:'Spring Building Contest',desc:'Build the best spring-themed creation. Winners get exclusive cosmetics and Discord roles.',icon:'gift',period:'Mar 1 - Mar 31',type:'contest'},
-  {title:'Minecraft Live Viewing Party',desc:'Watch Minecraft Live together in voice chat. React to announcements and win prizes!',icon:'calendar',period:'Oct 2025 (TBA)',type:'event'}
+  {title:'Minecraft LIVE – September 2026',desc:'The autumn broadcast revealed the Sift dimension, Minecraft World, Minecraft Dungeons II, and the next game drop.',icon:'calendar',period:'September 26, 2026',date:'2026-09-26',type:'event',href:'https://www.minecraft.net/en-us/article/mclive_sept2026_recap',cta:'Read official recap'},
+  {title:'Minecraft LIVE – May 2026',desc:'A bonus broadcast from TwitchCon Rotterdam covered the Chaos Cubed drop and the dappled forest biome.',icon:'calendar',period:'May 30, 2026',date:'2026-05-30',type:'event',href:'https://www.minecraft.net/en-us/article/minecraft-live-twitchcon-rotterdam-recap',cta:'Read official recap'},
+  {title:'Minecraft LIVE – March 2026',desc:'The spring broadcast announced Minecraft Dungeons II, Minecraft World, and the Tiny Takeover and Chaos Cubed drops.',icon:'calendar',period:'March 21, 2026',date:'2026-03-21',type:'event',href:'https://www.minecraft.net/en-us/article/mclive_march2026_recap',cta:'Read official recap'}
 ];
 
 // ===== NEW: Drawer Overlay HTML =====
@@ -2064,64 +2030,70 @@ renderAll = function() {
 function renderFeaturedContent() {
   const grid = $('featuredGrid');
   if (!grid) return;
-  grid.innerHTML = featuredContent.map(item => `<article class="featuredCard"><div class="featuredImage"><svg class="uiIcon" style="width:64px;height:64px"><use href="#icon-${item.icon}"></use></svg></div><div class="featuredBody"><h4 class="featuredTitle">${esc(item.title)}</h4><p class="muted" style="font-size:13px;margin:0 0 8px;line-height:1.5">${esc(item.desc)}</p><div class="featuredMeta"><span><svg class="uiIcon" style="width:14px;height:14px"><use href="#icon-${item.type==='server'?'server-crown':item.type==='guide'?'calendar':item.type==='app'?'eaglercraft':'minecraft'}"></use></svg> ${esc(item.type.charAt(0).toUpperCase()+item.type.slice(1))}</span></div><div class="featuredTags">${item.tags.map(t=>`<span class="featuredTag">${esc(t)}</span>`).join('')}</div></div></article>`).join('');
+  grid.innerHTML = featuredContent.map(item => {
+    const typeIcon = item.type === 'server' ? 'server-crown' : item.type === 'guide' ? 'calendar' : item.type === 'app' ? 'eaglercraft' : 'minecraft';
+    return `<article class="featuredCard">
+      <div class="featuredImage"><svg class="uiIcon" style="width:64px;height:64px"><use href="#icon-${item.icon}"></use></svg></div>
+      <div class="featuredBody">
+        <h4 class="featuredTitle">${esc(item.title)}</h4>
+        <p class="muted" style="font-size:13px;margin:0 0 8px;line-height:1.5">${esc(item.desc)}</p>
+        <div class="featuredMeta"><span><svg class="uiIcon" style="width:14px;height:14px"><use href="#icon-${typeIcon}"></use></svg> ${esc(item.type.charAt(0).toUpperCase() + item.type.slice(1))}</span></div>
+        <div class="featuredTags">${item.tags.map(t => `<span class="featuredTag">${esc(t)}</span>`).join('')}</div>
+        <a class="featuredAction" href="${esc(item.href)}" target="_blank" rel="noopener noreferrer">${esc(item.cta)} <span aria-hidden="true">↗</span></a>
+      </div>
+    </article>`;
+  }).join('');
+}
+
+function eventIsPast(event) {
+  return new Date(`${event.date}T23:59:59Z`).getTime() < Date.now();
 }
 
 function updateSeasonalBanner() {
-  const now = new Date();
-  const month = now.getMonth();
-  const activeEvent = seasonalEvents.find(e => {
-    const [start] = e.period.split(' - ');
-    return e.type === 'event' && (month === 11 || month === 0);
-  });
-  if (activeEvent) {
-    const banner = $('seasonalBanner');
-    if (banner) {
-      banner.style.display = 'block';
-      $('seasonalTitle').textContent = activeEvent.title;
-      $('seasonalDesc').textContent = activeEvent.desc;
-    }
+  const banner = $('seasonalBanner');
+  if (!banner) return;
+  const latest = [...seasonalEvents].sort((a, b) => b.date.localeCompare(a.date))[0];
+  if (!latest) {
+    banner.style.display = 'none';
+    renderSeasonalEvents();
+    return;
+  }
+  const past = eventIsPast(latest);
+  banner.style.display = 'block';
+  const title = $('seasonalTitle');
+  if (title) title.textContent = latest.title;
+  const desc = $('seasonalDesc');
+  if (desc) desc.textContent = past
+    ? `This event took place on ${latest.period}. Read the official recap or check the Minecraft LIVE page for the next show.`
+    : `Scheduled for ${latest.period}. Check the official Minecraft LIVE page for details.`;
+  const button = $('seasonalBtn');
+  if (button) {
+    button.href = latest.href;
+    button.textContent = past ? latest.cta : 'Event details';
   }
   renderSeasonalEvents();
 }
 
 function renderSeasonalEvents() {
-  const now = Date.now();
-  const active = seasonalEvents.filter(e => {
-    const [start, end] = e.period.split(' - ');
-    return true; // Show all for now
-  });
-  const upcoming = seasonalEvents.filter(e => !active.includes(e));
-  
-  const activeHtml = active.map(e => `<div class="seasonalEvent"><div class="eventIcon"><svg class="uiIcon" style="width:24px;height:24px"><use href="#icon-${e.icon}"></use></svg></div><div class="eventDetails"><h4 class="eventTitle">${esc(e.title)}</h4><p class="eventDesc">${esc(e.desc)}</p><div class="eventMeta"><span><svg class="uiIcon" style="width:12px;height:12px"><use href="#icon-calendar"></use></svg> ${esc(e.period)}</span><span><svg class="uiIcon" style="width:12px;height:12px"><use href="#icon-${e.type==='contest'?'gift':'calendar'}"></use></svg> ${esc(e.type.charAt(0).toUpperCase()+e.type.slice(1))}</span></div></div></div>`).join('');
-  
-  const upcomingHtml = upcoming.map(e => `<div class="seasonalEvent" style="opacity:0.7"><div class="eventIcon"><svg class="uiIcon" style="width:24px;height:24px"><use href="#icon-${e.icon}"></use></svg></div><div class="eventDetails"><h4 class="eventTitle">${esc(e.title)}</h4><p class="eventDesc">${esc(e.desc)}</p><div class="eventMeta"><span><svg class="uiIcon" style="width:12px;height:12px"><use href="#icon-calendar"></use></svg> ${esc(e.period)}</span><span><svg class="uiIcon" style="width:12px;height:12px"><use href="#icon-${e.type==='contest'?'gift':'calendar'}"></use></svg> ${esc(e.type.charAt(0).toUpperCase()+e.type.slice(1))}</span></div></div></div>`).join('');
-  
   const list = $('seasonalEventsList');
-  if (list) list.innerHTML = activeHtml + upcomingHtml || '<div class="muted" style="padding:16px">No seasonal events at this time.</div>';
-}
-
-function updateSeasonalBanner() {
-  const now = new Date();
-  const month = now.getMonth();
-  const activeEvent = seasonalEvents.find(e => {
-    const [start] = e.period.split(' - ');
-    return e.type === 'event' && (month === 11 || month === 0);
-  });
-  if (activeEvent) {
-    const banner = $('seasonalBanner');
-    if (banner) {
-      banner.style.display = 'block';
-      $('seasonalTitle').textContent = activeEvent.title;
-      $('seasonalDesc').textContent = activeEvent.desc;
-    }
+  if (!list) return;
+  if (!seasonalEvents.length) {
+    list.innerHTML = '<div class="muted" style="padding:16px">No seasonal events at this time.</div>';
+    return;
   }
-  renderSeasonalEvents();
-}
-
-function scrollToSeasonalEvents() {
-  const list = $('seasonalEventsList');
-  if (list) list.scrollIntoView({ behavior: 'smooth' });
+  const upcoming = [...seasonalEvents].sort((a, b) => b.date.localeCompare(a.date)).map(event => {
+    const past = eventIsPast(event);
+    return `<div class="seasonalEvent">
+      <div class="eventIcon"><svg class="uiIcon" style="width:24px;height:24px"><use href="#icon-${event.icon}"></use></svg></div>
+      <div class="eventDetails">
+        <div class="eventTitleRow"><h4 class="eventTitle">${esc(event.title)}</h4><span class="eventStatus${past ? '' : ' upcoming'}">${past ? 'Past event' : 'Upcoming event'}</span></div>
+        <p class="eventDesc">${esc(event.desc)}</p>
+        <div class="eventMeta"><span><svg class="uiIcon" style="width:12px;height:12px"><use href="#icon-calendar"></use></svg> ${esc(event.period)}</span><span><svg class="uiIcon" style="width:12px;height:12px"><use href="#icon-minecraft"></use></svg> Official Minecraft event</span></div>
+        <a class="eventLink" href="${esc(event.href)}" target="_blank" rel="noopener noreferrer">${esc(event.cta)} <span aria-hidden="true">↗</span></a>
+      </div>
+    </div>`;
+  }).join('');
+  list.innerHTML = upcoming + '<div class="eventNote">No further Minecraft LIVE date is currently listed on the official page. Check the <a href="https://www.minecraft.net/en-us/live" target="_blank" rel="noopener noreferrer">official Minecraft LIVE page</a> for updates.</div>';
 }
 
 // ===== Drawer Functions =====
