@@ -280,7 +280,7 @@
     return 'download';
   }
 
-  fetch('/api/downloads', { headers: { Accept: 'application/json' } })
+  fetch('/api/downloads', { headers: { Accept: 'application/json' }, cache: 'no-store' })
     .then(function (response) { if (!response.ok) throw new Error('HTTP ' + response.status); return response.json(); })
     .then(function (data) {
       if (loading) loading.remove();
