@@ -454,7 +454,7 @@ function mergeRoutes(app, context) {
       return res.status(400).send('Account merge verification expired or did not match the provider.');
     }
     context.clearBrowserOAuthState(res, provider, context.appUrl);
-    if (req.query.error) return res.redirect('/#merge-error=cancelled');
+    if (req.query.error) return res.redirect('/app#merge-error=cancelled');
     if (typeof req.query.code !== 'string' || !req.query.code) return res.status(400).send('The identity provider did not return an authorization code.');
     const currentSession = sessionHash(req);
     const current = authUser(req);
@@ -466,25 +466,25 @@ function mergeRoutes(app, context) {
       const identity = await fetchIdentity(provider, req.query.code, context.appUrl);
       const identityUser = findLinkedUser(data.users, provider, identity.id);
       if (state.purpose === 'merge-target-proof') {
-        if (!identityUser || identityUser.id !== state.userId) return res.redirect('/#merge-error=target-proof-failed');
+        if (!identityUser || identityUser.id !== state.userId) return res.redirect('/app#merge-error=target-proof-failed');
         data.mergeProofs ||= {};
         data.mergeProofs[currentSession] = { userId: state.userId, expiresAt: Date.now() + PROOF_LIFETIME };
         save();
-        return res.redirect('/#merge-target-verified');
+        return res.redirect('/app#merge-target-verified');
       }
       if (state.purpose === 'merge-source-proof') {
-        if (!identityUser || identityUser.id !== state.sourceUserId) return res.redirect('/#merge-error=source-proof-failed');
+        if (!identityUser || identityUser.id !== state.sourceUserId) return res.redirect('/app#merge-error=source-proof-failed');
         const target = Object.values(data.users).find(user => user.id === state.targetUserId);
         const source = identityUser;
-        if (!target || source.id === target.id || source.id === context.ownerUserId || target.id === context.ownerUserId || !isRecentTargetProof(data, target.id, currentSession)) return res.redirect('/#merge-error=proof-expired');
+        if (!target || source.id === target.id || source.id === context.ownerUserId || target.id === context.ownerUserId || !isRecentTargetProof(data, target.id, currentSession)) return res.redirect('/app#merge-error=proof-expired');
         const result = createPreview(data, target, source, currentSession, createId);
         save();
-        return res.redirect(`/#merge-preview=${encodeURIComponent(result.previewToken)}`);
+        return res.redirect(`/app#merge-preview=${encodeURIComponent(result.previewToken)}`);
       }
       return next();
     } catch (error) {
       console.error('Account merge identity verification failed:', error);
-      return res.redirect('/#merge-error=provider-failed');
+      return res.redirect('/app#merge-error=provider-failed');
     }
   });
 }

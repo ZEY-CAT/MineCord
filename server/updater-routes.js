@@ -11,6 +11,13 @@ function updaterRoutes(app, { data, save, requireAuth, originAllowed, APP_OWNER_
     fs.mkdirSync(MANIFEST_DIR, { recursive: true });
   }
 
+  function manifestPathFor(filename) {
+    if (typeof filename !== 'string' || !/^update-manifest-(windows|macos|linux)-(x64|arm64)-(stable|beta|alpha)\.json$/.test(filename)) {
+      return null;
+    }
+    return path.join(MANIFEST_DIR, filename);
+  }
+
   // Get current app version
   const packageJsonPath = path.join(__dirname, '..', 'package.json');
   const currentVersion = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')).version;
@@ -49,8 +56,12 @@ function updaterRoutes(app, { data, save, requireAuth, originAllowed, APP_OWNER_
 
     const latestManifest = JSON.parse(fs.readFileSync(path.join(MANIFEST_DIR, manifestFiles[0]), 'utf8'));
 
-    // Check if update is available
-    const updateAvailable = isUpdateAvailable(clientVersion, latestManifest.version);
+    // Check if update is available. A missing or malformed client version is
+    // treated as an old client instead of crashing the public endpoint.
+    const normalizedClientVersion = typeof clientVersion === 'string' && /^\d+\.\d+\.\d+/.test(clientVersion)
+      ? clientVersion
+      : '0.0.0';
+    const updateAvailable = isUpdateAvailable(normalizedClientVersion, latestManifest.version);
 
     if (!updateAvailable) {
       return res.json({ update: null, currentVersion });
@@ -160,8 +171,8 @@ function updaterRoutes(app, { data, save, requireAuth, originAllowed, APP_OWNER_
       return res.status(403).json({ error: 'App owner access required' });
     }
 
-    const manifestFile = req.params.manifestFile;
-    const artifactManifestPath = path.join(MANIFEST_DIR, manifestFile);
+    const artifactManifestPath = manifestPathFor(req.params.manifestFile);
+    if (!artifactManifestPath) return res.status(400).json({ error: 'Invalid manifest filename.' });
 
     if (!fs.existsSync(artifactManifestPath)) {
       return res.status(404).json({ error: 'Manifest not found' });
@@ -181,8 +192,8 @@ function updaterRoutes(app, { data, save, requireAuth, originAllowed, APP_OWNER_
       return res.status(403).json({ error: 'App owner access required' });
     }
 
-    const manifestFile = req.params.manifestFile;
-    const manifestPath = path.join(MANIFEST_DIR, manifestFile);
+    const manifestPath = manifestPathFor(req.params.manifestFile);
+    if (!manifestPath) return res.status(400).json({ error: 'Invalid manifest filename.' });
 
     if (!fs.existsSync(manifestPath)) {
       return res.status(404).json({ error: 'Manifest not found' });
@@ -242,8 +253,8 @@ function updaterRoutes(app, { data, save, requireAuth, originAllowed, APP_OWNER_
       return res.status(403).json({ error: 'App owner access required' });
     }
 
-    const manifestFile = req.params.manifestFile;
-    const manifestPath = path.join(MANIFEST_DIR, manifestFile);
+    const manifestPath = manifestPathFor(req.params.manifestFile);
+    if (!manifestPath) return res.status(400).json({ error: 'Invalid manifest filename.' });
 
     if (!fs.existsSync(manifestPath)) {
       return res.status(404).json({ error: 'Manifest not found' });

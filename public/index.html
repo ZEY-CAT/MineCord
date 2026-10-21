@@ -77,6 +77,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .rightDrawer{right:0;transform:translateX(102%)}
 .sideDrawer.open,.rightDrawer.open{transform:translateX(0)}
 .drawerHeader{flex:none;display:flex;align-items:center;justify-content:space-between;gap:10px;height:52px;padding:0 14px;border-bottom:1px solid var(--line);font-family:var(--font-minecraft);font-size:18px;letter-spacing:0.5px}
+.drawerActions{display:flex;align-items:center;gap:8px}
 .drawerClose{display:inline-flex;align-items:center;justify-content:center;padding:8px;background:transparent;color:var(--muted);border-radius:6px}
 .drawerClose:hover{background:var(--hover);color:#fff}
 .sideDrawer .nav,.rightDrawer .people{overflow-y:auto}
@@ -291,11 +292,14 @@ label{display:block;margin:12px 0 4px;font-size:13px;font-weight:500;color:var(-
   .main{width:100%}
   .top{padding:0 12px}
   .topTools{gap:6px}
+  #homeTopBtn,#tipsTopBtn{display:none!important}
+  #helpTopBtn{display:flex!important}
   .topTools button{padding:8px 10px}
   .messages{padding:12px 12px 80px}
   .composer{position:fixed;bottom:0;left:0;right:0;padding:8px 12px;background:var(--side);border-top:1px solid var(--line);z-index:10}.composerBox{padding:0 10px}.composer input{padding:14px 10px;font-size:16px}.callBar{position:fixed;left:0;right:0;bottom:56px;max-height:50vh;padding:10px 12px}.callPeople{flex-basis:100%;justify-content:center}.callUser{font-size:13px;padding:6px 10px}.incoming{left:12px;right:12px;bottom:72px;width:auto}.modal .card{padding:16px;margin:8px}.login button{padding:14px 16px;font-size:16px}.login input{padding:14px;font-size:16px}.navItem{padding:12px 12px;font-size:16px}.section{padding:10px 8px 4px;font-size:14px}.serverIcon.active{background:#5865f2;border-radius:10px}.avatar{width:32px;height:32px}.userBar{padding:8px}.iconButton .uiIcon{width:22px;height:22px}.dmInfo{max-width:100%}.dmPreview{font-size:14px}.callStatus{font-size:13px}.activityCard{padding:10px}.activityCard b{font-size:15px}.activityCard span{font-size:13px}}@media(max-width:480px){.app{grid-template-columns:48px minmax(0,1fr)}.rail{padding:4px 2px}.serverIcon{width:36px;height:36px}.top{padding:0 8px}.topTools button{padding:6px 8px}.messages{padding:10px 10px 76px}.composer{padding:6px 8px}.composerBox{padding:0 8px}.composer input{padding:12px 8px;font-size:15px}.callBar{padding:8px 10px}.callUser{font-size:12px;padding:5px 8px}.modal .card{width:96vw;padding:12px}.login button{padding:12px 14px;font-size:15px}.login input{padding:12px;font-size:15px}.navItem{padding:10px 10px;font-size:15px}}@media(pointer:coarse){.navItem:hover{background:transparent}.serverIcon:hover{background:transparent}.person:hover{background:transparent}.button:hover{background:#383a40}}.primary,.danger,.iconButton,.oauthButton{touch-action:manipulation}html{-webkit-tap-highlight-color:transparent}*{-webkit-touch-callout:none;-webkit-user-select:none;-khtml-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none}input,textarea{-webkit-user-select:text;-khtml-user-select:text;-moz-user-select:text;-ms-user-select:text;user-select:text}</style></head><body>
 <svg class="iconSprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 <symbol id="icon-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5v9a1.5 1.5 0 0 1-1.5 1.5h-5v-6h-5v6h-5A1.5 1.5 0 0 1 3 19.5z"/></symbol>
+<symbol id="icon-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9.7 9a2.4 2.4 0 1 1 3.6 2.1c-.8.5-1.3 1-1.3 2.1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17" r="1.2"/></symbol>
 <symbol id="icon-server" viewBox="0 0 24 24"><path d="M4 4h16v6H4zM4 14h16v6H4z"/><path d="M7 7h.01M7 17h.01M11 7h6M11 17h6" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
 <symbol id="icon-settings" viewBox="0 0 24 24"><path d="m19.4 13.5 1.1.9-2 3.5-1.4-.6a7.8 7.8 0 0 1-2 .9l-.2 1.5h-4l-.2-1.5a7.8 7.8 0 0 1-2-.9l-1.4.6-2-3.5 1.1-.9a7.3 7.3 0 0 1 0-2.3l-1.1-.9 2-3.5 1.4.6a7.8 7.8 0 0 1 2-.9l.2-1.5h4l.2 1.5a7.8 7.8 0 0 1 2 .9l1.4-.6 2 3.5-1.1.9a7.3 7.3 0 0 1 0 2.3Z"/><circle cx="13" cy="12.4" r="2.7" fill="#313338"/></symbol>
 <symbol id="icon-friends" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><circle cx="17" cy="9" r="2.5"/><path d="M2.5 20v-1.5A6.5 6.5 0 0 1 9 12a6.5 6.5 0 0 1 6.5 6.5V20zM15 13a5 5 0 0 1 6.5 4.8V20H18"/></symbol>
@@ -328,20 +332,24 @@ label{display:block;margin:12px 0 4px;font-size:13px;font-weight:500;color:var(-
 <symbol id="icon-channel" viewBox="0 0 24 24"><path d="M4 5h16v14H4zM8 9h8M8 13h5" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
 <symbol id="icon-mute" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 11a7 7 0 0 0 12 5M12 18v4m-4 0h8M3 3l18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
 </svg>
-<div id="login" class="modal hidden"><div class="card login"><h1><svg class="brandIcon" aria-hidden="true"><use href="#icon-minecraft"></use></svg> MINECORD</h1><p class="muted">Minecraft-focused chat, servers, DMs and voice.</p><button class="oauthButton" onclick="location.href='/auth/google'"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M21.6 12.23c0-.72-.06-1.42-.18-2.09H12v3.96h5.38a4.6 4.6 0 0 1-2 3.02v2.56h3.23c1.9-1.75 2.99-4.33 2.99-7.45z"/><path fill="#34A853" d="M12 22c2.7 0 4.97-.9 6.63-2.44l-3.23-2.56c-.9.6-2.06.96-3.4.96-2.6 0-4.8-1.76-5.6-4.12H3.06v2.64A10 10 0 0 0 12 22z"/><path fill="#FBBC05" d="M6.4 13.84a6 6 0 0 1 0-3.68V7.52H3.06a10 10 0 0 0 0 8.96z"/><path fill="#EA4335" d="M12 6.04c1.47 0 2.8.5 3.84 1.52l2.88-2.88A9.64 9.64 0 0 0 12 2a10 10 0 0 0-8.94 5.52L6.4 10.16C7.2 7.8 9.4 6.04 12 6.04z"/></svg>Continue with Google</button><button class="oauthButton" onclick="location.href='/auth/microsoft'"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#f25022" d="M2 2h9v9H2z"/><path fill="#7fba00" d="M13 2h9v9h-9z"/><path fill="#00a4ef" d="M2 13h9v9H2z"/><path fill="#ffb900" d="M13 13h9v9h-9z"/></svg>Continue with Microsoft</button><button class="oauthButton" onclick="location.href='/auth/github'"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .9a11.1 11.1 0 0 0-3.51 21.63c.55.1.76-.24.76-.53v-2.08c-3.1.67-3.76-1.32-3.76-1.32-.5-1.28-1.24-1.62-1.24-1.62-1.01-.69.08-.68.08-.68 1.12.08 1.7 1.15 1.7 1.15.99 1.69 2.6 1.2 3.23.92.1-.72.39-1.2.7-1.48-2.48-.28-5.09-1.24-5.09-5.52 0-1.22.44-2.22 1.15-3-.12-.28-.5-1.42.1-2.96 0 0 .94-.3 3.06 1.14a10.7 10.7 0 0 1 5.57 0c2.12-1.44 3.05-1.14 3.05-1.14.61 1.54.23 2.68.11 2.96.72.78 1.15 1.78 1.15 3.01 0 4.29-2.62 5.23-5.11 5.51.4.35.75 1.02.75 2.06V22c0 .29.2.63.76.52A11.1 11.1 0 0 0 12 .9z"/></svg>Continue with GitHub</button><p class="muted">Local account</p><input id="username" maxlength="24" placeholder="Username"><input id="password" type="password" maxlength="200" placeholder="Password (12+ characters)"><div id="loginError" class="muted" role="status"></div><div class="row"><button id="enter" class="primary" style="flex:1">Sign in</button><button id="register" style="flex:1">Create account</button></div></div></div>
-<div class="app"><aside class="rail"><div id="servers"></div><div class="serverIcon" id="newServer" title="Add Server"><svg class="uiIcon"><use href="#icon-add"></use></svg></div></aside><aside class="side"><div class="sideHead" id="serverTitle">MINECORD<button class="drawerToggle" onclick="openDrawer('side')" aria-label="Open sidebar"><svg class="uiIcon"><use href="#icon-menu"></use></svg></button></div><div class="nav" style="padding:8px"><div class="navItem" id="homeNav" role="button" tabindex="0" onclick="showHome(true)"><svg class="uiIcon"><use href="#icon-home"></use></svg> Home</div></div><div class="section">CHANNELS</div><div id="channels" class="nav"></div><div class="section">DIRECT MESSAGES <button id="newDM" class="icon" style="float:right;padding:0" title="New DM"><svg class="uiIcon"><use href="#icon-add"></use></svg></button></div><div id="dms" class="nav"></div><div class="section">FRIENDS</div><div class="nav"><div class="navItem" id="addFriend"><svg class="uiIcon"><use href="#icon-add"></use></svg> Add Friend</div></div><div id="friendList" class="nav" aria-label="Friends"></div><div class="section">GAMES</div><div class="nav"><div class="navItem" id="gamesTabFlappy" data-game="flappy" onclick="openGame('flappy')"><svg class="uiIcon"><use href="#icon-activity"></use></svg> Flappy Bird</div><div class="navItem" id="gamesTabChess" data-game="chess" onclick="openGame('chess')"><svg class="uiIcon"><use href="#icon-users"></use></svg> Chess</div><div class="navItem" id="gamesTabSnake" data-game="snake" onclick="openGame('snake')"><svg class="uiIcon"><use href="#icon-activity"></use></svg> Snake</div></div><div id="gamesList" class="nav"></div>
+<div id="login" class="modal hidden"><div class="card login"><h1><svg class="brandIcon" aria-hidden="true"><use href="#icon-minecraft"></use></svg> MINECORD</h1><p class="muted">Minecraft-focused chat, servers, DMs and voice.</p><button class="oauthButton" onclick="location.href='/auth/google?returnTo='+encodeURIComponent('/app'+location.search)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M21.6 12.23c0-.72-.06-1.42-.18-2.09H12v3.96h5.38a4.6 4.6 0 0 1-2 3.02v2.56h3.23c1.9-1.75 2.99-4.33 2.99-7.45z"/><path fill="#34A853" d="M12 22c2.7 0 4.97-.9 6.63-2.44l-3.23-2.56c-.9.6-2.06.96-3.4.96-2.6 0-4.8-1.76-5.6-4.12H3.06v2.64A10 10 0 0 0 12 22z"/><path fill="#FBBC05" d="M6.4 13.84a6 6 0 0 1 0-3.68V7.52H3.06a10 10 0 0 0 0 8.96z"/><path fill="#EA4335" d="M12 6.04c1.47 0 2.8.5 3.84 1.52l2.88-2.88A9.64 9.64 0 0 0 12 2a10 10 0 0 0-8.94 5.52L6.4 10.16C7.2 7.8 9.4 6.04 12 6.04z"/></svg>Continue with Google</button><button class="oauthButton" onclick="location.href='/auth/microsoft?returnTo='+encodeURIComponent('/app'+location.search)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#f25022" d="M2 2h9v9H2z"/><path fill="#7fba00" d="M13 2h9v9h-9z"/><path fill="#00a4ef" d="M2 13h9v9H2z"/><path fill="#ffb900" d="M13 13h9v9h-9z"/></svg>Continue with Microsoft</button><button class="oauthButton" onclick="location.href='/auth/github?returnTo='+encodeURIComponent('/app'+location.search)"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .9a11.1 11.1 0 0 0-3.51 21.63c.55.1.76-.24.76-.53v-2.08c-3.1.67-3.76-1.32-3.76-1.32-.5-1.28-1.24-1.62-1.24-1.62-1.01-.69.08-.68.08-.68 1.12.08 1.7 1.15 1.7 1.15.99 1.69 2.6 1.2 3.23.92.1-.72.39-1.2.7-1.48-2.48-.28-5.09-1.24-5.09-5.52 0-1.22.44-2.22 1.15-3-.12-.28-.5-1.42.1-2.96 0 0 .94-.3 3.06 1.14a10.7 10.7 0 0 1 5.57 0c2.12-1.44 3.05-1.14 3.05-1.14.61 1.54.23 2.68.11 2.96.72.78 1.15 1.78 1.15 3.01 0 4.29-2.62 5.23-5.11 5.51.4.35.75 1.02.75 2.06V22c0 .29.2.63.76.52A11.1 11.1 0 0 0 12 .9z"/></svg>Continue with GitHub</button><input id="username" maxlength="24" placeholder="Username"><input id="password" type="password" maxlength="200" placeholder="Password (12+ characters)"><div id="loginError" class="muted" role="status"></div><div class="row"><button id="enter" class="primary" style="flex:1">Sign in</button><button id="register" style="flex:1">Create account</button></div></div></div>
+<div class="app"><aside class="rail"><div id="servers"></div><div class="serverIcon" id="newServer" title="Add Server"><svg class="uiIcon"><use href="#icon-add"></use></svg></div></aside><aside class="side"><div class="sideHead" id="serverTitle">MINECORD<button class="drawerToggle" onclick="openDrawer('side')" aria-label="Open sidebar"><svg class="uiIcon"><use href="#icon-menu"></use></svg></button></div><div class="nav" style="padding:8px"><div class="navItem" id="homeNav" role="button" tabindex="0" onclick="showHome(true)"><svg class="uiIcon"><use href="#icon-home"></use></svg> Home</div><div class="navItem" id="tipsNav" role="button" tabindex="0" onclick="showTips()"><svg class="uiIcon"><use href="#icon-help"></use></svg> Tips &amp; Guide</div></div><div class="section">CHANNELS</div><div id="channels" class="nav"></div><div class="section">DIRECT MESSAGES <button id="newDM" class="icon" style="float:right;padding:0" title="New DM"><svg class="uiIcon"><use href="#icon-add"></use></svg></button></div><div id="dms" class="nav"></div><div class="section">FRIENDS</div><div class="nav"><div class="navItem" id="addFriend"><svg class="uiIcon"><use href="#icon-add"></use></svg> Add Friend</div></div><div id="friendList" class="nav" aria-label="Friends"></div><div class="section">GAMES</div><div class="nav"><div class="navItem" id="gamesTabFlappy" data-game="flappy" onclick="openGame('flappy')"><svg class="uiIcon"><use href="#icon-activity"></use></svg> Flappy Bird</div><div class="navItem" id="gamesTabChess" data-game="chess" onclick="openGame('chess')"><svg class="uiIcon"><use href="#icon-users"></use></svg> Chess</div><div class="navItem" id="gamesTabSnake" data-game="snake" onclick="openGame('snake')"><svg class="uiIcon"><use href="#icon-activity"></use></svg> Snake</div></div><div id="gamesList" class="nav"></div>
 <div class="section">WORLDS</div>
 <div class="nav">
 <div class="navItem" id="worldsTabMy" data-tab="my" onclick="switchWorldsTab('my')"><svg class="uiIcon"><use href="#icon-server"></use></svg> My Worlds</div>
 <div class="navItem" id="worldsTabFriends" data-tab="friends" onclick="switchWorldsTab('friends')"><svg class="uiIcon"><use href="#icon-users"></use></svg> Friends' Worlds</div>
 </div><div class="userBar"><div id="meAvatar" class="avatar">?</div><div class="userText"><b id="meName">Offline</b><span id="meStatus" class="muted">offline</span></div><button id="profileBtn" class="icon" title="Settings"><svg class="uiIcon"><use href="#icon-settings"></use></svg></button></div></aside>
-<main class="main"><div class="top"><button id="sideDrawerBtn" class="icon mobileOnly" onclick="openDrawer('side')" aria-label="Open navigation" title="Navigation"><svg class="uiIcon"><use href="#icon-menu"></use></svg></button><span id="channelIcon"><svg class="uiIcon"><use href="#icon-hash"></use></svg></span><b id="channelTitle">general</b><div class="topTools"><button id="callBtn" class="icon" title="Voice Call"><svg class="uiIcon"><use href="#icon-call"></use></svg></button><button id="groupCallBtn" class="icon" title="Group Call"><svg class="uiIcon"><use href="#icon-video"></use></svg></button><button id="inviteBtn" class="icon" title="Invite"><svg class="uiIcon"><use href="#icon-invite"></use></svg></button><button id="membersDrawerBtn" class="icon mobileOnly" onclick="openDrawer('right')" aria-label="Open members" title="Members"><svg class="uiIcon"><use href="#icon-users"></use></svg></button></div></div><div id="messages" class="messages"></div><form id="composer" class="composer"><div class="composerBox"><input id="messageInput" autocomplete="off" placeholder="Message #general"><button class="primary">Send</button></div></form></main><aside class="right"><div class="rightHead">MEMBERS</div><div id="people" class="people"></div><div class="rightHead">ACTIVITY</div><div id="activityList" class="people"></div></aside></div>
+<main class="main"><div class="top"><button id="sideDrawerBtn" class="icon mobileOnly" onclick="openDrawer('side')" aria-label="Open navigation" title="Navigation"><svg class="uiIcon"><use href="#icon-menu"></use></svg></button><span id="channelIcon"><svg class="uiIcon"><use href="#icon-hash"></use></svg></span><b id="channelTitle">general</b><div class="topTools"><button id="homeTopBtn" class="icon" title="Home dashboard" aria-label="Home dashboard" onclick="showHome(true)"><svg class="uiIcon"><use href="#icon-home"></use></svg></button><button id="tipsTopBtn" class="icon" title="Tips and guide" aria-label="Tips and guide" onclick="showTips()"><svg class="uiIcon"><use href="#icon-help"></use></svg></button><button id="helpTopBtn" class="icon" title="Featured Minecraft content and tips" aria-label="Featured Minecraft content and tips" onclick="showTips()" style="width:32px;height:32px;font-size:14px;font-weight:700;color:var(--blue);background:transparent;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:background 0.15s" onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background='transparent'">?</button><button id="callBtn" class="icon" title="Voice Call"><svg class="uiIcon"><use href="#icon-call"></use></svg></button><button id="groupCallBtn" class="icon" title="Group Call"><svg class="uiIcon"><use href="#icon-video"></use></svg></button><button id="inviteBtn" class="icon" title="Invite"><svg class="uiIcon"><use href="#icon-invite"></use></svg></button><button id="membersDrawerBtn" class="icon mobileOnly" onclick="openDrawer('right')" aria-label="Open members" title="Members"><svg class="uiIcon"><use href="#icon-users"></use></svg></button></div></div><div id="messages" class="messages"></div><form id="composer" class="composer"><div class="composerBox"><input id="messageInput" autocomplete="off" placeholder="Message #general"><button class="primary">Send</button></div></form></main><aside class="right"><div class="rightHead">MEMBERS</div><div id="people" class="people"></div><div class="rightHead">ACTIVITY</div><div id="activityList" class="people"></div></aside></div>
 
 <!-- ===== NEW: Home Page / Dashboard ===== -->
 <div class="homePage" id="homePage" role="main" style="display:none;flex-direction:column;height:100%;overflow:auto;padding:24px">
   <div class="homeHeader" style="margin-bottom:24px">
     <h1 style="font-family:var(--font-minecraft);font-size:32px;margin:0 0 8px;letter-spacing:1px"><svg class="uiIcon" style="width:28px;height:28px;vertical-align:-6px"><use href="#icon-home"></use></svg> Welcome back</h1>
     <p style="color:var(--muted);margin:0;font-size:15px">Your Minecraft social hub. Join servers, chat with friends, and voice call.</p>
+    <div class="row" style="margin-top:14px;flex-wrap:wrap;gap:8px">
+      <button id="homeResumeBtn" class="secondary" hidden onclick="showHome(false)">Return to conversation</button>
+      <button class="secondary" onclick="showTips()"><svg class="uiIcon"><use href="#icon-help"></use></svg> Tips &amp; Guide</button>
+    </div>
   </div>
   
   <div class="homeGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px">
@@ -349,7 +357,7 @@ label{display:block;margin:12px 0 4px;font-size:13px;font-weight:500;color:var(-
       <h3 style="font-family:var(--font-minecraft);font-size:18px;margin:0 0 12px;display:flex;align-items:center;gap:10px"><svg class="cardIcon" aria-hidden="true" style="width:28px;height:28px;fill:var(--blue)"><use href="#icon-server"></use></svg> Your Servers</h3>
       <p style="color:var(--muted);font-size:13px;line-height:1.6;margin:0 0 16px">Quick access to your servers and channels.</p>
       <ul class="serverList" id="homeServerList" style="list-style:none;padding:0;margin:0;display:grid;gap:8px"></ul>
-      <button class="primary btn" onclick="showHome(false);selectFirstServer()" style="width:100%"><svg class="uiIcon" style="width:18px;height:18px"><use href="#icon-add"></use></svg> Add Server</button>
+      <button class="primary btn" onclick="showHome(false);document.getElementById('newServer').click()" style="width:100%"><svg class="uiIcon" style="width:18px;height:18px"><use href="#icon-add"></use></svg> Add Server</button>
     </div>
     
     <div class="homeCard" style="background:var(--panel);border:1px solid var(--panel-border);border-radius:12px;padding:20px;transition:transform 0.15s ease,box-shadow 0.15s ease">
@@ -407,6 +415,7 @@ label{display:block;margin:12px 0 4px;font-size:13px;font-weight:500;color:var(-
     <button class="navItem" id="gameTabFlappy" data-game="flappy" onclick="switchGameTab('flappy')" style="padding:10px 16px;background:var(--hover);color:#fff"><svg class="uiIcon"><use href="#icon-activity"></use></svg> Flappy Bird</button>
     <button class="navItem" id="gameTabChess" data-game="chess" onclick="switchGameTab('chess')" style="padding:10px 16px;color:var(--muted)"><svg class="uiIcon"><use href="#icon-users"></use></svg> Chess</button>
     <button class="navItem" id="gameTabSnake" data-game="snake" onclick="switchGameTab('snake')" style="padding:10px 16px;color:var(--muted)"><svg class="uiIcon"><use href="#icon-activity"></use></svg> Snake</button>
+    <button class="navItem" id="gameTabPaintball" data-game="paintball" onclick="switchGameTab('paintball')" style="padding:10px 16px;color:var(--muted)"><svg class="uiIcon"><use href="#icon-activity"></use></svg> Paintball</button>
   </div>
   <div id="gameContainer" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:400px"></div>
 </div>
@@ -428,6 +437,7 @@ label{display:block;margin:12px 0 4px;font-size:13px;font-weight:500;color:var(-
   <div id="worldsEmpty" class="muted" style="padding:24px;text-align:center"></div>
 </div>
 
+<div id="tipsModal" class="modal hidden"><div class="card" role="dialog" aria-modal="true" aria-labelledby="tipsTitle" style="max-width:560px;max-height:86vh;overflow:auto"><div class="row" style="justify-content:space-between;align-items:center"><h2 id="tipsTitle" style="margin:0"><svg class="uiIcon"><use href="#icon-help"></use></svg> Tips &amp; Guide</h2><button onclick="show('tipsModal',false)" style="background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;padding:0;line-height:1" aria-label="Close tips">&times;</button></div><p class="muted">Use this guide any time without leaving your current conversation.</p><ul style="line-height:1.65;padding-left:20px;margin:12px 0"><li><b>Home dashboard:</b> use the Home button in the top bar or sidebar to see your servers, friends, voice shortcuts, and featured Minecraft content.</li><li><b>Return to chat:</b> from Home, choose <b>Return to conversation</b> or pick a server/channel. Your current channel and messages are kept while Home is open.</li><li><b>Chat and DMs:</b> select a channel in the sidebar, or open a friend/DM. Messages are stored by the server and reappear after refresh.</li><li><b>Friends:</b> use <b>Add Friend</b>, accept requests, then start a DM from the Friends list or Members panel.</li><li><b>Voice:</b> open a DM for a private call, or join a voice channel. Allow microphone access when your browser asks; mute, deafen, and leave from the call bar.</li><li><b>Minecraft:</b> open Settings to link a Java or Bedrock profile, manage game activity, or review linked sign-in accounts.</li><li><b>Onboarding:</b> new members can reopen the welcome steps here. Completing onboarding changes the account to Member.</li></ul><div class="row" style="flex-wrap:wrap;gap:8px"><button id="tipsOnboardingBtn" class="secondary" onclick="openOnboardingFromTips()">Open onboarding</button><button class="primary" onclick="show('tipsModal',false);showHome(true)"><svg class="uiIcon"><use href="#icon-home"></use></svg> Open Home</button><button class="secondary" onclick="show('tipsModal',false)">Close</button></div></div></div>
 <div id="callBar" class="callBar hidden"><b id="callTitle"><svg class="uiIcon"><use href="#icon-call"></use></svg> Call</b><div id="callPeople" class="callPeople"></div><div id="voiceStatus" class="callStatus" role="status"></div><span id="voiceUsageStatus" class="callStatus" role="status"></span><button id="voiceUsageButton" title="Check this account's TURN usage">TURN usage</button><button id="muteBtn"><svg class="uiIcon"><use href="#icon-mic"></use></svg><span>Mute</span></button><button id="deafenBtn"><svg class="uiIcon"><use href="#icon-deafen"></use></svg><span>Deafen</span></button><button id="endCall" class="danger"><svg class="uiIcon"><use href="#icon-hangup"></use></svg><span>End</span></button></div>
 <div id="incoming" class="incoming hidden"><b><svg class="uiIcon"><use href="#icon-call"></use></svg> Incoming call</b><div id="incomingText" style="margin:10px 0"></div><div class="row"><button id="acceptCall" class="primary" style="flex:1">Accept</button><button id="declineCall" class="danger" style="flex:1">Decline</button></div></div>
 <div id="settingsModal" class="modal hidden"><div class="card"><div class="row" style="justify-content:space-between"><h2><svg class="uiIcon"><use href="#icon-settings"></use></svg> Settings</h2><button onclick="show('settingsModal',false)" style="background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;padding:0;line-height:1">&times;</button></div><div style="text-align:center;margin:15px"><div id="settingsAvatar" class="avatar" style="width:96px;height:96px;margin:auto;font-size:32px"><svg class="uiIcon"><use href="#icon-user"></use></svg></div></div><label>Display name</label><input id="settingsDisplayName" maxlength="32"><label>Avatar image URL (HTTPS only)</label><input id="settingsAvatarUrl" maxlength="500" placeholder="https://example.com/avatar.png"><p class="muted">The image host may receive your request when your profile is shown.</p><label>Username</label><input id="settingsUsername" disabled><label>Sign-in provider</label><input id="settingsProvider" disabled><label class="row" style="margin:14px 0"><input id="showGameActivity" type="checkbox" style="width:auto;margin:0"> Show game activity</label><div id="currentActivity" class="muted"></div><h3>Eaglercraft browser integration</h3><p class="muted">Pair the MINECORD Activity extension for Chrome using this one-time code. The extension only reports whether the configured Eaglercraft page is open.</p><button id="pairEaglercraft">Generate pairing code</button><button id="revokeEaglercraft">Unpair extension</button><div id="pairingCode" class="muted" style="word-break:break-all"></div><h3><svg class="uiIcon" style="margin-right:8px"><use href="#icon-minecraft"></use></svg> Minecraft</h3><input id="mcName" maxlength="32" placeholder="Minecraft username"><input id="mcUuid" maxlength="80" placeholder="Minecraft UUID (optional)"><select id="mcEdition"><option>Java</option><option>Bedrock</option></select><div class="row" style="margin-top:12px"><button id="saveProfile" class="primary" style="flex:1">Save</button><button id="signOut" class="danger">Sign Out</button></div></div><div id="gamesSection" style="margin-top:24px;padding-top:24px;border-top:1px solid var(--line)"><h3><svg class="uiIcon" style="margin-right:8px"><use href="#icon-activity"></use></svg> Games</h3><p class="muted" style="margin:0 0 16px">Link your Minecraft accounts and manage saved servers for each edition.</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-top:16px"><div class="card" style="padding:16px;border:1px solid var(--line);background:var(--panel)"><div class="row" style="align-items:center;margin-bottom:12px"><svg class="uiIcon" style="width:28px;height:28px;color:var(--green)"><use href="#icon-minecraft"></use></svg><h4 style="margin:0;margin-left:12px">Minecraft Java Edition</h4></div><p class="muted" style="margin:0 0 16px;font-size:14px">Link your official Minecraft Java account via Microsoft authentication. View your profile and skin.</p><div style="display:flex;flex-direction:column;gap:8px"><input id="mcJavaName" maxlength="32" placeholder="Minecraft username"><input id="mcJavaUuid" maxlength="80" placeholder="Minecraft UUID (optional)"><button id="linkJavaAccount" class="primary" style="width:100%">Link Java Account</button></div><div id="javaAccountStatus" class="muted" style="margin-top:8px;min-height:20px"></div><div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--line)"><h5 style="margin:0 0 8px">Saved Java Servers</h5><div id="javaServerList" class="muted" style="font-size:13px">No saved servers</div><button id="addJavaServer" class="secondary" style="width:100%;margin-top:8px"><svg class="uiIcon"><use href="#icon-add"></use></svg> Add Server</button></div></div><div class="card" style="padding:16px;border:1px solid var(--line);background:var(--panel)"><div class="row" style="align-items:center;margin-bottom:12px"><svg class="uiIcon" style="width:28px;height:28px;color:#0078d4"><use href="#icon-minecraft-bedrock"></use></svg><h4 style="margin:0;margin-left:12px">Minecraft Bedrock Edition</h4></div><p class="muted" style="margin:0 0 16px;font-size:14px">Link your Bedrock account. Save and share server addresses and ports for Windows 10/11, consoles, and mobile.</p><div style="display:flex;flex-direction:column;gap:8px"><input id="mcBedrockName" maxlength="32" placeholder="Bedrock username (Xbox Gamertag)"><input id="mcBedrockXuid" maxlength="80" placeholder="Xbox User ID (XUID)"><button id="linkBedrockAccount" class="primary" style="width:100%">Link Bedrock Account</button></div><div id="bedrockAccountStatus" class="muted" style="margin-top:8px;min-height:20px"></div><div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--line)"><h5 style="margin:0 0 8px">Saved Bedrock Servers</h5><div id="bedrockServerList" class="muted" style="font-size:13px">No saved servers</div><button id="addBedrockServer" class="secondary" style="width:100%;margin-top:8px"><svg class="uiIcon"><use href="#icon-add"></use></svg> Add Server</button></div></div><div class="card" style="padding:16px;border:1px solid var(--line);background:var(--panel)"><div class="row" style="align-items:center;margin-bottom:12px"><svg class="uiIcon" style="width:28px;height:28px;color:#ff6b00"><use href="#icon-eaglercraft"></use></svg><h4 style="margin:0;margin-left:12px">Eaglercraft</h4></div><p class="muted" style="margin:0 0 16px;font-size:14px">Configure Eaglercraft browser integration. Save and share supported server links.</p><div style="display:flex;flex-direction:column;gap:8px"><input id="eaglerUrl" maxlength="200" placeholder="Eaglercraft server URL (e.g., https://eaglercraft.com/mc/)"><button id="saveEaglerUrl" class="primary" style="width:100%">Save URL</button></div><div id="eaglerStatus" class="muted" style="margin-top:8px;min-height:20px"></div><div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--line)"><h5 style="margin:0 0 8px">Saved Eaglercraft Links</h5><div id="eaglerLinkList" class="muted" style="font-size:13px">No saved links</div><button id="addEaglerLink" class="secondary" style="width:100%;margin-top:8px"><svg class="uiIcon"><use href="#icon-add"></use></svg> Add Link</button></div></div></div><div id="audioBin"></div>
@@ -439,10 +449,73 @@ function activityDetails(a){if(!a||a.active===false)return'';const details=[];if
 function renderActivities(){const cards=[];for(const [name,a] of Object.entries(activities)){if(!a)continue;cards.push(`<div class="activityCard"><b>${esc(name)} — ${activityTitle(a)}</b><span>${a.active===false?'Offline':activityDetails(a)||'Active now'}</span></div>`)}$('activityList').innerHTML=cards.join('')||'<div class="muted" style="padding:8px">No active games. Eaglercraft status is unavailable until its browser connector is paired.</div>';const own=activities[me?.username];$('currentActivity').textContent=own?`${activityTitle(own)}${activityDetails(own)?' · '+activityDetails(own):''}`:'No active game detected.'}
 async function connect(){try{const response=await fetch('/api/rtc-config');if(response.ok){const config=await response.json();rtcConfig={iceServers:config.iceServers};rtcWarnings=config.warnings||[]}else throw new Error(`Voice configuration request failed (${response.status}).`)}catch(error){console.warn('Voice configuration unavailable:',error.message);rtcWarnings=['Voice network configuration is unavailable. Voice may not connect.']}ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host);ws.onopen=()=>$('meStatus').textContent='online';ws.onmessage=e=>{try{handle(JSON.parse(e.data))}catch(err){console.error(err)}};ws.onclose=()=>{$('meStatus').textContent='offline';leaveServerVoice(false);finishCall(false);for(const peer of callPeers.keys())closeCallPeer(peer);setTimeout(()=>{if(me&&document.visibilityState!=='unloaded')connect()},3000)}}
 function promptFriendRequests(list){const from=list.shift();if(!from)return;showConfirm('Accept friend request from '+from+'?','Friend Request').then(ok=>{send(ok?{type:'friend_accept',with:from}:{type:'friend_reject',with:from});promptFriendRequests(list)})}
-function handle(m){if(m.type==='ready'){me=m.me;servers=m.servers;online=m.online;activities=m.activities||{};renderAll();if(Array.isArray(m.pendingFriendRequests)&&m.pendingFriendRequests.length)promptFriendRequests(m.pendingFriendRequests.slice())}if(m.type==='profile'){me=m.me;renderUser()}if(m.type==='activity_update'){if(m.activity)activities[m.username]=m.activity;else delete activities[m.username];renderActivities();renderPeople()}if(m.type==='presence'){online=m.online;renderPeople();renderDMs()}if(m.type==='server_created'||m.type==='server_joined'){if(!servers.some(s=>s.id===m.server.id))servers.push(m.server);renderServers();selectServer(m.server.id)}if(m.type==='channel_created'){let s=servers.find(x=>x.id===m.serverId);if(s&&!s.channels.some(x=>x.id===m.channel.id)){s.channels.push(m.channel);renderChannels()}}if(m.type==='history'&&m.scope===scope())renderMessages(m.messages);if(m.type==='message'&&m.scope===scope())addMessage(m.item);if(m.type==='dm_history'&&currentDM===m.username){$('messages').innerHTML='';m.messages.forEach(addMessage)}if(m.type==='dm'){let x=m.message;if(currentDM===x.from||currentDM===x.to)addMessage(x);else if(x.from!==me.username)unread[x.from]=(unread[x.from]||0)+1;renderDMs()}if(m.type==='friend_request') showConfirm('Accept friend request from ' + m.from + '?', 'Friend Request').then(accepted => { send(accepted ? {type:'friend_accept',with:m.from} : {type:'friend_reject',with:m.from}); });if(m.type==='friend_status'){renderDMs();if(m.status==='pending')showAlert(m.user + ' will see your friend request when they sign in.','Friend Request Sent');else if(m.status==='rejected')showAlert(m.user + ' declined your friend request.','Friend Request');else if(m.status==='removed')showAlert(m.user + ' removed you from their friends.','Friend Removed');}if(m.type==='invite') showPrompt('Share this invite code:', 'Invite Code', {value: m.code, required: true}); if(m.type==='error') showAlert(m.message);
-if(m.type==='voice_members'&&m.room===voiceRoom){voiceMembers=new Set(m.members);m.members.filter(x=>x!==me.username).forEach(x=>makeServerPeer(x,shouldInitiatePeer(x),m.room));renderCallBar()}if(m.type==='voice_peer_joined'&&m.room===voiceRoom){voiceMembers.add(m.peer);makeServerPeer(m.peer,shouldInitiatePeer(m.peer),m.room);renderCallBar()}if(m.type==='voice_peer_rejoined'&&m.room===voiceRoom){voiceMembers.add(m.peer);closePeer(m.peer);makeServerPeer(m.peer,shouldInitiatePeer(m.peer),m.room);renderCallBar()}if(m.type==='voice_peer_left'&&m.room===voiceRoom){voiceMembers.delete(m.peer);closePeer(m.peer);renderCallBar()}if(m.type==='voice_signal')voiceSignal(m);
-if(m.type==='incoming_call'){incomingCall=m;$('incomingText').textContent=`${m.from} is calling you${m.typeName==='group'?' in a group call':''}.`;show('incoming')}if(m.type==='call_started'){activeCall={id:m.callId,participants:new Set(m.participants),type:m.typeName};startCall().catch(e=>showAlert(e.message))}if(m.type==='call_accepted'){activeCall={id:m.callId,participants:new Set(m.participants),type:activeCall?.type||'private'};startCall().catch(console.error)}if(m.type==='call_member_joined'){if(!activeCall)activeCall={id:m.callId,participants:new Set(),type:'group'};activeCall.participants=new Set(m.participants);makeCallPeer(m.user,true);updateCall()}if((m.type==='call_declined'||m.type==='call_member_left')&&activeCall?.id===m.callId){activeCall.participants.delete(m.user);closeCallPeer(m.user);updateCall()}if(m.type==='call_ended'&&activeCall?.id===m.callId)finishCall(false);if(m.type==='call_signal')callSignal(m)}
-function renderAll(){renderUser();renderServers();renderPeople();renderDMs();renderActivities();if(!currentServer&&servers[0])selectServer(servers[0].id)}
+
+// Multiplayer game handlers
+const gameHandlers = {
+  flappy: null,
+  chess: null,
+  snake: null,
+  paintball: null
+};
+
+function handleGameInvite(msg) {
+  if (!me) return;
+  if (!online.includes(msg.from)) return;
+  
+  const handler = gameHandlers[msg.gameType];
+  if (handler && handler.onGameInvite) {
+    handler.onGameInvite(msg);
+  } else {
+    if (confirm(`${msg.from} invited you to play ${msg.gameType}! Accept?`)) {
+      send({ type: 'game_accept', inviteId: msg.inviteId });
+    } else {
+      send({ type: 'game_decline', inviteId: msg.inviteId });
+    }
+  }
+}
+
+function handleGameState(msg) {
+  if (!me) return;
+  const handler = gameHandlers[msg.gameType];
+  if (handler && handler.onGameState) {
+    handler.onGameState(msg);
+  }
+}
+
+function handleGameAction(msg) {
+  const handler = gameHandlers[msg.gameType];
+  if (handler && handler.onGameAction) {
+    handler.onGameAction(msg);
+  }
+}
+
+function handleGameLeave(msg) {
+  const handler = gameHandlers[msg.gameType];
+  if (handler && handler.onGameLeave) {
+    handler.onGameLeave(msg);
+  }
+  if (currentGame === msg.gameType) {
+    cleanupGame();
+    const container = $('gameContainer');
+    if (container) {
+      container.innerHTML = '<div style="text-align:center;padding:40px"><p class="muted">The game has ended.</p></div>';
+    }
+  }
+}
+
+function handleGameInviteDeclined(msg) {
+  showAlert(`${msg.by} declined your game invite.`);
+}
+
+function registerGameHandler(gameType, handler) {
+  gameHandlers[gameType] = handler;
+}
+
+function unregisterGameHandler(gameType) {
+  gameHandlers[gameType] = null;
+}
+
+function handle(m){if(m.type==='ready'){me=m.me;servers=m.servers;online=m.online;activities=m.activities||{};renderAll();if(Array.isArray(m.pendingFriendRequests)&&m.pendingFriendRequests.length)promptFriendRequests(m.pendingFriendRequests.slice())}if(m.type==='profile'){me=m.me;renderUser()}if(m.type==='activity_update'){if(m.activity)activities[m.username]=m.activity;else delete activities[m.username];renderActivities();renderPeople()}if(m.type==='presence'){online=m.online;renderPeople();renderDMs()}if(m.type==='server_created'||m.type==='server_joined'){if(!servers.some(s=>s.id===m.server.id))servers.push(m.server);renderServers();selectServer(m.server.id)}if(m.type==='channel_created'){let s=servers.find(x=>x.id===m.serverId);if(s&&!s.channels.some(x=>x.id===m.channel.id)){s.channels.push(m.channel);renderChannels()}}if(m.type==='history'&&m.scope===scope())renderMessages(m.messages);if(m.type==='message'&&m.scope===scope())addMessage(m.item);if(m.type==='dm_history'&&currentDM===m.username){$('messages').innerHTML='';m.messages.forEach(addMessage)}if(m.type==='dm'){let x=m.message;if(currentDM===x.from||currentDM===x.to)addMessage(x);else if(x.from!==me.username)unread[x.from]=(unread[x.from]||0)+1;renderDMs()}if(m.type==='friend_request') showConfirm('Accept friend request from ' + m.from + '?', 'Friend Request').then(accepted => { send(accepted ? {type:'friend_accept',with:m.from} : {type:'friend_reject',with:m.from}); });if(m.type==='friend_status'){renderDMs();if(m.status==='pending')showAlert(m.user + ' will see your friend request when they sign in.','Friend Request Sent');else if(m.status==='rejected')showAlert(m.user + ' declined your friend request.','Friend Request');else if(m.status==='removed')showAlert(m.user + ' removed you from their friends.','Friend Removed');}if(m.type==='friend_invite'){showConfirm(m.from + ' invited you to join the server \"' + m.serverName + '\". Accept?','Server Invitation').then(accepted=>{if(accepted)send({type:'friend_invite_accept',code:m.code});else send({type:'friend_invite_decline',code:m.code});});}if(m.type==='friend_invite_sent'){showAlert('Invitation sent to ' + m.target + '.','Invitation Sent');}if(m.type==='friend_invite_declined'){showAlert(m.by + ' declined your invitation to join the server.','Invitation Declined');}if(m.type==='invite') showPrompt('Share this invite code:', 'Invite Code', {value: m.code, required: true}); if(m.type==='error') showAlert(m.message);if(m.type==='voice_members'&&m.room===voiceRoom){voiceMembers=new Set(m.members);m.members.filter(x=>x!==me.username).forEach(x=>makeServerPeer(x,shouldInitiatePeer(x),m.room));renderCallBar()}if(m.type==='voice_peer_joined'&&m.room===voiceRoom){voiceMembers.add(m.peer);makeServerPeer(m.peer,shouldInitiatePeer(m.peer),m.room);renderCallBar()}if(m.type==='voice_peer_rejoined'&&m.room===voiceRoom){voiceMembers.add(m.peer);closePeer(m.peer);makeServerPeer(m.peer,shouldInitiatePeer(m.peer),m.room);renderCallBar()}if(m.type==='voice_peer_left'&&m.room===voiceRoom){voiceMembers.delete(m.peer);closePeer(m.peer);renderCallBar()}if(m.type==='voice_signal')voiceSignal(m);if(m.type==='incoming_call'){incomingCall=m;$('incomingText').textContent=`${m.from} is calling you${m.typeName==='group'?' in a group call':''}.`;show('incoming')}if(m.type==='call_started'){activeCall={id:m.callId,participants:new Set(m.participants),type:m.typeName};startCall().catch(e=>showAlert(e.message))}if(m.type==='call_accepted'){activeCall={id:m.callId,participants:new Set(m.participants),type:activeCall?.type||'private'};startCall().catch(console.error)}if(m.type==='call_member_joined'){if(!activeCall)activeCall={id:m.callId,participants:new Set(),type:'group'};activeCall.participants=new Set(m.participants);makeCallPeer(m.user,true);updateCall()}if((m.type==='call_declined'||m.type==='call_member_left')&&activeCall?.id===m.callId){activeCall.participants.delete(m.user);closeCallPeer(m.user);updateCall()}if(m.type==='call_ended'&&activeCall?.id===m.callId)finishCall(false);if(m.type==='call_signal')callSignal(m);if(m.type==='game_invite') handleGameInvite(m);if(m.type==='game_state') handleGameState(m);if(m.type==='game_action') handleGameAction(m);if(m.type==='game_leave') handleGameLeave(m);if(m.type==='game_invite_declined') handleGameInviteDeclined(m)}function renderAll(){renderUser();renderServers();renderPeople();renderDMs();renderActivities();if(!currentServer&&servers[0])selectServer(servers[0].id)}
 function renderUser(){if(!me)return;$('meName').textContent=me.displayName||me.username;$('meAvatar').innerHTML=avatar(me);$('settingsAvatar').innerHTML=avatar(me);$('settingsDisplayName').value=me.displayName||'';$('settingsAvatarUrl').value=me.avatar||'';$('settingsUsername').value=me.username||'';$('settingsProvider').value=me.oauth?.provider||'Local profile';$('mcName').value=me.minecraft?.username||'';$('mcUuid').value=me.minecraft?.uuid||'';$('mcEdition').value=me.minecraft?.edition||'Java';const linked=$('minecraftLinkStatus');if(linked)linked.textContent=window.minecordMinecraftNotice||(me.minecraft?`Linked Java profile: ${me.minecraft.username}`:'No official Minecraft account linked.');const unlink=$('minecraftUnlinkButton');if(unlink)unlink.hidden=!me.minecraft;$('showGameActivity').checked=me.showGameActivity!==false;activities[me.username]=me.activity||activities[me.username];renderActivities()}
 function renderServers(){let html='';for(const s of servers)html+=`<div class="serverIcon ${currentServer?.id===s.id?'active':''}" title="${esc(s.name)}" onclick="selectServer('${s.id}')"><svg class="uiIcon"><use href="#icon-server"></use></svg></div>`;$('servers').innerHTML=html}
 function selectServer(id){if(voiceRoom)leaveServerVoice();currentServer=servers.find(s=>s.id===id);currentDM=null;if(!currentServer)return;$('serverTitle').textContent=currentServer.name;renderServers();renderChannels();renderDMs();const c=currentServer.channels.find(x=>x.type==='text')||currentServer.channels[0];if(c)selectChannel(c.id)}
@@ -592,7 +665,7 @@ $('endCall').onclick=()=>activeCall?finishCall(true):leaveServerVoice();
 $('muteBtn').onclick=()=>{muted=!muted;localStream?.getAudioTracks().forEach(track=>track.enabled=!muted);renderVoiceControls()};
 $('deafenBtn').onclick=()=>{deafened=!deafened;document.querySelectorAll('#audioBin audio').forEach(audio=>audio.muted=deafened);renderVoiceControls()};
 $('voiceUsageButton').onclick=async()=>{const node=$('voiceUsageStatus');node.textContent='Checking…';try{const response=await fetch('/api/rtc-usage'),result=await response.json();if(!response.ok)throw new Error(result.error||'TURN usage could not be retrieved.');node.textContent=`TURN usage: ${result.usageInGB.toFixed(3)} GB`}catch(error){node.textContent=error.message}};
-(async()=>{const query=new URLSearchParams(location.search),error=query.get('auth_error');if(error)$('loginError').textContent=error;if(query.has('oauth'))history.replaceState({},'','/');try{const response=await fetch('/api/auth/me'),result=await response.json();if(response.ok){me=result.user;show('login',false);connect()}else show('login',true)}catch(error){$('loginError').textContent='Cannot reach MINECORD. Check the server connection.';show('login',true)}fetch('/api/config').then(response=>response.json()).then(config=>{document.querySelectorAll('.oauthButton')[0].hidden=!config.google;document.querySelectorAll('.oauthButton')[1].hidden=!config.microsoft;document.querySelectorAll('.oauthButton')[2].hidden=!config.github}).catch(()=>{});setInterval(renderActivities,60000)})();
+(async()=>{const query=new URLSearchParams(location.search),error=query.get('auth_error');if(error)$('loginError').textContent=error;if(query.has('oauth')||query.has('auth_error')){const next=new URLSearchParams(query);next.delete('oauth');next.delete('auth_error');const qs=next.toString();history.replaceState({},'','/app'+(qs?'?'+qs:'')+location.hash)}try{const response=await fetch('/api/auth/me'),result=await response.json();if(response.ok){me=result.user;show('login',false);connect()}else show('login',true)}catch(error){$('loginError').textContent='Cannot reach MINECORD. Check the server connection.';show('login',true)}fetch('/api/config').then(response=>response.json()).then(config=>{document.querySelectorAll('.oauthButton')[0].hidden=!config.google;document.querySelectorAll('.oauthButton')[1].hidden=!config.microsoft;document.querySelectorAll('.oauthButton')[2].hidden=!config.github}).catch(()=>{});setInterval(renderActivities,60000)})();
 
 // Keep the mobile drawers in sync with the desktop sidebars.
 function syncDrawers(){
@@ -609,6 +682,11 @@ setTimeout(syncDrawers,0);
 // Escape key to close game page
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
+    const tipsModal = $('tipsModal');
+    if (tipsModal && !tipsModal.classList.contains('hidden')) {
+      show('tipsModal', false);
+      return;
+    }
     const gamePage = $('gamePage');
     if (gamePage && gamePage.style.display === 'flex') {
       closeGamePage();
@@ -747,8 +825,8 @@ document.addEventListener('visibilitychange',()=>{
     const mcUnlink = $('minecraftUnlinkButton');
     const brUnlink = $('bedrockUnlinkButton');
     
-    if (mcLink) mcLink.onclick = () => { mcLink.disabled = true; location.href = '/auth/minecraft/link'; };
-    if (brLink) brLink.onclick = () => { brLink.disabled = true; location.href = '/auth/bedrock/link'; };
+    if (mcLink) mcLink.onclick = () => { mcLink.disabled = true; location.href = '/auth/minecraft/link?returnTo=' + encodeURIComponent(location.pathname + location.search + location.hash); };
+    if (brLink) brLink.onclick = () => { brLink.disabled = true; location.href = '/auth/bedrock/link?returnTo=' + encodeURIComponent(location.pathname + location.search + location.hash); };
     if (mcUnlink) mcUnlink.onclick = async () => {
       try {
         const response = await fetch('/api/minecraft/link', { method: 'DELETE' });
@@ -794,14 +872,15 @@ document.addEventListener('visibilitychange',()=>{
     $('linkedAccountList').innerHTML=accountMarkup.join('')||'<div class="muted">No OAuth providers are configured on this server.</div>';
     $('linkedAccountList').querySelectorAll('[data-link]').forEach(button=>button.onclick=async()=>{
       try{
-        const response=await fetch(`/api/auth/links/${button.dataset.link}/start`,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+        const response=await fetch(`/api/auth/links/${button.dataset.link}/start`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({returnTo:location.pathname+location.search})});
         const result=await response.json();
         if(!response.ok)throw new Error(result.error||'Could not start account linking.');
         location.href=result.authorizeUrl;
       }catch(error){showAccountMessage(error.message)}
     });
     $('linkedAccountList').querySelectorAll('[data-unlink]').forEach(button=>button.onclick=async()=>{
-      showConfirm(`Unlink all ${labels[button.dataset.unlink]} sign-in accounts from this MINECORD account?`).then(ok=>{if(!ok)return;});
+      const confirmed=await showConfirm(`Unlink all ${labels[button.dataset.unlink]} sign-in accounts from this MINECORD account?`);
+      if(!confirmed)return;
       try{
         const response=await fetch(`/api/auth/links/${button.dataset.unlink}`,{method:'DELETE'});
         const result=await response.json();
@@ -936,11 +1015,11 @@ document.addEventListener('visibilitychange',()=>{
 
   // Minecraft linking status handling
   const query = new URLSearchParams(location.search);
-  const linkMessages = {success:'Account linked successfully.',cancelled:'Account linking was cancelled.',already_linked:'That provider account is linked to a different MINECORD account.',provider_already_linked:'Unlink the existing account from this provider before linking another.',provider_failed:'The identity provider could not complete account linking.'};
+  const linkMessages = {success:'Account linked successfully.',cancelled:'Account linking was cancelled.',already_linked:'That provider account is linked to a different MINECORD account.',provider_already_linked:'Unlink the existing account from this provider before linking another.',provider_failed:'The identity provider could not complete account linking.',session_expired:'Your MINECORD session expired. Sign in again before linking an account.'};
   if(query.has('account_link')||query.has('account_link_error')){
     show('settingsModal');
     showAccountMessage(linkMessages[query.get('account_link')]||linkMessages[query.get('account_link_error')]||'Account linking failed.');
-    history.replaceState({},'','/');
+    history.replaceState({},'','/app');
   }
   
   // Minecraft/Bedrock linking status
@@ -959,20 +1038,20 @@ document.addEventListener('visibilitychange',()=>{
     show('settingsModal');
     window.minecordMinecraftNotice = 'Minecraft Java account linked successfully.';
     refreshGameLinking();
-    history.replaceState({}, '', '/');
+    history.replaceState({}, '', '/app');
   } else if (query.has('minecraft_link_error')) {
     show('settingsModal');
     window.minecordMinecraftNotice = minecraftErrors[query.get('minecraft_link_error')] || 'Minecraft account linking failed.';
-    history.replaceState({}, '', '/');
+    history.replaceState({}, '', '/app');
   } else if (query.has('bedrock_link')) {
     show('settingsModal');
     window.minecordBedrockNotice = 'Xbox/Bedrock account linked successfully.';
     refreshGameLinking();
-    history.replaceState({}, '', '/');
+    history.replaceState({}, '', '/app');
   } else if (query.has('bedrock_link_error')) {
     show('settingsModal');
     window.minecordBedrockNotice = minecraftErrors[query.get('bedrock_link_error')] || 'Bedrock account linking failed.';
-    history.replaceState({}, '', '/');
+    history.replaceState({}, '', '/app');
   }
 
   $('profileBtn').addEventListener('click', () => {
@@ -999,7 +1078,7 @@ let gameLoopId = null;
 function switchGameTab(game) {
   currentGame = game;
   // Update sidebar tabs
-  ['Flappy', 'Chess', 'Snake'].forEach(g => {
+  ['Flappy', 'Chess', 'Snake', 'Paintball'].forEach(g => {
     const btn = $('gamesTab' + g);
     if (btn) {
       btn.classList.toggle('active', g.toLowerCase() === game);
@@ -1014,7 +1093,7 @@ function switchGameTab(game) {
   // Update page tabs
   const pageBtn = $('gameTab' + game.charAt(0).toUpperCase() + game.slice(1));
   if (pageBtn) {
-    ['Flappy', 'Chess', 'Snake'].forEach(g => {
+    ['Flappy', 'Chess', 'Snake', 'Paintball'].forEach(g => {
       const b = $('gameTab' + g);
       if (b) {
         b.classList.toggle('active', g.toLowerCase() === game);
@@ -1049,6 +1128,8 @@ function renderGame(game) {
     renderChess(container);
   } else if (game === 'snake') {
     renderSnake(container);
+  } else if (game === 'paintball') {
+    renderPaintball(container);
   }
 }
 
@@ -1072,11 +1153,23 @@ function renderFlappyBird(container) {
   currentGame = 'flappy';
   container.innerHTML = `
     <div style="text-align:center;max-width:400px;width:100%">
+      <div id="flappyModeSelect" style="margin-bottom:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+        <button class="primary" id="flappyModeSolo" data-mode="solo">Solo</button>
+        <button class="secondary" id="flappyModeMulti" data-mode="multi">Multiplayer</button>
+      </div>
+      <div id="flappyMultiplayerUI" class="hidden" style="margin-bottom:12px;padding:12px;background:var(--panel);border:1px solid var(--panel-border);border-radius:8px">
+        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:8px">
+          <input type="text" id="flappyInviteUser" placeholder="Friend username" style="max-width:160px">
+          <button class="primary" id="flappyInviteBtn">Invite</button>
+        </div>
+        <div id="flappyInviteStatus" class="muted" style="font-size:12px;min-height:16px"></div>
+      </div>
       <canvas id="flappyCanvas" width="400" height="600" style="background:#70c5ce;border:2px solid var(--panel-border);border-radius:8px;display:block;margin:0 auto;touch-action:none"></canvas>
       <div style="margin-top:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
         <button class="primary" id="flappyStart">Start</button>
         <button class="secondary" id="flappyPause">Pause</button>
-        <div class="muted" style="display:flex;align-items:center;gap:8px">Score: <strong id="flappyScore">0</strong> | Best: <strong id="flappyBest">0</strong></div>
+        <div class="muted" style="display:flex;align-items:center;gap:8px">Your Score: <strong id="flappyScore">0</strong></div>
+        <div id="flappyOpponentScore" class="hidden" class="muted" style="display:flex;align-items:center;gap:8px">Opponent: <strong id="flappyOppScore">0</strong></div>
       </div>
       <p class="muted" style="margin-top:8px;font-size:12px">Click or press Space to flap. Navigate through pipes!</p>
     </div>
@@ -1086,6 +1179,77 @@ function renderFlappyBird(container) {
   const ctx = canvas.getContext('2d');
   const bestScore = parseInt(localStorage.getItem('flappyBest') || '0');
   $('flappyBest').textContent = bestScore;
+  
+  // Multiplayer state
+  let flappyMode = 'solo'; // 'solo' or 'multi'
+  let gameId = null;
+  let opponentUsername = null;
+  let opponentScore = 0;
+  let opponentBird = null;
+  let pendingInvite = null;
+  
+  // Mode selection
+  $('flappyModeSolo').onclick = () => setFlappyMode('solo');
+  $('flappyModeMulti').onclick = () => setFlappyMode('multi');
+  
+  function setFlappyMode(mode) {
+    flappyMode = mode;
+    $('flappyModeSolo').classList.toggle('primary', mode === 'solo');
+    $('flappyModeSolo').classList.toggle('secondary', mode !== 'solo');
+    $('flappyModeMulti').classList.toggle('primary', mode === 'multi');
+    $('flappyModeMulti').classList.toggle('secondary', mode !== 'multi');
+    $('flappyMultiplayerUI').classList.toggle('hidden', mode !== 'multi');
+    $('flappyOpponentScore').classList.toggle('hidden', mode !== 'multi');
+    if (mode === 'solo' && gameId) {
+      leaveGame();
+    }
+  }
+  
+  // Invite friend
+  $('flappyInviteBtn').onclick = () => {
+    const username = $('flappyInviteUser').value.trim();
+    if (!username) return;
+    if (!me || !online.includes(username)) {
+      $('flappyInviteStatus').textContent = 'User not found or offline.';
+      return;
+    }
+    if (username === me.username) {
+      $('flappyInviteStatus').textContent = 'Cannot invite yourself.';
+      return;
+    }
+    pendingInvite = username;
+    $('flappyInviteStatus').textContent = `Inviting ${username}...`;
+    send({ type: 'game_invite', gameType: 'flappy', opponent: username });
+  };
+  
+  function handleGameInvite(msg) {
+    if (msg.gameType !== 'flappy') return;
+    if (confirm(`${msg.from} invited you to play Flappy Bird! Accept?`)) {
+      send({ type: 'game_accept', inviteId: msg.inviteId });
+    } else {
+      send({ type: 'game_decline', inviteId: msg.inviteId });
+    }
+  }
+  
+  function handleGameState(msg) {
+    if (msg.gameType !== 'flappy') return;
+    gameId = msg.gameId;
+    opponentUsername = msg.players.find(p => p.username !== me.username)?.username;
+    if (msg.state === 'playing') {
+      startMultiplayerGame(msg.gameData);
+    } else if (msg.state === 'finished') {
+      gameOver(msg.winner === me.username);
+    }
+  }
+  
+  function handleGameAction(msg) {
+    if (msg.gameType !== 'flappy') return;
+    if (msg.lastAction?.by === opponentUsername) {
+      opponentScore = msg.gameData.birds[opponentUsername]?.score || 0;
+      opponentBird = msg.gameData.birds[opponentUsername];
+      $('flappyOppScore').textContent = opponentScore;
+    }
+  }
   
   // Game state
   let bird = { x: 80, y: 300, velocity: 0, radius: 15 };
@@ -1107,6 +1271,11 @@ function renderFlappyBird(container) {
     frameCount = 0;
     gameState = 'ready';
     $('flappyScore').textContent = '0';
+    if (flappyMode === 'multi') {
+      opponentScore = 0;
+      opponentBird = null;
+      $('flappyOppScore').textContent = '0';
+    }
   }
   
   function spawnPipe() {
@@ -1117,7 +1286,7 @@ function renderFlappyBird(container) {
       x: canvas.width,
       topHeight: topHeight,
       bottomY: topHeight + pipeGap,
-      passed: false
+      passed: new Set()
     });
   }
   
@@ -1141,13 +1310,16 @@ function renderFlappyBird(container) {
       pipe.x -= pipeSpeed;
       
       // Score
-      if (!pipe.passed && pipe.x + pipeWidth < bird.x) {
-        pipe.passed = true;
+      if (!pipe.passed.has('self') && pipe.x + pipeWidth < bird.x) {
+        pipe.passed.add('self');
         score++;
         $('flappyScore').textContent = score;
         if (score > bestScore) {
           localStorage.setItem('flappyBest', score);
           $('flappyBest').textContent = score;
+        }
+        if (flappyMode === 'multi' && gameId) {
+          send({ type: 'game_action', gameId, action: { type: 'flap', score } });
         }
       }
       
@@ -1159,7 +1331,7 @@ function renderFlappyBird(container) {
       
       if (birdRight > pipe.x && birdLeft < pipe.x + pipeWidth) {
         if (birdTop < pipe.topHeight || birdBottom > pipe.bottomY) {
-          gameOver();
+          gameOver(false);
           return;
         }
       }
@@ -1172,20 +1344,40 @@ function renderFlappyBird(container) {
     
     // Boundary collision
     if (bird.y - bird.radius < 0 || bird.y + bird.radius > canvas.height) {
-      gameOver();
+      gameOver(false);
     }
   }
   
-  function gameOver() {
+  function gameOver(won) {
     gameState = 'gameover';
     if (gameLoopId) {
       cancelAnimationFrame(gameLoopId);
       clearTimeout(gameLoopId);
       gameLoopId = null;
     }
-    showAlert('Game Over! Score: ' + score);
+    if (flappyMode === 'multi' && gameId) {
+      send({ type: 'game_action', gameId, action: { type: 'gameover', won } });
+    }
+    alert(won ? 'You won!' : `Game Over! Score: ${score}`);
     resetGame();
     draw();
+  }
+  
+  function startMultiplayerGame(gameData) {
+    gameState = 'playing';
+    // Sync pipes from server
+    pipes = gameData.pipes.map(p => ({...p, passed: new Set(p.passed || [])}));
+    frameCount = gameData.frameCount || 0;
+    draw();
+    gameLoop();
+  }
+  
+  function leaveGame() {
+    if (gameId) {
+      send({ type: 'game_leave', gameId });
+      gameId = null;
+      opponentUsername = null;
+    }
   }
   
   function draw() {
@@ -1299,6 +1491,18 @@ function renderChess(container) {
   currentGame = 'chess';
   container.innerHTML = `
     <div style="display:flex;flex-direction:column;align-items:center;gap:12px;max-width:500px;width:100%">
+      <div id="chessModeSelect" style="margin-bottom:8px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+        <button class="secondary" id="chessModeSolo" data-mode="solo">Solo</button>
+        <button class="primary" id="chessModeMulti" data-mode="multi">Multiplayer</button>
+      </div>
+      <div id="chessMultiplayerUI" class="hidden" style="margin-bottom:8px;padding:12px;background:var(--panel);border:1px solid var(--panel-border);border-radius:8px">
+        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:8px">
+          <input type="text" id="chessInviteUser" placeholder="Friend username" style="max-width:160px">
+          <button class="primary" id="chessInviteBtn">Invite to Match</button>
+        </div>
+        <div id="chessInviteStatus" class="muted" style="font-size:12px;min-height:16px"></div>
+        <div id="chessMatchStatus" class="muted" style="font-size:12px;min-height:16px;margin-top:8px"></div>
+      </div>
       <div style="display:flex;justify-content:space-between;width:100%;max-width:480px">
         <div style="font-weight:600">White: <span id="chessWhiteTime">10:00</span></div>
         <div style="font-weight:600">Black: <span id="chessBlackTime">10:00</span></div>
@@ -1308,6 +1512,7 @@ function renderChess(container) {
         <button class="primary" id="chessNewGame">New Game</button>
         <button class="secondary" id="chessUndo">Undo</button>
         <button class="secondary" id="chessFlip">Flip Board</button>
+        <button id="chessResign" class="danger" style="display:none">Resign</button>
         <div class="muted" style="display:flex;align-items:center;gap:8px">Status: <strong id="chessStatus">White to move</strong></div>
       </div>
       <p class="muted" style="margin-top:8px;font-size:12px;max-width:480px">Click a piece to select, then click destination to move. Supports basic moves, captures, castling, and pawn promotion.</p>
@@ -1338,6 +1543,147 @@ function renderChess(container) {
   let blackTime = 600;
   let lastTime = Date.now();
   let timersRunning = false;
+  
+  // Multiplayer state
+  let chessMode = 'solo';
+  let gameId = null;
+  let opponentUsername = null;
+  let myColor = 'w';
+  let pendingInvite = null;
+  
+  // Mode selection
+  const modeSoloBtn = $('chessModeSolo');
+  const modeMultiBtn = $('chessModeMulti');
+  const multiUI = $('chessMultiplayerUI');
+  const resignBtn = $('chessResign');
+  
+  function setChessMode(mode) {
+    chessMode = mode;
+    modeSoloBtn.classList.toggle('primary', mode === 'solo');
+    modeSoloBtn.classList.toggle('secondary', mode !== 'solo');
+    modeMultiBtn.classList.toggle('primary', mode === 'multi');
+    modeMultiBtn.classList.toggle('secondary', mode !== 'multi');
+    multiUI.classList.toggle('hidden', mode !== 'multi');
+    resignBtn.style.display = mode === 'multi' ? 'inline-block' : 'none';
+    if (mode === 'solo' && gameId) {
+      leaveGame();
+    }
+    resetGame();
+  }
+  
+  modeSoloBtn.onclick = () => setChessMode('solo');
+  modeMultiBtn.onclick = () => setChessMode('multi');
+  
+  // Invite friend
+  $('chessInviteBtn').onclick = () => {
+    const username = $('chessInviteUser').value.trim();
+    const statusEl = $('chessInviteStatus');
+    if (!username) return;
+    if (!me || !online.includes(username)) {
+      statusEl.textContent = 'User not found or offline.';
+      return;
+    }
+    if (username === me.username) {
+      statusEl.textContent = 'Cannot invite yourself.';
+      return;
+    }
+    statusEl.textContent = `Inviting ${username}...`;
+    send({ type: 'game_invite', gameType: 'chess', opponent: username });
+  };
+  
+  function handleChessInvite(msg) {
+    if (msg.gameType !== 'chess') return;
+    if (confirm(`${msg.from} invited you to a Chess match! Accept?`)) {
+      send({ type: 'game_accept', inviteId: msg.inviteId });
+    } else {
+      send({ type: 'game_decline', inviteId: msg.inviteId });
+    }
+  }
+  
+  function handleChessState(msg) {
+    if (msg.gameType !== 'chess') return;
+    gameId = msg.gameId;
+    opponentUsername = msg.players.find(p => p.username !== me.username)?.username;
+    myColor = msg.players.find(p => p.username === me.username)?.color || 'w';
+    if (msg.state === 'playing') {
+      syncFromServer(msg.gameData);
+      startTimers();
+    } else if (msg.state === 'finished') {
+      gameOver(msg.winner === me.username);
+    } else if (msg.state === 'waiting') {
+      $('chessMatchStatus').textContent = `Waiting for ${opponentUsername} to ready up...`;
+    }
+  }
+  
+  function handleChessAction(msg) {
+    if (msg.gameType !== 'chess') return;
+    syncFromServer(msg.gameData);
+  }
+  
+  function handleChessLeave(msg) {
+    if (msg.gameType !== 'chess') return;
+    if (msg.by === opponentUsername) {
+      $('chessMatchStatus').textContent = `${opponentUsername} left the match.`;
+    }
+    if (gameId) {
+      gameId = null;
+      opponentUsername = null;
+    }
+    if (gameLoopId) {
+      cancelAnimationFrame(gameLoopId);
+      gameLoopId = null;
+    }
+    timersRunning = false;
+    resetGame();
+    draw();
+  }
+  
+  function syncFromServer(gameData) {
+    if (!gameData) return;
+    if (gameData.board) board = gameData.board.map(row => [...row]);
+    if (gameData.currentTurn) currentTurn = gameData.currentTurn;
+    if (gameData.whiteTime !== undefined) whiteTime = gameData.whiteTime;
+    if (gameData.blackTime !== undefined) blackTime = gameData.blackTime;
+    if (gameData.moveHistory) moveHistory = gameData.moveHistory.map(m => ({...m, board: m.board.map(row => [...row])}));
+    if (gameData.timersRunning !== undefined) timersRunning = gameData.timersRunning;
+    updateStatus();
+    updateTimers();
+    draw();
+  }
+  
+  function sendMoveToServer(fromRow, fromCol, toRow, toCol) {
+    if (!gameId || chessMode !== 'multi') return;
+    send({ type: 'game_action', gameId, action: { type: 'move', from: { row: fromRow, col: fromCol }, to: { row: toRow, col: toCol } } });
+  }
+  
+  function leaveGame() {
+    if (gameId) {
+      send({ type: 'game_leave', gameId });
+      gameId = null;
+      opponentUsername = null;
+    }
+    if (gameLoopId) {
+      cancelAnimationFrame(gameLoopId);
+      gameLoopId = null;
+    }
+    timersRunning = false;
+    resignBtn.style.display = 'none';
+  }
+  
+  function gameOver(won) {
+    if (gameLoopId) {
+      cancelAnimationFrame(gameLoopId);
+      gameLoopId = null;
+    }
+    timersRunning = false;
+    alert(won ? 'Checkmate! You won!' : 'Checkmate! You lost.');
+    if (gameId) {
+      send({ type: 'game_leave', gameId });
+      gameId = null;
+    }
+    resetGame();
+    draw();
+  }
   
   // Piece symbols
   const pieceSymbols = {
@@ -1470,6 +1816,11 @@ function renderChess(container) {
     currentTurn = currentTurn === 'w' ? 'b' : 'w';
     updateStatus();
     draw();
+    
+    // Send move to server in multiplayer mode
+    if (chessMode === 'multi' && gameId) {
+      sendMoveToServer(fromRow, fromCol, toRow, toCol);
+    }
   }
   
   function undoMove() {
@@ -1573,6 +1924,9 @@ function renderChess(container) {
   
   // Event handlers
   canvas.addEventListener('click', (e) => {
+    // In multiplayer, only allow moves on your turn
+    if (chessMode === 'multi' && gameId && currentTurn !== myColor) return;
+    
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
@@ -1634,6 +1988,14 @@ function renderChess(container) {
     draw();
   };
   
+  $('chessResign').onclick = () => {
+    if (chessMode === 'multi' && gameId) {
+      if (confirm('Resign from this match?')) {
+        gameOver(false);
+      }
+    }
+  };
+  
   // Start game
   timersRunning = true;
   lastTime = Date.now();
@@ -1641,6 +2003,14 @@ function renderChess(container) {
   updateTimers();
   gameLoopId = requestAnimationFrame(gameLoop);
   draw();
+  
+  // Register chess handler for global dispatch
+  registerGameHandler('chess', {
+    onGameInvite: handleChessInvite,
+    onGameState: handleChessState,
+    onGameAction: handleChessAction,
+    onGameLeave: handleChessLeave
+  });
 }
 
 // ===== Snake =====
@@ -1649,11 +2019,24 @@ function renderSnake(container) {
   currentGame = 'snake';
   container.innerHTML = `
     <div style="text-align:center;max-width:400px;width:100%">
+      <div id="snakeModeSelect" style="margin-bottom:8px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+        <button class="secondary" id="snakeModeSolo" data-mode="solo">Solo</button>
+        <button class="primary" id="snakeModeMulti" data-mode="multi">Multiplayer</button>
+      </div>
+      <div id="snakeMultiplayerUI" class="hidden" style="margin-bottom:8px;padding:12px;background:var(--panel);border:1px solid var(--panel-border);border-radius:8px">
+        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:8px">
+          <input type="text" id="snakeInviteUser" placeholder="Friend username" style="max-width:160px">
+          <button class="primary" id="snakeInviteBtn">Invite to Match</button>
+        </div>
+        <div id="snakeInviteStatus" class="muted" style="font-size:12px;min-height:16px"></div>
+        <div id="snakeMatchStatus" class="muted" style="font-size:12px;min-height:16px;margin-top:8px"></div>
+      </div>
       <canvas id="snakeCanvas" width="400" height="400" style="background:#1a1a2e;border:2px solid var(--panel-border);border-radius:8px;display:block;margin:0 auto;touch-action:none"></canvas>
       <div style="margin-top:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
         <button class="primary" id="snakeStart">Start</button>
         <button class="secondary" id="snakePause">Pause</button>
-        <div class="muted" style="display:flex;align-items:center;gap:8px">Score: <strong id="snakeScore">0</strong> | Best: <strong id="snakeBest">0</strong></div>
+        <div class="muted" style="display:flex;align-items:center;gap:8px">Score: <strong id="snakeScore">0</strong></div>
+        <div id="snakeOppScore" class="hidden" class="muted" style="display:flex;align-items:center;gap:8px">Opponent: <strong id="snakeOppScoreVal">0</strong></div>
       </div>
       <p class="muted" style="margin-top:8px;font-size:12px">Use arrow keys or WASD to move. Eat food to grow!</p>
     </div>
@@ -1680,6 +2063,156 @@ function renderSnake(container) {
     score = 0;
     gameState = 'ready';
     $('snakeScore').textContent = '0';
+    if (snakeMode === 'multi') {
+      oppSnake = [];
+      oppScore = 0;
+      oppScoreValEl.textContent = '0';
+    }
+  }
+  
+  // Multiplayer state
+  let snakeMode = 'solo';
+  let gameId = null;
+  let opponentUsername = null;
+  let myColor = '#2ecc71';
+  let oppColor = '#e74c3c';
+  let oppSnake = [];
+  let oppScore = 0;
+  let oppFood = { x: 15, y: 15 };
+  let pendingInvite = null;
+  
+  // Mode selection
+  const modeSoloBtn = $('snakeModeSolo');
+  const modeMultiBtn = $('snakeModeMulti');
+  const multiUI = $('snakeMultiplayerUI');
+  const oppScoreEl = $('snakeOppScore');
+  const oppScoreValEl = $('snakeOppScoreVal');
+  
+  function setSnakeMode(mode) {
+    snakeMode = mode;
+    modeSoloBtn.classList.toggle('primary', mode === 'solo');
+    modeSoloBtn.classList.toggle('secondary', mode !== 'solo');
+    modeMultiBtn.classList.toggle('primary', mode === 'multi');
+    modeMultiBtn.classList.toggle('secondary', mode !== 'multi');
+    multiUI.classList.toggle('hidden', mode !== 'multi');
+    oppScoreEl.classList.toggle('hidden', mode !== 'multi');
+    if (mode === 'solo' && gameId) {
+      leaveGame();
+    }
+    resetGame();
+  }
+  
+  modeSoloBtn.onclick = () => setSnakeMode('solo');
+  modeMultiBtn.onclick = () => setSnakeMode('multi');
+  
+  // Invite friend
+  $('snakeInviteBtn').onclick = () => {
+    const username = $('snakeInviteUser').value.trim();
+    const statusEl = $('snakeInviteStatus');
+    if (!username) return;
+    if (!me || !online.includes(username)) {
+      statusEl.textContent = 'User not found or offline.';
+      return;
+    }
+    if (username === me.username) {
+      statusEl.textContent = 'Cannot invite yourself.';
+      return;
+    }
+    statusEl.textContent = `Inviting ${username}...`;
+    send({ type: 'game_invite', gameType: 'snake', opponent: username });
+  };
+  
+  function handleSnakeInvite(msg) {
+    if (msg.gameType !== 'snake') return;
+    if (confirm(`${msg.from} invited you to a Snake match! Accept?`)) {
+      send({ type: 'game_accept', inviteId: msg.inviteId });
+    } else {
+      send({ type: 'game_decline', inviteId: msg.inviteId });
+    }
+  }
+  
+  function handleSnakeState(msg) {
+    if (msg.gameType !== 'snake') return;
+    gameId = msg.gameId;
+    opponentUsername = msg.players.find(p => p.username !== me.username)?.username;
+    myColor = msg.players.find(p => p.username === me.username)?.color || '#2ecc71';
+    oppColor = msg.players.find(p => p.username !== me.username)?.color || '#e74c3c';
+    if (msg.state === 'playing') {
+      syncFromServer(msg.gameData);
+      startGameLoop();
+    } else if (msg.state === 'finished') {
+      gameOver(msg.winner === me.username);
+    } else if (msg.state === 'waiting') {
+      $('snakeMatchStatus').textContent = `Waiting for ${opponentUsername} to ready up...`;
+    }
+  }
+  
+  function handleSnakeAction(msg) {
+    if (msg.gameType !== 'snake') return;
+    syncFromServer(msg.gameData);
+  }
+  
+  function handleSnakeLeave(msg) {
+    if (msg.gameType !== 'snake') return;
+    if (msg.by === opponentUsername) {
+      $('snakeMatchStatus').textContent = `${opponentUsername} left the match.`;
+    }
+    if (gameId) {
+      gameId = null;
+      opponentUsername = null;
+    }
+    if (gameLoopId) {
+      cancelAnimationFrame(gameLoopId);
+      clearTimeout(gameLoopId);
+      gameLoopId = null;
+    }
+    resetGame();
+    draw();
+  }
+  
+  function syncFromServer(gameData) {
+    if (!gameData) return;
+    if (gameData.food) food = { ...gameData.food };
+    if (gameData.snakes) {
+      for (const [username, snakeData] of Object.entries(gameData.snakes)) {
+        if (username === me.username) {
+          snake = snakeData.body.map(seg => ({...seg}));
+          dx = snakeData.direction.x || 0;
+          dy = snakeData.direction.y || 0;
+          score = snakeData.score || 0;
+        } else {
+          oppSnake = snakeData.body.map(seg => ({...seg}));
+          oppScore = snakeData.score || 0;
+        }
+      }
+    }
+    $('snakeScore').textContent = score;
+    oppScoreValEl.textContent = oppScore;
+    draw();
+  }
+  
+  function sendInputToServer() {
+    if (!gameId || snakeMode !== 'multi') return;
+    send({ type: 'game_action', gameId, action: { type: 'direction', dx, dy } });
+  }
+  
+  function leaveGame() {
+    if (gameId) {
+      send({ type: 'game_leave', gameId });
+      gameId = null;
+      opponentUsername = null;
+    }
+    if (gameLoopId) {
+      cancelAnimationFrame(gameLoopId);
+      clearTimeout(gameLoopId);
+      gameLoopId = null;
+    }
+  }
+  
+  function startGameLoop() {
+    if (gameLoopId) return;
+    resetGame();
+    gameLoop();
   }
   
   function spawnFood() {
@@ -1738,7 +2271,12 @@ function renderSnake(container) {
       clearTimeout(gameLoopId);
       gameLoopId = null;
     }
-    showAlert('Game Over! Score: ' + score);
+    if (snakeMode === 'multi' && gameId) {
+      send({ type: 'game_action', gameId, action: { type: 'gameover' } });
+      showAlert('Game Over! Score: ' + score);
+    } else {
+      showAlert('Game Over! Score: ' + score);
+    }
     resetGame();
     draw();
   }
@@ -1765,6 +2303,26 @@ function renderSnake(container) {
     // Draw food
     ctx.fillStyle = '#e74c3c';
     ctx.fillRect(food.x * gridSize + 2, food.y * gridSize + 2, gridSize - 4, gridSize - 4);
+    
+    // Draw opponent snake in multiplayer
+    if (snakeMode === 'multi' && oppSnake.length > 0) {
+      for (let i = 0; i < oppSnake.length; i++) {
+        const segment = oppSnake[i];
+        const isHead = i === 0;
+        ctx.fillStyle = isHead ? oppColor : '#c0392b';
+        ctx.fillRect(segment.x * gridSize + 1, segment.y * gridSize + 1, gridSize - 2, gridSize - 2);
+        
+        // Head eyes
+        if (isHead) {
+          ctx.fillStyle = '#fff';
+          const eyeSize = 3;
+          const eyeOffset = 5;
+          // We don't have opponent's direction, so just draw simple eyes
+          ctx.fillRect(segment.x * gridSize + eyeOffset, segment.y * gridSize + eyeOffset, eyeSize, eyeSize);
+          ctx.fillRect(segment.x * gridSize + gridSize - eyeOffset - eyeSize, segment.y * gridSize + eyeOffset, eyeSize, eyeSize);
+        }
+      }
+    }
     
     // Draw snake
     for (let i = 0; i < snake.length; i++) {
@@ -1794,6 +2352,10 @@ function renderSnake(container) {
       }
     }
     
+    // Draw food
+    ctx.fillStyle = '#e74c3c';
+    ctx.fillRect(food.x * gridSize + 2, food.y * gridSize + 2, gridSize - 4, gridSize - 4);
+    
     // Draw "Get Ready" text
     if (gameState === 'ready') {
       ctx.fillStyle = 'rgba(255,255,255,0.7)';
@@ -1813,6 +2375,9 @@ function renderSnake(container) {
   function gameLoop() {
     update();
     draw();
+    if (snakeMode === 'multi' && gameId) {
+      sendInputToServer();
+    }
     if (gameState === 'playing') {
       gameLoopId = setTimeout(gameLoop, gameSpeed);
     }
@@ -1872,6 +2437,624 @@ function renderSnake(container) {
   };
   
   draw();
+  
+  // Register snake handler for global dispatch
+  registerGameHandler('snake', {
+    onGameInvite: handleSnakeInvite,
+    onGameState: handleSnakeState,
+    onGameAction: handleSnakeAction,
+    onGameLeave: handleSnakeLeave
+  });
+}
+
+// ===== Paintball =====
+function renderPaintball(container) {
+  cleanupGame();
+  currentGame = 'paintball';
+  container.innerHTML = `
+    <div style="text-align:center;max-width:800px;width:100%">
+      <div id="paintballModeSelect" style="margin-bottom:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+        <button class="secondary" id="paintballModeSolo" data-mode="solo">Solo (Practice)</button>
+        <button class="primary" id="paintballModeMulti" data-mode="multi">Multiplayer</button>
+      </div>
+      <div id="paintballMultiplayerUI" class="hidden" style="margin-bottom:12px;padding:12px;background:var(--panel);border:1px solid var(--panel-border);border-radius:8px">
+        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:8px">
+          <input type="text" id="paintballInviteUser" placeholder="Friend username" style="max-width:160px">
+          <button class="primary" id="paintballInviteBtn">Invite to Match</button>
+        </div>
+        <div id="paintballInviteStatus" class="muted" style="font-size:12px;min-height:16px"></div>
+        <div id="paintballMatchStatus" class="muted" style="font-size:12px;min-height:16px;margin-top:8px"></div>
+      </div>
+      <div style="position:relative;display:inline-block">
+        <canvas id="paintballCanvas" width="800" height="600" style="background:#2d2d2d;border:2px solid var(--panel-border);border-radius:8px;display:block;touch-action:none"></canvas>
+        <div id="paintballMobileControls" class="hidden" style="position:absolute;bottom:10px;left:10px;right:10px;pointer-events:none;z-index:10">
+          <div style="display:flex;justify-content:space-between;pointer-events:auto;padding:0 20px">
+            <div style="display:flex;flex-direction:column;align-items:flex-start;gap:8px">
+              <button id="pbMoveUp" class="mobileGameBtn" style="width:60px;height:60px;border-radius:50%;background:rgba(0,0,0,0.5);border:1px solid var(--panel-border);color:#fff;font-size:20px">▲</button>
+              <div style="display:flex;gap:8px">
+                <button id="pbMoveLeft" class="mobileGameBtn" style="width:60px;height:60px;border-radius:50%;background:rgba(0,0,0,0.5);border:1px solid var(--panel-border);color:#fff;font-size:20px">◄</button>
+                <button id="pbMoveDown" class="mobileGameBtn" style="width:60px;height:60px;border-radius:50%;background:rgba(0,0,0,0.5);border:1px solid var(--panel-border);color:#fff;font-size:20px">▼</button>
+                <button id="pbMoveRight" class="mobileGameBtn" style="width:60px;height:60px;border-radius:50%;background:rgba(0,0,0,0.5);border:1px solid var(--panel-border);color:#fff;font-size:20px">►</button>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
+              <button id="pbShootBtn" class="mobileGameBtn" style="width:80px;height:80px;border-radius:50%;background:rgba(200,50,50,0.7);border:2px solid #ff6666;color:#fff;font-size:18px;font-weight:bold">SHOOT</button>
+              <button id="pbReloadBtn" class="mobileGameBtn" style="width:80px;height:50px;border-radius:8px;background:rgba(0,0,0,0.5);border:1px solid var(--panel-border);color:#fff;font-size:14px">RELOAD</button>
+            </div>
+          </div>
+        </div>
+        <div id="paintballAimIndicator" class="hidden" style="position:absolute;top:0;left:0;width:800px;height:600px;pointer-events:none;z-index:5"></div>
+      </div>
+      <div style="margin-top:12px;display:flex;gap:16px;justify-content:center;flex-wrap:wrap;font-family:var(--font-minecraft);font-size:16px">
+        <div id="paintballMyStats" style="display:flex;gap:16px;align-items:center">
+          <span style="color:#4ade80">●</span> <span>HP: <strong id="pbMyHP">100</strong></span>
+          <span>Ammo: <strong id="pbMyAmmo">10</strong></span>
+          <span>Score: <strong id="pbMyScore">0</strong></span>
+        </div>
+        <div id="paintballOppStats" class="hidden" style="display:flex;gap:16px;align-items:center">
+          <span style="color:#f87171">●</span> <span>HP: <strong id="pbOppHP">100</strong></span>
+          <span>Score: <strong id="pbOppScore">0</strong></span>
+        </div>
+      </div>
+      <p class="muted" style="margin-top:8px;font-size:12px">WASD/Arrows to move, Mouse to aim, Click/Space to shoot, R to reload. Mobile: use on-screen controls.</p>
+    </div>
+  `;
+  
+  const canvas = $('paintballCanvas');
+  const ctx = canvas.getContext('2d');
+  const aimLayer = $('paintballAimIndicator');
+  const aimCtx = aimLayer.getContext('2d');
+  
+  // Game state
+  let paintballMode = 'solo';
+  let gameId = null;
+  let opponentUsername = null;
+  let myColor = '#4ade80';
+  let oppColor = '#f87171';
+  
+  // Local player state (authoritative for rendering)
+  let myPlayer = { x: 100, y: 100, angle: 0, hp: 100, ammo: 10, score: 0, alive: true };
+  let oppPlayer = { x: 700, y: 500, angle: Math.PI, hp: 100, ammo: 10, score: 0, alive: true };
+  let projectiles = [];
+  let obstacles = [];
+  const mapWidth = 800;
+  const mapHeight = 600;
+  let lastServerUpdate = 0;
+  let pendingInput = { up: false, down: false, left: false, right: false, aimAngle: 0, shoot: false, reload: false };
+  let lastSentInput = 0;
+  
+  // Mobile touch state
+  let touchMove = { up: false, down: false, left: false, right: false };
+  let touchAim = { x: 400, y: 300, active: false };
+  
+  // Mode selection
+  const modeSoloBtn = $('paintballModeSolo');
+  const modeMultiBtn = $('paintballModeMulti');
+  const multiUI = $('paintballMultiplayerUI');
+  const oppStats = $('paintballOppStats');
+  const mobileControls = $('paintballMobileControls');
+  
+  function setPaintballMode(mode) {
+    paintballMode = mode;
+    modeSoloBtn.classList.toggle('primary', mode === 'solo');
+    modeSoloBtn.classList.toggle('secondary', mode !== 'solo');
+    modeMultiBtn.classList.toggle('primary', mode === 'multi');
+    modeMultiBtn.classList.toggle('secondary', mode !== 'multi');
+    multiUI.classList.toggle('hidden', mode !== 'multi');
+    oppStats.classList.toggle('hidden', mode !== 'multi');
+    mobileControls.classList.toggle('hidden', mode === 'multi' && !isMobile());
+    if (mode === 'solo' && gameId) {
+      leaveGame();
+    }
+    resetGame();
+  }
+  
+  modeSoloBtn.onclick = () => setPaintballMode('solo');
+  modeMultiBtn.onclick = () => setPaintballMode('multi');
+  
+  // Mobile detection
+  function isMobile() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+  }
+  
+  // Invite friend
+  $('paintballInviteBtn').onclick = () => {
+    const username = $('paintballInviteUser').value.trim();
+    const statusEl = $('paintballInviteStatus');
+    if (!username) return;
+    if (!me || !online.includes(username)) {
+      statusEl.textContent = 'User not found or offline.';
+      return;
+    }
+    if (username === me.username) {
+      statusEl.textContent = 'Cannot invite yourself.';
+      return;
+    }
+    statusEl.textContent = `Inviting ${username}...`;
+    send({ type: 'game_invite', gameType: 'paintball', opponent: username });
+  };
+  
+  function handlePaintballInvite(msg) {
+    if (msg.gameType !== 'paintball') return;
+    if (confirm(`${msg.from} invited you to a Paintball match! Accept?`)) {
+      send({ type: 'game_accept', inviteId: msg.inviteId });
+    } else {
+      send({ type: 'game_decline', inviteId: msg.inviteId });
+    }
+  }
+  
+  function handlePaintballState(msg) {
+    if (msg.gameType !== 'paintball') return;
+    gameId = msg.gameId;
+    lastServerUpdate = Date.now();
+    
+    // Determine which player is me
+    const mePlayer = msg.players.find(p => p.username === me.username);
+    const oppPlayerData = msg.players.find(p => p.username !== me.username);
+    opponentUsername = oppPlayerData?.username;
+    myColor = mePlayer?.color || '#4ade80';
+    oppColor = oppPlayerData?.color || '#f87171';
+    
+    if (msg.state === 'playing') {
+      // Sync game data from server (authoritative)
+      syncFromServer(msg.gameData);
+      startGameLoop();
+    } else if (msg.state === 'finished') {
+      gameOver(msg.winner === me.username);
+    } else if (msg.state === 'waiting') {
+      $('paintballMatchStatus').textContent = `Waiting for ${opponentUsername} to ready up...`;
+    }
+  }
+  
+  function handlePaintballAction(msg) {
+    if (msg.gameType !== 'paintball') return;
+    // Server sends authoritative state updates
+    syncFromServer(msg.gameData);
+  }
+  
+  function handlePaintballLeave(msg) {
+    if (msg.gameType !== 'paintball') return;
+    if (msg.by === opponentUsername) {
+      $('paintballMatchStatus').textContent = `${opponentUsername} left the match.`;
+    }
+    // Clean up local state
+    if (gameId) {
+      gameId = null;
+      opponentUsername = null;
+    }
+    if (gameLoopId) {
+      cancelAnimationFrame(gameLoopId);
+      gameLoopId = null;
+    }
+    resetGame();
+    draw();
+  }
+  
+  function syncFromServer(gameData) {
+    if (!gameData) return;
+    // Update obstacles (only need once)
+    if (gameData.obstacles && obstacles.length === 0) {
+      obstacles = gameData.obstacles;
+    }
+    // Update projectiles
+    if (gameData.projectiles) {
+      projectiles = gameData.projectiles;
+    }
+    // Update players
+    if (gameData.players) {
+      for (const [username, player] of Object.entries(gameData.players)) {
+        if (username === me.username) {
+          // Keep local position for smooth movement, but sync hp/ammo/score/alive
+          myPlayer.hp = player.hp;
+          myPlayer.ammo = player.ammo;
+          myPlayer.score = player.score;
+          myPlayer.alive = player.alive;
+          if (player.respawnAt) myPlayer.respawnAt = player.respawnAt;
+        } else {
+          oppPlayer.x = player.x;
+          oppPlayer.y = player.y;
+          oppPlayer.angle = player.angle;
+          oppPlayer.hp = player.hp;
+          oppPlayer.ammo = player.ammo;
+          oppPlayer.score = player.score;
+          oppPlayer.alive = player.alive;
+          if (player.respawnAt) oppPlayer.respawnAt = player.respawnAt;
+        }
+      }
+    }
+    updateStatsDisplay();
+  }
+  
+  function updateStatsDisplay() {
+    $('pbMyHP').textContent = myPlayer.hp;
+    $('pbMyAmmo').textContent = myPlayer.ammo;
+    $('pbMyScore').textContent = myPlayer.score;
+    if (opponentUsername) {
+      $('pbOppHP').textContent = oppPlayer.hp;
+      $('pbOppScore').textContent = oppPlayer.score;
+    }
+  }
+  
+  function startGameLoop() {
+    if (gameLoopId) return;
+    resetGame();
+    gameLoop();
+  }
+  
+  function resetGame() {
+    myPlayer = { x: 100, y: 100, angle: 0, hp: 100, ammo: 10, score: 0, alive: true };
+    oppPlayer = { x: 700, y: 500, angle: Math.PI, hp: 100, ammo: 10, score: 0, alive: true };
+    projectiles = [];
+    lastServerUpdate = Date.now();
+    updateStatsDisplay();
+    draw();
+  }
+  
+  function leaveGame() {
+    if (gameId) {
+      send({ type: 'game_leave', gameId });
+      gameId = null;
+      opponentUsername = null;
+    }
+    if (gameLoopId) {
+      cancelAnimationFrame(gameLoopId);
+      gameLoopId = null;
+    }
+  }
+  
+  // Input handling
+  const keys = { w: false, a: false, s: false, d: false, arrowup: false, arrowdown: false, arrowleft: false, arrowright: false, r: false, ' ': false };
+  
+  function keydownHandler(e) {
+    const key = e.key.toLowerCase();
+    if (keys.hasOwnProperty(key)) {
+      keys[key] = true;
+      e.preventDefault();
+    }
+  }
+  
+  function keyupHandler(e) {
+    const key = e.key.toLowerCase();
+    if (keys.hasOwnProperty(key)) {
+      keys[key] = false;
+      e.preventDefault();
+    }
+  }
+  
+  document.addEventListener('keydown', keydownHandler);
+  document.addEventListener('keyup', keyupHandler);
+  currentGameKeyHandler = keydownHandler; // For cleanup
+  
+  // Mouse aim
+  canvas.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    myPlayer.angle = Math.atan2(my - myPlayer.y, mx - myPlayer.x);
+    draw();
+  });
+  
+  canvas.addEventListener('mousedown', (e) => {
+    if (e.button === 0) pendingInput.shoot = true;
+  });
+  
+  canvas.addEventListener('mouseup', (e) => {
+    if (e.button === 0) pendingInput.shoot = false;
+  });
+  
+  canvas.addEventListener('click', (e) => {
+    // Click to shoot (also handles mobile)
+    if (paintballMode === 'multi' && gameId && myPlayer.alive) {
+      attemptShoot();
+    }
+  });
+  
+  // Touch controls for mobile
+  function setupMobileControls() {
+    if (!isMobile()) return;
+    
+    const moveBtns = {
+      up: $('pbMoveUp'),
+      down: $('pbMoveDown'),
+      left: $('pbMoveLeft'),
+      right: $('pbMoveRight')
+    };
+    
+    for (const [dir, btn] of Object.entries(moveBtns)) {
+      if (!btn) continue;
+      btn.addEventListener('touchstart', (e) => { e.preventDefault(); touchMove[dir] = true; }, { passive: false });
+      btn.addEventListener('touchend', (e) => { e.preventDefault(); touchMove[dir] = false; }, { passive: false });
+      btn.addEventListener('mousedown', (e) => { e.preventDefault(); touchMove[dir] = true; });
+      btn.addEventListener('mouseup', (e) => { e.preventDefault(); touchMove[dir] = false; });
+      btn.addEventListener('mouseleave', (e) => { touchMove[dir] = false; });
+    }
+    
+    const shootBtn = $('pbShootBtn');
+    if (shootBtn) {
+      shootBtn.addEventListener('touchstart', (e) => { e.preventDefault(); pendingInput.shoot = true; }, { passive: false });
+      shootBtn.addEventListener('touchend', (e) => { e.preventDefault(); pendingInput.shoot = false; }, { passive: false });
+      shootBtn.addEventListener('mousedown', (e) => { e.preventDefault(); pendingInput.shoot = true; });
+      shootBtn.addEventListener('mouseup', (e) => { e.preventDefault(); pendingInput.shoot = false; });
+    }
+    
+    const reloadBtn = $('pbReloadBtn');
+    if (reloadBtn) {
+      reloadBtn.addEventListener('click', () => { pendingInput.reload = true; });
+    }
+    
+    // Touch aim on canvas
+    canvas.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const rect = canvas.getBoundingClientRect();
+      const mx = touch.clientX - rect.left;
+      const my = touch.clientY - rect.top;
+      myPlayer.angle = Math.atan2(my - myPlayer.y, mx - myPlayer.x);
+      touchAim = { x: mx, y: my, active: true };
+      draw();
+    }, { passive: false });
+    
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      if (paintballMode === 'multi' && gameId && myPlayer.alive) {
+        attemptShoot();
+      }
+    }, { passive: false });
+  }
+  
+  setupMobileControls();
+  
+  function attemptShoot() {
+    const now = Date.now();
+    if (myPlayer.ammo <= 0) return;
+    if (now - (myPlayer.lastShot || 0) < 500) return;
+    myPlayer.lastShot = now;
+    myPlayer.ammo--;
+    pendingInput.shoot = true;
+    updateStatsDisplay();
+  }
+  
+  // Send input to server at 20Hz
+  function sendInputLoop() {
+    if (!gameId || paintballMode !== 'multi') return;
+    const now = Date.now();
+    if (now - lastSentInput < 50) return; // 20Hz
+    lastSentInput = now;
+    
+    // Build input from keys/touch
+    pendingInput.up = keys.w || keys.arrowup || touchMove.up;
+    pendingInput.down = keys.s || keys.arrowdown || touchMove.down;
+    pendingInput.left = keys.a || keys.arrowleft || touchMove.left;
+    pendingInput.right = keys.d || keys.arrowright || touchMove.right;
+    pendingInput.reload = keys.r || pendingInput.reload;
+    
+    send({ type: 'game_action', gameId, action: { ...pendingInput } });
+    pendingInput.reload = false;
+    pendingInput.shoot = false;
+  }
+  
+  // Game loop
+  function gameLoop() {
+    if (!gameId || paintballMode !== 'multi') return;
+    
+    // Local prediction for smooth movement
+    const speed = 4;
+    if (pendingInput.up) myPlayer.y -= speed;
+    if (pendingInput.down) myPlayer.y += speed;
+    if (pendingInput.left) myPlayer.x -= speed;
+    if (pendingInput.right) myPlayer.x += speed;
+    
+    // Clamp to bounds
+    const margin = 16;
+    myPlayer.x = Math.max(margin, Math.min(mapWidth - margin, myPlayer.x));
+    myPlayer.y = Math.max(margin, Math.min(mapHeight - margin, myPlayer.y));
+    
+    // Check obstacle collision
+    for (const obs of obstacles) {
+      if (myPlayer.x > obs.x - margin && myPlayer.x < obs.x + obs.width + margin &&
+          myPlayer.y > obs.y - margin && myPlayer.y < obs.y + obs.height + margin) {
+        // Revert movement
+        if (pendingInput.up) myPlayer.y += speed;
+        if (pendingInput.down) myPlayer.y -= speed;
+        if (pendingInput.left) myPlayer.x += speed;
+        if (pendingInput.right) myPlayer.x -= speed;
+        break;
+      }
+    }
+    
+    sendInputLoop();
+    draw();
+    gameLoopId = requestAnimationFrame(gameLoop);
+  }
+  
+  function draw() {
+    // Clear
+    ctx.fillStyle = '#2d2d2d';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    aimCtx.clearRect(0, 0, aimLayer.width, aimLayer.height);
+    
+    // Draw grid pattern
+    ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x <= mapWidth; x += 40) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, mapHeight);
+      ctx.stroke();
+    }
+    for (let y = 0; y <= mapHeight; y += 40) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(mapWidth, y);
+      ctx.stroke();
+    }
+    
+    // Draw obstacles
+    ctx.fillStyle = '#4a4a4a';
+    ctx.strokeStyle = '#5a5a5a';
+    ctx.lineWidth = 2;
+    for (const obs of obstacles) {
+      ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+      ctx.strokeRect(obs.x, obs.y, obs.width, obs.height);
+      // Add some detail
+      ctx.fillStyle = '#3a3a3a';
+      ctx.fillRect(obs.x + 4, obs.y + 4, obs.width - 8, obs.height - 8);
+      ctx.fillStyle = '#4a4a4a';
+    }
+    
+    // Draw projectiles
+    for (const proj of projectiles) {
+      const trailLength = 8;
+      ctx.strokeStyle = proj.color;
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(proj.x - Math.cos(proj.angle) * trailLength, proj.y - Math.sin(proj.angle) * trailLength);
+      ctx.lineTo(proj.x, proj.y);
+      ctx.stroke();
+      // Projectile head
+      ctx.fillStyle = proj.color;
+      ctx.beginPath();
+      ctx.arc(proj.x, proj.y, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.beginPath();
+      ctx.arc(proj.x, proj.y, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    
+    // Draw opponent
+    if (oppPlayer.alive) {
+      drawPlayer(oppPlayer, oppColor, opponentUsername || 'Opponent', true);
+    } else if (oppPlayer.respawnAt && Date.now() > oppPlayer.respawnAt) {
+      // Respawning soon - show ghost
+      drawPlayer(oppPlayer, oppColor + '80', opponentUsername || 'Opponent', true);
+    }
+    
+    // Draw me
+    if (myPlayer.alive) {
+      drawPlayer(myPlayer, myColor, me?.username || 'You', false);
+    } else if (myPlayer.respawnAt && Date.now() > myPlayer.respawnAt) {
+      drawPlayer(myPlayer, myColor + '80', me?.username || 'You', false);
+    }
+    
+    // Draw aim indicator for mobile
+    if (isMobile() && touchAim.active) {
+      aimCtx.strokeStyle = myColor;
+      aimCtx.lineWidth = 2;
+      aimCtx.setLineDash([10, 5]);
+      aimCtx.beginPath();
+      aimCtx.moveTo(myPlayer.x, myPlayer.y);
+      aimCtx.lineTo(touchAim.x, touchAim.y);
+      aimCtx.stroke();
+      aimCtx.setLineDash([]);
+      // Crosshair
+      const cs = 20;
+      aimCtx.beginPath();
+      aimCtx.moveTo(touchAim.x - cs, touchAim.y);
+      aimCtx.lineTo(touchAim.x + cs, touchAim.y);
+      aimCtx.moveTo(touchAim.x, touchAim.y - cs);
+      aimCtx.lineTo(touchAim.x, touchAim.y + cs);
+      aimCtx.stroke();
+    }
+    
+    // Dead overlay
+    if (!myPlayer.alive && paintballMode === 'multi') {
+      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 32px var(--font-minecraft)';
+      ctx.textAlign = 'center';
+      ctx.fillText('ELIMINATED', canvas.width / 2, canvas.height / 2 - 20);
+      ctx.font = '18px var(--font-minecraft)';
+      if (myPlayer.respawnAt) {
+        const wait = Math.ceil((myPlayer.respawnAt - Date.now()) / 1000);
+        ctx.fillText(`Respawning in ${wait}s...`, canvas.width / 2, canvas.height / 2 + 20);
+      } else {
+        ctx.fillText('Waiting to respawn...', canvas.width / 2, canvas.height / 2 + 20);
+      }
+    }
+  }
+  
+  function drawPlayer(player, color, label, isOpponent) {
+    // Body
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, 16, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Body outline
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, 16, 0, Math.PI * 2);
+    ctx.stroke();
+    
+    // Direction indicator
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(player.x, player.y);
+    ctx.lineTo(player.x + Math.cos(player.angle) * 22, player.y + Math.sin(player.angle) * 22);
+    ctx.stroke();
+    
+    // Gun barrel
+    ctx.strokeStyle = '#888';
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(player.x + Math.cos(player.angle) * 14, player.y + Math.sin(player.angle) * 14);
+    ctx.lineTo(player.x + Math.cos(player.angle) * 28, player.y + Math.sin(player.angle) * 28);
+    ctx.stroke();
+    
+    // Name label
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 12px var(--font-minecraft)';
+    ctx.textAlign = 'center';
+    ctx.fillText(label, player.x, player.y - 28);
+    
+    // Health bar above player
+    const barW = 40;
+    const barH = 5;
+    const barX = player.x - barW / 2;
+    const barY = player.y - 40;
+    ctx.fillStyle = '#333';
+    ctx.fillRect(barX, barY, barW, barH);
+    ctx.fillStyle = player.hp > 50 ? '#4ade80' : player.hp > 25 ? '#fbbf24' : '#f87171';
+    ctx.fillRect(barX, barY, barW * (player.hp / 100), barH);
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(barX, barY, barW, barH);
+  }
+  
+  function gameOver(won) {
+    if (gameLoopId) {
+      cancelAnimationFrame(gameLoopId);
+      gameLoopId = null;
+    }
+    document.removeEventListener('keydown', keydownHandler);
+    document.removeEventListener('keyup', keyupHandler);
+    currentGameKeyHandler = null;
+    alert(won ? 'Victory! You won the match!' : 'Defeat! Better luck next time.');
+    if (gameId) {
+      send({ type: 'game_leave', gameId });
+      gameId = null;
+    }
+    resetGame();
+    draw();
+  }
+  
+  // Initial draw
+  draw();
+
+  // Register paintball handler for global dispatch
+  registerGameHandler('paintball', {
+    onGameInvite: handlePaintballInvite,
+    onGameState: handlePaintballState,
+    onGameAction: handlePaintballAction,
+    onGameLeave: handlePaintballLeave
+  });
 }
 
 // Close game page handler
@@ -1907,14 +3090,56 @@ function showHome(on) {
     homePage.style.display = on ? 'flex' : 'none';
   }
   if (on) {
+    closeDrawer('side');
+    closeDrawer('right');
+    const resume = $('homeResumeBtn');
+    if (resume) {
+      const hasConversation = Boolean(currentDM || currentServer);
+      resume.hidden = !hasConversation;
+      resume.textContent = currentDM ? `Return to DM with ${currentDM}` : currentChannel ? `Return to #${currentChannel.name}` : 'Return to conversation';
+    }
     renderHomeServers();
     renderFeaturedContent();
     updateSeasonalBanner();
   }
 }
 
+function showTips() {
+  closeDrawer('side');
+  closeDrawer('right');
+  const onboardingButton = $('tipsOnboardingBtn');
+  if (onboardingButton) onboardingButton.hidden = me?.role !== 'new_member' || !$('onboardingModal');
+  show('tipsModal', true);
+  $('tipsModal')?.querySelector('button, [href]')?.focus();
+}
+
+function openOnboardingFromTips() {
+  if (!$('onboardingModal')) return;
+  show('tipsModal', false);
+  const input = $('onboardingDisplayName');
+  if (input && me) input.value = me.displayName || me.username || '';
+  show('onboardingModal', true);
+  input?.focus();
+}
+
+document.addEventListener('keydown', event => {
+  if ((event.key === 'Enter' || event.key === ' ') && event.target instanceof HTMLElement && event.target.matches('[role="button"][tabindex]')) {
+    event.preventDefault();
+    event.target.click();
+  }
+});
+
 function promptNewDM(){showPrompt('MINECORD username?','New DM',{placeholder:'Enter username',required:true}).then(n=>{if(n)openDM(n)})}
 function promptAddFriend(){showPrompt('Friend username?','Add Friend',{placeholder:'Enter username',required:true}).then(n=>{if(n)send({type:'friend_request',to:n})})}
+function promptAddFriendToServer(){
+  if(!currentServer) return showAlert('Select a server first.','No Server');
+  showPrompt('Friend username to invite?','Invite Friend to Server',{placeholder:'Enter username',required:true}).then(n=>{
+    if(n){
+      if(n===me.username) return showAlert('You cannot invite yourself.');
+      send({type:'invite_create',serverId:currentServer.id});
+    }
+  })
+}
 function selectFirstServer(){if(!servers.length){showHome(false);return document.getElementById('newServer').click()}showHome(false);selectServer(servers[0].id)}
 function selectFirstVoiceChannel(){showHome(false);const server=servers.find(s=>s.channels?.some(c=>c.type==='voice'));if(!server)return showAlert('Create a voice channel in one of your servers first.','Voice');const channel=server.channels.find(c=>c.type==='voice');selectServer(server.id);selectChannel(channel.id)}
 function renderHomeServers() {
@@ -1977,7 +3202,7 @@ document.body.insertAdjacentHTML('beforeend', `
     <div id="drawerServers"></div>
     <div class="section">CHANNELS</div>
     <div id="drawerChannels" class="nav"></div>
-    <div class="nav"><div class="navItem" id="drawerHomeNav" role="button" tabindex="0" onclick="showHome(true)"><svg class="uiIcon"><use href="#icon-home"></use></svg> Home</div></div>
+    <div class="nav"><div class="navItem" id="drawerHomeNav" role="button" tabindex="0" onclick="showHome(true)"><svg class="uiIcon"><use href="#icon-home"></use></svg> Home</div><div class="navItem" id="drawerTipsNav" role="button" tabindex="0" onclick="showTips()"><svg class="uiIcon"><use href="#icon-help"></use></svg> Tips &amp; Guide</div></div>
     <div class="section">DIRECT MESSAGES</div>
     <div id="drawerDms" class="nav"></div>
     <div class="section">FRIENDS</div>
@@ -1998,7 +3223,10 @@ document.body.insertAdjacentHTML('beforeend', `
 <aside class="rightDrawer" id="rightDrawer" role="dialog" aria-label="Members and activity">
   <div class="drawerHeader">
     <span class="section"><svg class="uiIcon"><use href="#icon-user"></use></svg> MEMBERS</span>
-    <button class="drawerClose" onclick="closeDrawer('right')" aria-label="Close"><svg class="uiIcon"><use href="#icon-close"></use></svg></button>
+    <div class="drawerActions">
+      <button id="addFriendToServerBtn" class="iconButton" title="Add Friend to Server" aria-label="Add Friend to Server" onclick="promptAddFriendToServer()"><svg class="uiIcon"><use href="#icon-add"></use></svg></button>
+      <button class="drawerClose" onclick="closeDrawer('right')" aria-label="Close"><svg class="uiIcon"><use href="#icon-close"></use></svg></button>
+    </div>
   </div>
   <div class="right" style="flex:1;overflow:auto">
     <div id="drawerPeople" class="people"></div>
@@ -2480,27 +3708,6 @@ window.modalConfirm = showConfirm;
     }
   });
 
-  bind('minecraftLinkButton', 'onclick', async () => {
-    try {
-      const result = await api('/api/auth/links/microsoft/start', { method: 'POST' });
-      location.href = result.authorizeUrl;
-    } catch (error) {
-      $('minecraftLinkStatus').textContent = error.message;
-    }
-  });
-
-  bind('bedrockLinkButton', 'onclick', async () => {
-    try {
-      const result = await api('/api/auth/links/microsoft/start', { method: 'POST' });
-      location.href = result.authorizeUrl;
-    } catch (error) {
-      $('gameLinkingStatus').textContent = error.message;
-    }
-  });
-
-  bind('minecraftUnlinkButton', 'onclick', () => unlinkProvider('microsoft'));
-  bind('bedrockUnlinkButton', 'onclick', () => unlinkProvider('microsoft'));
-
   async function unlinkProvider(provider) {
     const confirmed = await showConfirm(`Unlink the ${provider} sign-in provider?`, 'Unlink provider');
     if (!confirmed) return;
@@ -2545,6 +3752,93 @@ window.modalConfirm = showConfirm;
 
   window.loadGameSettings = loadGameSettings;
   setTimeout(loadGameSettings, 1200);
+})();
+</script>
+<script>
+(() => {
+  const originalSelectServer = selectServer;
+  const originalSelectChannel = selectChannel;
+  const originalOpenDM = openDM;
+  const originalShowHome = showHome;
+  const authParams = ['oauth', 'auth_error', 'account_link', 'account_link_error', 'minecraft_link', 'minecraft_link_error', 'bedrock_link', 'bedrock_link_error'];
+  let suppressUrlHistory = true;
+
+  function updateAppUrl(home = false) {
+    const params = new URLSearchParams(location.search);
+    for (const key of authParams) params.delete(key);
+    params.delete('server');
+    params.delete('channel');
+    params.delete('dm');
+    params.delete('home');
+    if (currentDM) params.set('dm', currentDM);
+    else if (currentServer) {
+      params.set('server', currentServer.id);
+      if (currentChannel) params.set('channel', currentChannel.id);
+    }
+    if (home) params.set('home', '1');
+    const query = params.toString();
+    const next = '/app' + (query ? '?' + query : '') + location.hash;
+    if (location.pathname + location.search + location.hash !== next) {
+      if (suppressUrlHistory) history.replaceState({}, '', next);
+      else history.pushState({}, '', next);
+    }
+  }
+
+  selectServer = function (id) {
+    originalSelectServer(id);
+    if (homeVisible) originalShowHome(false);
+    updateAppUrl(false);
+  };
+  selectChannel = function (id) {
+    originalSelectChannel(id);
+    if (homeVisible) originalShowHome(false);
+    updateAppUrl(false);
+  };
+  openDM = function (name) {
+    originalOpenDM(name);
+    if (homeVisible) originalShowHome(false);
+    updateAppUrl(false);
+  };
+  showHome = function (on) {
+    originalShowHome(on);
+    updateAppUrl(Boolean(on));
+  };
+
+  function restoreAppLocation(params) {
+    const home = params.get('home') === '1';
+    const dm = params.get('dm');
+    const serverId = params.get('server');
+    const channelId = params.get('channel');
+    if (dm && dm !== me?.username && dmPeers.includes(dm)) {
+      openDM(dm);
+    } else if (serverId) {
+      const server = servers.find(item => item.id === serverId);
+      if (server) {
+        selectServer(server.id);
+        if (channelId && server.channels.some(channel => channel.id === channelId)) selectChannel(channelId);
+      }
+    } else if (!home && servers[0]) {
+      selectServer(servers[0].id);
+    }
+    if (home) showHome(true);
+  }
+
+  const previousHandleForLocation = handle;
+  handle = function (message) {
+    const requested = message.type === 'ready' ? new URLSearchParams(location.search) : null;
+    if (requested) suppressUrlHistory = true;
+    previousHandleForLocation(message);
+    if (requested) {
+      restoreAppLocation(requested);
+      suppressUrlHistory = false;
+    }
+  };
+
+  window.addEventListener('popstate', () => {
+    suppressUrlHistory = true;
+    restoreAppLocation(new URLSearchParams(location.search));
+    suppressUrlHistory = false;
+  });
 })();
 </script>
 </body></html>

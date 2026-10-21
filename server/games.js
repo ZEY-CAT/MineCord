@@ -1,24 +1,83 @@
 const crypto = require('crypto');
 const https = require('https');
+const dns = require('dns').promises;
+const net = require('net');
 
 function validateEaglercraftUrl(url) {
   try {
     const parsed = new URL(url);
     if (parsed.protocol !== 'https:') return { valid: false, error: 'Eaglercraft links must use HTTPS.' };
     if (parsed.username || parsed.password) return { valid: false, error: 'Links with embedded credentials are not allowed.' };
-    return { valid: true, hostname: parsed.hostname };
+    return { valid: true, hostname: parsed.hostname.replace(/^\[|\]$/g, '') };
   } catch {
     return { valid: false, error: 'Invalid URL format.' };
   }
 }
 
+function isPrivateAddress(address) {
+  const family = net.isIP(address);
+  if (family === 4) {
+    const parts = address.split('.').map(Number);
+    if (parts.some(part => !Number.isInteger(part) || part < 0 || part > 255)) return true;
+    return parts[0] === 10
+      || parts[0] === 127
+      || parts[0] === 0
+      || (parts[0] === 100 && parts[1] >= 64 && parts[1] <= 127)
+      || (parts[0] === 169 && parts[1] === 254)
+      || (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31)
+      || (parts[0] === 192 && parts[1] === 168)
+      || (parts[0] === 198 && (parts[1] === 18 || parts[1] === 19))
+      || parts[0] >= 224;
+  }
+  if (family === 6) {
+    const normalized = address.toLowerCase();
+    if (normalized === '::' || normalized === '::1') return true;
+    if (normalized.startsWith('::ffff:')) return true;
+    if (normalized.startsWith('fc') || normalized.startsWith('fd')) return true;
+    if (/^fe[89ab]/.test(normalized)) return true;
+    if (/^2001:db8:/.test(normalized)) return true;
+    // Only global-unicast IPv6 (2000::/3) is allowed; this rejects loopback,
+    // link-local, unique-local, mapped, and other special-purpose ranges.
+    return !/^[23]/.test(normalized);
+  }
+  return true;
+}
+
+async function resolvePublicAddress(hostname) {
+  if (!hostname || /(^|\.)localhost$/i.test(hostname) || /(^|\.)local$/i.test(hostname) || /(^|\.)internal$/i.test(hostname)) {
+    return { valid: false, error: 'Local and private hosts are not allowed.' };
+  }
+  if (net.isIP(hostname)) {
+    return isPrivateAddress(hostname)
+      ? { valid: false, error: 'Local and private hosts are not allowed.' }
+      : { valid: true, address: hostname, family: net.isIP(hostname) };
+  }
+  let addresses;
+  try {
+    addresses = await dns.lookup(hostname, { all: true, verbatim: true });
+  } catch {
+    return { valid: false, error: 'The hostname could not be resolved.' };
+  }
+  if (!addresses.length || addresses.some(entry => isPrivateAddress(entry.address))) {
+    return { valid: false, error: 'Local and private hosts are not allowed.' };
+  }
+  return { valid: true, address: addresses[0].address, family: addresses[0].family };
+}
+
 async function checkEaglercraftUrl(url, timeoutMs = 5000) {
   const { valid, error: validateError, hostname } = validateEaglercraftUrl(url);
   if (!valid) return { reachable: false, error: validateError };
+  const resolved = await resolvePublicAddress(hostname);
+  if (!resolved.valid) return { reachable: false, error: resolved.error };
 
   return new Promise((resolve) => {
-    const req = https.get(url, { timeout: timeoutMs }, (res) => {
-      resolve({ reachable: res.statusCode < 400, statusCode: res.statusCode, hostname });
+    const req = https.get(url, {
+      timeout: timeoutMs,
+      lookup: (_hostname, _options, callback) => callback(null, resolved.address, resolved.family)
+    }, (res) => {
+      const result = { reachable: res.statusCode < 400, statusCode: res.statusCode, hostname };
+      res.resume();
+      resolve(result);
     });
     req.on('error', (err) => {
       resolve({ reachable: false, error: err.message });
@@ -31,7 +90,7 @@ async function checkEaglercraftUrl(url, timeoutMs = 5000) {
   });
 }
 
-function gamesRoutes(app, { data, save, requireAuth, createId, database }) {
+function gamesRoutes(app, { data, save, requireAuth, createId, database, originAllowed }) {
   const EDITIONS = ['java', 'bedrock', 'eaglercraft'];
 
   function validateEdition(edition) {
@@ -297,7 +356,7 @@ function gamesRoutes(app, { data, save, requireAuth, createId, database }) {
     if (targetUser.username === req.minecordUser.username) return res.status(400).json({ error: 'You cannot share with yourself.' });
 
     // Check if they are friends
-    const friendship = data.friends[pair(req.minecordUser.username, targetUsername)];
+    const friendship = data.friends[pair(req.minecordUser.username, targetUser.username)];
     if (!friendship || friendship.status !== 'accepted') {
       return res.status(403).json({ error: 'You can only share servers with accepted friends.' });
     }
@@ -340,6 +399,7 @@ function gamesRoutes(app, { data, save, requireAuth, createId, database }) {
 
   // Link Minecraft Java account (via existing Microsoft OAuth flow)
   app.post('/api/games/accounts/java', requireAuth, (req, res) => {
+    if (!originAllowed(req)) return res.status(403).json({ error: 'Request origin is not allowed.' });
     const username = clean(req.body?.username, 32);
     const uuid = clean(req.body?.uuid, 80);
     if (!username || !/^[A-Za-z0-9_]{1,16}$/.test(username)) {
@@ -371,6 +431,7 @@ function gamesRoutes(app, { data, save, requireAuth, createId, database }) {
 
   // Link Minecraft Bedrock account
   app.post('/api/games/accounts/bedrock', requireAuth, (req, res) => {
+    if (!originAllowed(req)) return res.status(403).json({ error: 'Request origin is not allowed.' });
     const username = clean(req.body?.username, 32);
     const xuid = clean(req.body?.xuid, 80);
     if (!username || !/^[A-Za-z0-9_]{1,16}$/.test(username)) {
@@ -405,6 +466,7 @@ function gamesRoutes(app, { data, save, requireAuth, createId, database }) {
 
   // Link Eaglercraft URL
   app.post('/api/games/accounts/eaglercraft', requireAuth, async (req, res) => {
+    if (!originAllowed(req)) return res.status(403).json({ error: 'Request origin is not allowed.' });
     const url = clean(req.body?.url, 255);
     if (!url) return res.status(400).json({ error: 'Eaglercraft URL is required.' });
 
@@ -436,6 +498,7 @@ function gamesRoutes(app, { data, save, requireAuth, createId, database }) {
 
   // Remove a game account
   app.delete('/api/games/accounts/:edition', requireAuth, (req, res) => {
+    if (!originAllowed(req)) return res.status(403).json({ error: 'Request origin is not allowed.' });
     const edition = req.params.edition;
     if (!validateEdition(edition)) return res.status(400).json({ error: 'Invalid edition.' });
 
@@ -540,11 +603,6 @@ function gamesRoutes(app, { data, save, requireAuth, createId, database }) {
 }
 
 module.exports = { gamesRoutes };
-
-function originAllowed(req) {
-  const APP_URL = process.env.APP_URL || 'http://localhost:3000';
-  return !req.headers.origin || req.headers.origin === new URL(APP_URL).origin;
-}
 
 function id(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${crypto.randomBytes(4).toString('hex')}`;

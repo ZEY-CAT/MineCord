@@ -82,7 +82,7 @@
   const onboardingModal = document.createElement('div');
   onboardingModal.id = 'onboardingModal';
   onboardingModal.className = 'modal hidden';
-  onboardingModal.innerHTML = `<section class="card" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle"><h2 id="onboardingTitle">Welcome to MINECORD</h2><p class="muted">Complete these steps to become a Member. New Members can explore, but shop purchases stay disabled until onboarding is done.</p><label for="onboardingDisplayName">Display name</label><input id="onboardingDisplayName" maxlength="32" autocomplete="nickname"><label class="row"><input id="onboardingGuidelines" type="checkbox" style="width:auto"> I agree to be respectful and follow community rules.</label><button id="completeOnboarding" class="primary">Complete onboarding</button><p id="onboardingStatus" class="muted" role="status"></p></section>`;
+  onboardingModal.innerHTML = `<section class="card" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle"><h2 id="onboardingTitle">Welcome to MINECORD</h2><p class="muted">Complete these steps to become a Member. New Members can explore, but shop purchases stay disabled until onboarding is done. You can reopen these steps any time from <b>Tips &amp; Guide</b>.</p><label for="onboardingDisplayName">Display name</label><input id="onboardingDisplayName" maxlength="32" autocomplete="nickname"><label class="row"><input id="onboardingGuidelines" type="checkbox" style="width:auto"> I agree to be respectful and follow community rules.</label><div class="row" style="flex-wrap:wrap;gap:8px"><button id="completeOnboarding" class="primary">Complete onboarding</button><button id="dismissOnboarding" class="secondary">Not now</button></div><p id="onboardingStatus" class="muted" role="status"></p></section>`;
   document.body.appendChild(onboardingModal);
 
   const shopState = { data: null, tab: 'catalog', category: 'All', selected: null };
@@ -116,7 +116,7 @@
   function renderShop() {
     const data = shopState.data;
     if (!data) return;
-    $('shopBalance').textContent = `${data.balance.toLocaleString()} ${data.currency.name}`;
+    $('shopBalance').textContent = data.unlimitedCredits ? `Unlimited ${data.currency.name} · owner entitlement` : `${data.balance.toLocaleString()} ${data.currency.name}`;
     document.querySelectorAll('[data-shop-tab]').forEach(button => button.classList.toggle('selected', button.dataset.shopTab === shopState.tab));
     const categories = ['All', ...new Set(data.catalog.map(item => item.category))];
     $('shopCategories').classList.toggle('hidden', shopState.tab !== 'catalog');
@@ -124,13 +124,18 @@
     if (shopState.tab === 'catalog') {
       const owned = new Set(data.inventory.map(entry => entry.itemId));
       const items = data.catalog.filter(item => shopState.category === 'All' || item.category === shopState.category);
-      $('shopView').innerHTML = items.length ? `<div class="shopGrid">${items.map(item => `
-        <article class="shopItem"><div class="shopPreview" style="background:${safePreview(item.preview)}">${itemSvg}</div><div class="shopItemBody"><div class="demoTag">DEMO COSMETIC</div><b>${esc(item.name)}</b><small class="muted">${esc(item.category)}</small><p class="muted">${esc(item.description)}</p><div class="row" style="justify-content:space-between;margin-top:auto"><span class="shopPrice">${item.price} ${esc(data.currency.name)}</span><button class="primary" data-buy="${esc(item.id)}" ${owned.has(item.id) ? 'disabled' : ''}>${owned.has(item.id) ? 'Owned' : 'Preview & buy'}</button></div></div></article>`).join('')}</div>` : '<div class="empty">No demo items in this category.</div>';
+      $('shopView').innerHTML = items.length ? `<div class="shopGrid">${items.map(item => {
+        const entry = data.inventory.find(ownedEntry => ownedEntry.itemId === item.id);
+        const action = entry
+          ? `<button class="secondary" data-equip="${esc(item.id)}" data-equipped="${entry.equipped}">${entry.equipped ? 'Unequip' : 'Equip'}</button>`
+          : `<button class="primary" data-buy="${esc(item.id)}">Preview &amp; buy</button>`;
+        return `<article class="shopItem"><div class="shopPreview" style="background:${safePreview(item.preview)}">${itemSvg}</div><div class="shopItemBody"><div class="demoTag">${entry ? 'OWNED COSMETIC' : 'DEMO COSMETIC'}</div><b>${esc(item.name)}</b><small class="muted">${esc(item.category)}</small><p class="muted">${esc(item.description)}</p><div class="row" style="justify-content:space-between;margin-top:auto"><span class="shopPrice">${item.price} ${esc(data.currency.name)}</span>${action}</div></div></article>`;
+      }).join('')}</div>` : '<div class="empty">No demo items in this category.</div>';
     } else if (shopState.tab === 'inventory') {
       $('shopView').innerHTML = data.inventory.length ? `<div class="shopRows">${data.inventory.map(entry => `<div class="shopRow"><div><b>${esc(entry.item?.name || entry.itemId)}</b><small>${esc(entry.item?.category || 'Cosmetic')} · ${entry.equipped ? 'Equipped' : 'Not equipped'}</small></div><button data-equip="${esc(entry.itemId)}" data-equipped="${entry.equipped}">${entry.equipped ? 'Unequip' : 'Equip'}</button></div>`).join('')}</div>` : '<div class="empty">Your inventory is empty. Demo purchases appear here.</div>';
     } else {
       const rows = data.transactions;
-      $('shopView').innerHTML = rows.length ? `<div class="shopRows">${rows.map(entry => `<div class="shopRow"><div><b>${entry.kind === 'demo_grant' ? 'One-time demo credit grant' : `Demo purchase · ${esc(data.catalog.find(item => item.id === entry.itemId)?.name || entry.itemId)}`}</b><small>${new Date(entry.createdAt).toLocaleString()}</small></div><b>${entry.amount > 0 ? '+' : ''}${entry.amount} ${esc(data.currency.name)}</b></div>`).join('')}</div>` : '<div class="empty">No transactions yet.</div>';
+      $('shopView').innerHTML = rows.length ? `<div class="shopRows">${rows.map(entry => `<div class="shopRow"><div><b>${entry.kind === 'demo_grant' ? 'One-time demo credit grant' : entry.kind === 'owner_purchase' ? `Owner purchase · ${esc(data.catalog.find(item => item.id === entry.itemId)?.name || entry.itemId)}` : `Demo purchase · ${esc(data.catalog.find(item => item.id === entry.itemId)?.name || entry.itemId)}`}</b><small>${new Date(entry.createdAt).toLocaleString()}</small></div><b>${entry.amount > 0 ? '+' : ''}${entry.amount} ${esc(data.currency.name)}</b></div>`).join('')}</div>` : '<div class="empty">No transactions yet.</div>';
     }
   }
   async function equipItem(itemId, equipped) {
@@ -149,13 +154,27 @@
     $('meAvatar').style.boxShadow = ids.has('demo-decoration-aurora') ? '0 0 0 3px #54ddeb,0 0 12px #5865f2' : ids.has('demo-decoration-ember') ? '0 0 0 3px #ff9a52,0 0 12px #d83c63' : '';
     $('meName').style.background = ids.has('demo-nameplate-neon') ? '#123a45' : ids.has('demo-nameplate-royal') ? '#30204f' : '';
     $('meName').style.padding = ids.has('demo-nameplate-neon') || ids.has('demo-nameplate-royal') ? '3px 7px' : '';
-    document.documentElement.style.setProperty('--blue', ids.has('demo-theme-forest') ? '#3b9b64' : '#5865f2');
+    $('meName').style.color = ids.has('demo-badge-stargazer') ? '#d8c7ff' : ids.has('demo-badge-builder') ? '#d7deea' : '';
+    document.documentElement.style.setProperty('--blue', ids.has('demo-theme-forest') ? '#3b9b64' : ids.has('demo-theme-midnight') ? '#364b75' : '#5865f2');
+    document.documentElement.dataset.cosmeticTheme = ids.has('demo-theme-forest') ? 'forest' : ids.has('demo-theme-midnight') ? 'midnight' : '';
+    let cosmetics = $('profileCosmetics');
+    if (!cosmetics) {
+      cosmetics = document.createElement('div');
+      cosmetics.id = 'profileCosmetics';
+      cosmetics.className = 'muted';
+      cosmetics.style.marginTop = '8px';
+      $('settingsAvatar')?.parentElement?.appendChild(cosmetics);
+    }
+    const names = equipped.map(entry => shopState.data.catalog.find(item => item.id === entry.itemId)?.name).filter(Boolean);
+    cosmetics.textContent = names.length ? `Equipped cosmetics: ${names.join(', ')}` : 'No cosmetics equipped.';
   }
   function preparePurchase(itemId) {
     const item = shopState.data?.catalog.find(entry => entry.id === itemId);
     if (!item) return;
     shopState.selected = item;
-    $('purchaseInfo').textContent = `${item.name} costs ${item.price} Demo Credits. Your current balance is ${shopState.data.balance}.`;
+    $('purchaseInfo').textContent = shopState.data.unlimitedCredits
+      ? `${item.name} is free for this owner account. You have unlimited Demo Credits.`
+      : `${item.name} costs ${item.price} Demo Credits. Your current balance is ${shopState.data.balance}.`;
     $('purchaseStatus').textContent = '';
     show('purchaseModal');
   }
@@ -210,6 +229,7 @@
       $('completeOnboarding').disabled = false;
     }
   };
+  $('dismissOnboarding').onclick = () => show('onboardingModal', false);
 
   const baseHandle = handle;
   handle = function (message) {
@@ -233,6 +253,9 @@
     if (message.type === 'friend_profile') {
       renderFriends();
       renderPeople();
+    }
+    if (message.type === 'ready') {
+      loadShop().then(applyEquippedCosmetics).catch(() => {});
     }
     if (message.type === 'ready' && me?.role === 'new_member') {
       $('onboardingDisplayName').value = me.displayName || me.username;
@@ -370,7 +393,7 @@
       $('confirmMerge').disabled = true;
       try {
         await mergeRequest('/api/accounts/merge/confirm', { token, confirm: true });
-        location.assign('/');
+        location.assign('/app');
         location.reload();
       } catch (error) {
         $('mergeNotice').textContent = error.message;
@@ -383,7 +406,7 @@
       const result = await mergeRequest('/api/accounts/merge/source-password', { username: $('mergeSourceUsername').value.trim(), password: $('mergeSourcePassword').value });
       $('mergeSourcePassword').value = '';
       showMergePreview(result.previewToken, result.preview);
-      history.replaceState({}, '', '/');
+      history.replaceState({}, '', '/app');
       $('mergeNotice').textContent = 'Both accounts verified. Review the merge preview before confirming.';
     } catch (error) { $('mergeNotice').textContent = error.message; }
   }
@@ -415,12 +438,35 @@
     section.hidden = me.role !== 'app_owner';
     if (section.hidden) return;
     try {
-      const [usersResult, auditResult] = await Promise.all([
+      const [usersResult, auditResult, bansResult] = await Promise.all([
         fetchJson('/api/admin/users'),
-        fetchJson('/api/admin/roles/audit')
+        fetchJson('/api/admin/roles/audit'),
+        fetchJson('/api/admin/bans')
       ]);
       const options = [['new_member', 'New Member'], ['member', 'Member'], ['developer', 'Developer'], ['moderator', 'Moderator'], ['administrator', 'Administrator']];
-      section.innerHTML = `<h3>App Owner: account roles</h3><p class="muted">Only the configured App Owner can change roles. Privileged roles require confirmation. App Owner can only be assigned through server configuration.</p><div class="shopRows">${usersResult.users.map(user => `<div class="shopRow"><b>${esc(user.username)} · ${esc(user.roleLabel || labels[user.role])}</b>${user.role === 'app_owner' ? '<span class="muted">Configured owner</span>' : `<select data-role-user="${esc(user.username)}">${options.map(([value, label]) => `<option value="${value}"${user.role === value ? ' selected' : ''}>${label}</option>`).join('')}</select><button data-save-role="${esc(user.username)}">Save role</button>`}</div>`).join('')}</div><h4>Recent role audit</h4><div class="roleAudit">${auditResult.entries.length ? auditResult.entries.map(entry => `<div class="shopRow"><span>${esc(entry.account)}: ${esc(entry.previousRole)} → ${esc(entry.newRole)}<small>By ${esc(entry.actor)} · ${new Date(entry.createdAt).toLocaleString()}</small></span></div>`).join('') : '<p class="muted">No role changes have been recorded.</p>'}</div>`;
+      section.innerHTML = `
+        <h3>App Owner: account roles</h3>
+        <p class="muted">Only the configured App Owner can change roles. Privileged roles require confirmation. App Owner can only be assigned through server configuration.</p>
+        <div class="shopRows">${usersResult.users.map(user => `<div class="shopRow"><b>${esc(user.username)} · ${esc(user.roleLabel || labels[user.role])}</b>${user.role === 'app_owner' ? '<span class="muted">Configured owner</span>' : `<select data-role-user="${esc(user.username)}">${options.map(([value, label]) => `<option value="${value}"${user.role === value ? ' selected' : ''}>${label}</option>`).join('')}</select><button data-save-role="${esc(user.username)}">Save role</button>`}</div>`).join('')}</div>
+        <h4>Recent role audit</h4>
+        <div class="roleAudit">${auditResult.entries.length ? auditResult.entries.map(entry => `<div class="shopRow"><span>${esc(entry.account)}: ${esc(entry.previousRole)} → ${esc(entry.newRole)}<small>By ${esc(entry.actor)} · ${new Date(entry.createdAt).toLocaleString()}</small></span></div>`).join('') : '<p class="muted">No role changes have been recorded.</p>'}</div>
+        <h4 style="margin-top:24px">Account bans</h4>
+        <p class="muted">Use <code>/appban <username> <reason></code> or <code>/apptempban <username> <duration> <reason></code> via the command field below, or use the form.</p>
+        <div style="display:grid;grid-template-columns:1fr auto auto auto;gap:8px;margin:8px 0;align-items:end">
+          <input id="banUsername" placeholder="Username" style="max-width:200px">
+          <input id="banDuration" placeholder="Duration (e.g. 1h, 7d)" style="max-width:140px" title="Leave empty for permanent ban. Format: 30m, 2h, 7d, 1w">
+          <input id="banReason" placeholder="Reason" required style="min-width:200px;max-width:300px">
+          <button id="banSubmit" class="danger">Ban</button>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr auto;gap:8px;margin:8px 0;align-items:end">
+          <input id="unbanUsername" placeholder="Username to unban" style="max-width:200px">
+          <button id="unbanSubmit" class="secondary">Unban</button>
+        </div>
+        <h5>Active bans</h5>
+        <div class="banList">${bansResult.active.length ? bansResult.active.map(ban => `<div class="shopRow"><b>${esc(ban.username)}</b><span class="muted">${ban.permanent ? 'Permanent' : `Expires ${new Date(ban.expiresAt).toLocaleString()}`} · ${esc(ban.reason)}</span><small>By ${esc(ban.byUsername)} · ${new Date(ban.createdAt).toLocaleString()}</small><button class="danger" data-unban="${esc(ban.username)}">Unban</button></div>`).join('') : '<p class="muted">No active bans.</p>'}</div>
+        <h5 style="margin-top:12px">All bans (recent)</h5>
+        <div class="banList">${bansResult.bans.length ? bansResult.bans.map(ban => `<div class="shopRow"><b>${esc(ban.username)}</b>${ban.active ? '' : '<span class="muted"> (revoked/expired)</span>'}<span class="muted">${ban.permanent ? 'Permanent' : ban.expiresAt ? `Expires ${new Date(ban.expiresAt).toLocaleString()}` : ''} · ${esc(ban.reason)}</span><small>By ${esc(ban.byUsername)} · ${new Date(ban.createdAt).toLocaleString()}${ban.revokedAt ? ` · Revoked by ${esc(ban.revokedByUsername)} · ${new Date(ban.revokedAt).toLocaleString()}` : ''}</small></div>`).join('') : '<p class="muted">No ban records.</p>'}</div>
+      `;
       section.querySelectorAll('[data-save-role]').forEach(button => button.onclick = async () => {
         const username = button.dataset.saveRole;
         const select = section.querySelector(`[data-role-user="${CSS.escape(username)}"]`);
@@ -435,6 +481,39 @@
           await refreshRoleAdmin();
         } catch (error) { alert(error.message); }
       });
+      section.querySelectorAll('[data-unban]').forEach(button => button.onclick = async () => {
+        if (!confirm(`Unban ${button.dataset.unban}?`)) return;
+        try {
+          await fetchJson(`/api/admin/bans/${encodeURIComponent(button.dataset.unban)}`, { method: 'DELETE' });
+          await refreshRoleAdmin();
+        } catch (error) { alert(error.message); }
+      });
+      $('banSubmit').onclick = async () => {
+        const username = $('banUsername').value.trim();
+        const duration = $('banDuration').value.trim();
+        const reason = $('banReason').value.trim();
+        if (!username || !reason) return alert('Username and reason are required.');
+        try {
+          const body = { command: `/app${duration ? 'temp' : ''}ban ${username} ${duration ? duration + ' ' : ''}${reason}` };
+          const res = await fetchJson('/api/admin/command', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+          $('banUsername').value = '';
+          $('banDuration').value = '';
+          $('banReason').value = '';
+          alert(res.action === 'unban' ? 'Unbanned.' : `${res.action} applied to ${res.username}.`);
+          await refreshRoleAdmin();
+        } catch (error) { alert(error.message); }
+      };
+      $('unbanSubmit').onclick = async () => {
+        const username = $('unbanUsername').value.trim();
+        if (!username) return alert('Username is required.');
+        if (!confirm(`Unban ${username}?`)) return;
+        try {
+          await fetchJson(`/api/admin/bans/${encodeURIComponent(username)}`, { method: 'DELETE' });
+          $('unbanUsername').value = '';
+          alert('Unbanned.');
+          await refreshRoleAdmin();
+        } catch (error) { alert(error.message); }
+      };
     } catch (error) {
       section.innerHTML = `<h3>App Owner: account roles</h3><p class="muted">${esc(error.message)}</p>`;
     }
@@ -456,7 +535,7 @@
     if (mergeToken) fetchJson(`/api/accounts/merge/preview/${encodeURIComponent(mergeToken)}`)
       .then(result => showMergePreview(mergeToken, result.preview))
       .catch(error => { $('mergeNotice').textContent = error.message; });
-    history.replaceState({}, '', '/');
+    history.replaceState({}, '', '/app');
   }
   if (me) {
     refreshRoleAdmin();

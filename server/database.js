@@ -324,13 +324,103 @@ function writeState(state, options = {}) {
 
 function loadState(legacyFile, fallback) {
   const saved = db.prepare('SELECT value FROM app_state WHERE id = 1').get();
-  if (saved) return JSON.parse(saved.value);
-  let state = fallback;
-  if (fs.existsSync(legacyFile)) {
-    state = JSON.parse(fs.readFileSync(legacyFile, 'utf8'));
-    for (const key of Object.keys(fallback)) if (state[key] === undefined) state[key] = fallback[key];
+  let state;
+  if (saved) {
+    state = JSON.parse(saved.value);
+  } else {
+    state = fallback;
+    if (fs.existsSync(legacyFile)) {
+      state = JSON.parse(fs.readFileSync(legacyFile, 'utf8'));
+      for (const key of Object.keys(fallback)) if (state[key] === undefined) state[key] = fallback[key];
+    }
+    writeState(state);
+    return state;
   }
-  writeState(state);
+
+  // Ensure friends are loaded from the database if not present in app_state
+  if (!state.friends || Object.keys(state.friends).length === 0) {
+    const friendRows = db.prepare('SELECT user_a, user_b, status, requested_by FROM friends').all();
+    if (friendRows.length > 0) {
+      state.friends = {};
+      for (const row of friendRows) {
+        const key = `${row.user_a}::${row.user_b}`;
+        state.friends[key] = {
+          a: row.user_a,
+          b: row.user_b,
+          status: row.status,
+          by: row.requested_by
+        };
+      }
+    }
+  }
+
+  // Load messages from the database to ensure persistence beyond app_state limits
+  // Reconstruct the denormalized messages structure from the normalized database tables
+  const messageRows = db.prepare(`
+    SELECT m.id, m.sender_id, m.server_id, m.channel_id, m.conversation_id, m.text, m.created_at,
+           u.username as sender_username
+    FROM messages m
+    JOIN users u ON m.sender_id = u.id
+  `).all();
+
+  if (messageRows.length > 0) {
+    // Build userId -> username map
+    const userIdToUsername = new Map();
+    const userRows = db.prepare('SELECT id, username FROM users').all();
+    for (const u of userRows) {
+      userIdToUsername.set(u.id, u.username);
+    }
+
+    // Build conversation -> messages map
+    const messagesByScope = new Map();
+    for (const row of messageRows) {
+      let scope;
+      if (row.conversation_id) {
+        scope = row.conversation_id;
+      } else if (row.server_id && row.channel_id) {
+        scope = `${row.server_id}:${row.channel_id}`;
+      } else {
+        continue; // skip messages without proper scope
+      }
+
+      if (!messagesByScope.has(scope)) {
+        messagesByScope.set(scope, []);
+      }
+
+      messagesByScope.get(scope).push({
+        id: row.id,
+        from: row.sender_username,
+        text: row.text,
+        at: row.created_at
+      });
+    }
+
+    // Sort messages by timestamp and assign to state
+    state.messages = state.messages || {};
+    for (const [scope, messages] of messagesByScope) {
+      // Sort by timestamp ascending
+      messages.sort((a, b) => a.at - b.at);
+      state.messages[scope] = messages;
+    }
+  }
+
+  // Ensure friends are loaded from the database if not present in app_state
+  if (!state.friends || Object.keys(state.friends).length === 0) {
+    const friendRows = db.prepare('SELECT user_a, user_b, status, requested_by FROM friends').all();
+    if (friendRows.length > 0) {
+      state.friends = {};
+      for (const row of friendRows) {
+        const key = `${row.user_a}::${row.user_b}`;
+        state.friends[key] = {
+          a: row.user_a,
+          b: row.user_b,
+          status: row.status,
+          by: row.requested_by
+        };
+      }
+    }
+  }
+
   return state;
 }
 
@@ -342,6 +432,9 @@ function findSession(tokenHash) {
 }
 function deleteSession(tokenHash) {
   run('DELETE FROM sessions WHERE token_hash = ?', tokenHash);
+}
+function deleteSessionsForUser(userId) {
+  run('DELETE FROM sessions WHERE user_id = ?', userId);
 }
 function pruneSessions() {
   run('DELETE FROM sessions WHERE expires_at <= ?', Date.now());
@@ -436,4 +529,4 @@ function saveMeteredTurnCredential(userId, credential) {
   credential.createdAt, credential.expiresAt);
 }
 
-module.exports = { loadState, writeState, createSession, findSession, deleteSession, pruneSessions, createOAuthState, getOAuthState, consumeOAuthState, createActivityPairing, claimActivityPairing, findActivityConnector, hasActivityConnector, revokeActivityToken, revokeActivityConnector, findMeteredTurnCredential, saveMeteredTurnCredential };
+module.exports = { loadState, writeState, createSession, findSession, deleteSession, deleteSessionsForUser, pruneSessions, createOAuthState, getOAuthState, consumeOAuthState, createActivityPairing, claimActivityPairing, findActivityConnector, hasActivityConnector, revokeActivityToken, revokeActivityConnector, findMeteredTurnCredential, saveMeteredTurnCredential };

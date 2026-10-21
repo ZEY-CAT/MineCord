@@ -1,4 +1,18 @@
 const PROVIDERS = new Set(['google', 'microsoft', 'github']);
+
+function safeAppReturnTo(value) {
+  if (typeof value !== 'string') return '/app';
+  if (!(value === '/app' || value.startsWith('/app?') || value.startsWith('/app#') || value.startsWith('/app/'))) return '/app';
+  if (value.includes('\\') || value.startsWith('//') || /[\u0000-\u001f\u007f]/.test(value)) return '/app';
+  return value;
+}
+
+function providerDiagnostic(body) {
+  const error = typeof body?.error === 'string' ? body.error : '';
+  const aadsts = String(body?.error_description || '').match(/AADSTS\d+/)?.[0] || '';
+  return [error, aadsts].filter(Boolean).join(', ');
+}
+
 function oauthAccounts(user) {
   const accounts = Array.isArray(user.oauthAccounts) ? user.oauthAccounts : [];
   const normalized = accounts.filter(account =>
@@ -28,6 +42,11 @@ function buildAuthorizationUrl(provider, state, appUrl) {
   }
   query.set('scope', 'openid email profile User.Read');
   return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${query}`;
+}
+
+function reservedUsername(value) {
+  const name = String(value || '').toLowerCase();
+  return name === '__proto__' || name === 'constructor' || name === 'prototype';
 }
 
 function findLinkedUser(users, provider, externalId) {
@@ -74,6 +93,7 @@ function accountLinkRoutes(app, context) {
       provider,
       purpose: 'account-link',
       userId: req.minecordUser.id,
+      returnTo: safeAppReturnTo(req.body?.returnTo),
       createdAt: Date.now()
     });
     context.bindBrowserToOAuthState(res, provider, state, appUrl);
@@ -171,60 +191,82 @@ function oauthCallback(context) {
     if (!PROVIDERS.has(provider)) return next();
     const stateKey = typeof req.query.state === 'string' ? req.query.state : '';
     const pendingState = database.getOAuthState(stateKey);
-    if (pendingState?.purpose !== 'account-link') return next();
+    if (!pendingState) return next();
+    if (pendingState.provider !== provider) return res.status(400).send('OAuth state is invalid for this provider.');
+    if (pendingState.purpose && pendingState.purpose !== 'account-link') return next();
     if (!hasBrowserOAuthState(req, provider, stateKey)) {
       clearBrowserOAuthState(res, provider, appUrl);
       return res.status(400).send('OAuth state is invalid or expired. Please restart sign-in.');
     }
     const state = database.consumeOAuthState(stateKey, provider);
-    if (!state || state.purpose !== 'account-link') {
+    if (!state || (state.purpose && state.purpose !== 'account-link')) {
       return res.status(400).send('OAuth state is invalid or expired. Please try again.');
     }
     clearBrowserOAuthState(res, provider, appUrl);
 
+    const accountLink = state.purpose === 'account-link';
+    const accountLinkReturnTo = accountLink ? safeAppReturnTo(state.returnTo || '/app') : '/app';
+    const returnTo = accountLink ? accountLinkReturnTo : (state.returnTo ? safeAppReturnTo(state.returnTo) : '/app?oauth=success');
+    const redirectAccountResult = (key, value) => {
+      const target = new URL(accountLinkReturnTo, appUrl);
+      target.searchParams.delete('account_link');
+      target.searchParams.delete('account_link_error');
+      target.searchParams.set(key, value);
+      return res.redirect(`${target.pathname}${target.search}${target.hash}`);
+    };
+    const redirectError = (reason, message) => {
+      if (accountLink) return redirectAccountResult('account_link_error', reason);
+      const target = new URL(returnTo, appUrl);
+      target.searchParams.delete('oauth');
+      target.searchParams.delete('auth_error');
+      target.searchParams.set('auth_error', message);
+      return res.redirect(`${target.pathname}${target.search}${target.hash}`);
+    };
+
     if (req.query.error) {
-      return res.redirect(state.purpose === 'account-link'
-        ? '/?account_link_error=cancelled'
-        : `/?auth_error=${encodeURIComponent('Sign-in was not completed.')}`);
+      return redirectError('cancelled', req.query.error === 'access_denied' ? 'Sign-in was cancelled.' : 'Sign-in was not completed.');
     }
     if (typeof req.query.code !== 'string' || !req.query.code) {
-      return res.status(400).send('The identity provider did not return an authorization code.');
+      return redirectError('provider_failed', 'The identity provider did not return an authorization code.');
     }
-    if (state.purpose === 'account-link') {
+    if (accountLink) {
       const user = authUser(req);
-      if (!user || user.id !== state.userId) return res.status(401).send('Sign in to the same MINECORD account before linking this provider.');
-    } else if (state.purpose) {
-      return res.status(400).send('Unsupported OAuth operation.');
+      if (!user || user.id !== state.userId) return redirectError('session_expired', 'Sign in to the same MINECORD account before linking this provider.');
     }
 
     try {
       const identity = await fetchIdentity(provider, req.query.code, context.appUrl);
-      if (state.purpose === 'account-link') {
+      if (accountLink) {
         const user = authUser(req);
+        if (!user || user.id !== state.userId) return redirectError('session_expired', 'Sign in to the same MINECORD account before linking this provider.');
+        const ban = context.activeBan?.(user);
+        if (ban) return redirectAccountResult('account_link_error', 'account_banned');
         const linkedTo = findLinkedUser(data.users, provider, identity.id);
-        if (linkedTo && linkedTo.id !== user.id) return res.redirect('/?account_link_error=already_linked');
+        if (linkedTo && linkedTo.id !== user.id) return redirectAccountResult('account_link_error', 'already_linked');
         const accounts = oauthAccounts(user);
         const sameProvider = accounts.find(account => account.provider === provider);
-        if (sameProvider && sameProvider.id !== identity.id) return res.redirect('/?account_link_error=provider_already_linked');
+        if (sameProvider && sameProvider.id !== identity.id) return redirectAccountResult('account_link_error', 'provider_already_linked');
         if (!sameProvider) accounts.push({ provider, id: identity.id, linkedAt: Date.now() });
         user.oauthAccounts = accounts;
         if (!user.oauth) user.oauth = { provider, id: identity.id };
         save();
-        return res.redirect('/?account_link=success');
+        return redirectAccountResult('account_link', 'success');
       }
 
       let user = findLinkedUser(data.users, provider, identity.id);
       if (!user) {
-        const base = identity.name.replace(/[^A-Za-z0-9_ -]/g, '').slice(0, 24).trim() || 'Player';
+        const base = String(identity.name || 'Player').replace(/[^A-Za-z0-9_ -]/g, '').slice(0, 24).trim() || 'Player';
         let username = base, suffix = 2;
-        while (Object.keys(data.users).some(existing => existing.toLowerCase() === username.toLowerCase())) {
+        while (reservedUsername(username)
+          || Object.keys(data.users).some(existing => existing.toLowerCase() === username.toLowerCase())
+          || Object.prototype.hasOwnProperty.call(data.mergedUsernames || {}, username.toLowerCase())) {
           username = `${base.slice(0, Math.max(1, 24 - String(suffix).length - 1))}_${suffix++}`;
         }
         user = {
           id: context.createId('usr'),
           username,
           displayName: base,
-          avatar: identity.avatar,
+          avatar: identity.avatar || '',
           oauth: { provider, id: identity.id },
           oauthAccounts: [{ provider, id: identity.id, linkedAt: Date.now() }],
           role: 'new_member',
@@ -235,12 +277,14 @@ function oauthCallback(context) {
         data.users[username] = user;
         save();
       }
+      const ban = context.activeBan?.(user);
+      if (ban) return redirectError('account_banned', context.banMessage?.(ban) || 'This account is banned.');
       setSession(res, user);
-      return res.redirect('/?oauth=success');
-    } catch {
-      return res.redirect(state.purpose === 'account-link'
-        ? '/?account_link_error=provider_failed'
-        : `/?auth_error=${encodeURIComponent('OAuth sign-in failed. Check the provider app registration and callback URL.')}`);
+      return res.redirect(returnTo);
+    } catch (error) {
+      console.error(`${provider} OAuth sign-in failed:`, error.message);
+      const code = String(error.code || '').match(/AADSTS\d+/)?.[0] || '';
+      return redirectError('provider_failed', `${provider === 'microsoft' ? 'Microsoft sign-in' : 'OAuth sign-in'} failed${code ? ` (${code})` : ''}. Check the provider app registration and callback URL.`);
     }
   };
 }
@@ -252,9 +296,16 @@ async function fetchIdentity(provider, code, appUrl) {
   const redirectUri = process.env[`${prefix}_CALLBACK_URL`] || `${appUrl}/auth/${provider}/callback`;
   const fetchJson = async (url, options) => {
     const response = await fetch(url, { ...options, signal: AbortSignal.timeout(15000) });
-    let body;
-    try { body = await response.json(); } catch { throw new Error('Identity provider returned invalid data.'); }
-    if (!response.ok) throw new Error('Identity provider rejected the OAuth request.');
+    const text = await response.text();
+    let body = null;
+    try { body = text ? JSON.parse(text) : {}; } catch { body = null; }
+    if (!response.ok || body === null) {
+      const diagnostic = providerDiagnostic(body || {});
+      const error = new Error(`Identity provider rejected the OAuth request${diagnostic ? ` (${diagnostic})` : ''}.`);
+      error.code = diagnostic;
+      error.status = response.status;
+      throw error;
+    }
     return body;
   };
 
@@ -264,7 +315,10 @@ async function fetchIdentity(provider, code, appUrl) {
       headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ client_id: clientId, client_secret: clientSecret, code, redirect_uri: redirectUri })
     });
-    if (typeof token.access_token !== 'string') throw new Error('GitHub token exchange failed.');
+    if (typeof token.access_token !== 'string') {
+      const diagnostic = providerDiagnostic(token);
+      throw new Error(`GitHub token exchange failed${diagnostic ? ` (${diagnostic})` : ''}.`);
+    }
     const profile = await fetchJson('https://api.github.com/user', {
       headers: { Authorization: `Bearer ${token.access_token}`, Accept: 'application/vnd.github+json' }
     });
@@ -291,4 +345,4 @@ async function fetchIdentity(provider, code, appUrl) {
   };
 }
 
-module.exports = { accountLinkRoutes, oauthAccounts, findLinkedUser, buildAuthorizationUrl, fetchIdentity };
+module.exports = { accountLinkRoutes, oauthAccounts, findLinkedUser, buildAuthorizationUrl, fetchIdentity, safeAppReturnTo };
