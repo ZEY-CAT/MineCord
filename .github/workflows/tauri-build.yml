@@ -121,6 +121,12 @@ jobs:
     strategy:
       matrix:
         target: [x86_64-apple-darwin, aarch64-apple-darwin]
+    env:
+      APPLE_CERT_P12_BASE64: ${{ secrets.APPLE_CERT_P12_BASE64 }}
+      APPLE_CERT_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -151,11 +157,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Generate edition config (Tauri Lite)
+        run: node scripts/generate-edition.js tauri-lite
+
       - name: Build frontend
         run: npm run build
 
       - name: Import Apple certificates
         if: ${{ env.APPLE_CERT_P12_BASE64 != '' && env.APPLE_CERT_PASSWORD != '' }}
+        env:
+          APPLE_CERT_P12_BASE64: ${{ secrets.APPLE_CERT_P12_BASE64 }}
+          APPLE_CERT_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
         run: |
           echo "$APPLE_CERT_P12_BASE64" | base64 -d > cert.p12
           security import cert.p12 -k ~/Library/Keychains/login.keychain-db -P "$APPLE_CERT_PASSWORD" -T /usr/bin/codesign
@@ -168,7 +180,10 @@ jobs:
           MINECORD_UPDATER_ENDPOINT: ${{ secrets.MINECORD_UPDATER_ENDPOINT }}
           APPLE_CERT_P12_BASE64: ${{ secrets.APPLE_CERT_P12_BASE64 }}
           APPLE_CERT_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
-        run: npm run tauri:build
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: npm run tauri:build -- --target ${{ matrix.target }}
 
       - name: Verify macOS DMG exists
         run: |
@@ -196,16 +211,22 @@ jobs:
 
       - name: Notarize macOS artifacts
         if: ${{ env.APPLE_ID != '' && env.APPLE_TEAM_ID != '' && env.APPLE_APP_PASSWORD != '' }}
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
         run: |
-          for f in src-tauri/target/release/bundle/dmg/*.dmg; do
+          shopt -s globstar
+          for f in src-tauri/target/**/release/bundle/dmg/*.dmg; do
             if [ -f "$f" ]; then
               xcrun notarytool submit "$f" --apple-id "$APPLE_ID" --password "$APPLE_APP_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
               xcrun stapler staple "$f"
             fi
           done
-          for f in src-tauri/target/release/bundle/macos/*.app; do
+          for f in src-tauri/target/**/release/bundle/macos/*.app; do
             if [ -d "$f" ]; then
-              xcrun notarytool submit "$f" --apple-id "$APPLE_ID" --password "$APPLE_APP_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
+              ditto -c -k --keepParent "$f" "${f}.zip"
+              xcrun notarytool submit "${f}.zip" --apple-id "$APPLE_ID" --password "$APPLE_APP_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
               xcrun stapler staple "$f"
             fi
           done
@@ -214,23 +235,22 @@ jobs:
         if: ${{ always() }}
         run: |
           set -e
-          if [ -d "src-tauri/target/release/bundle/macos" ]; then
-            cd src-tauri/target/release/bundle/macos
-            for app in *.app; do
-              if [ -d "$app" ]; then
-                echo "Packaging $app..."
-                zip -r "${app}.zip" "$app"
-                tar -czf "${app}.tar.gz" "$app"
-              fi
-            done
-          fi
+          shopt -s globstar
+          for app in src-tauri/target/**/release/bundle/macos/*.app; do
+            if [ -d "$app" ]; then
+              echo "Packaging $app..."
+              dir=$(dirname "$app")
+              base=$(basename "$app")
+              (cd "$dir" && zip -ry "${base}.zip" "$base" && tar -czf "${base}.tar.gz" "$base")
+            fi
+          done
 
       - name: Rename macOS artifacts for release
         if: ${{ always() }}
         run: |
           set -e
-          # Rename DMG files to include architecture
-          for f in src-tauri/target/**/bundle/dmg/*.dmg; do
+          shopt -s globstar
+          for f in src-tauri/target/**/release/bundle/dmg/*.dmg; do
             if [ -f "$f" ]; then
               if [[ "$f" == *"aarch64"* ]] || [[ "$f" == *"arm64"* ]]; then
                 mv "$f" "$(dirname "$f")/MineCord-macOS-AppleSilicon.dmg"
@@ -239,33 +259,29 @@ jobs:
               fi
             fi
           done
-          # Rename app bundles
-          if [ -d "src-tauri/target/release/bundle/macos" ]; then
-            cd src-tauri/target/release/bundle/macos
-            for app in *.app; do
-              if [ -d "$app" ]; then
-                arch=$(echo "$app" | grep -oE '(aarch64|arm64|x86_64)' || echo 'x64')
-                if [[ "$arch" == "aarch64" ]] || [[ "$arch" == "arm64" ]]; then
-                  mv "$app" "MineCord-AppleSilicon.app"
-                  mv "${app}.zip" "MineCord-AppleSilicon.app.zip" 2>/dev/null || true
-                  mv "${app}.tar.gz" "MineCord-AppleSilicon.app.tar.gz" 2>/dev/null || true
-                else
-                  mv "$app" "MineCord-Intel.app"
-                  mv "${app}.zip" "MineCord-Intel.app.zip" 2>/dev/null || true
-                  mv "${app}.tar.gz" "MineCord-Intel.app.tar.gz" 2>/dev/null || true
-                fi
+          for app in src-tauri/target/**/release/bundle/macos/*.app; do
+            if [ -d "$app" ]; then
+              dir=$(dirname "$app")
+              base=$(basename "$app")
+              if [[ "$app" == *"aarch64"* ]] || [[ "$app" == *"arm64"* ]]; then
+                target="MineCord-AppleSilicon"
+              else
+                target="MineCord-Intel"
               fi
-            done
-          fi
+              mv "$app" "$dir/$target.app"
+              [ -f "$dir/${base}.zip" ] && mv "$dir/${base}.zip" "$dir/$target.app.zip"
+              [ -f "$dir/${base}.tar.gz" ] && mv "$dir/${base}.tar.gz" "$dir/$target.app.tar.gz"
+            fi
+          done
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: mincord-macos
+          name: mincord-macos-${{ matrix.target }}
           path: |
-            src-tauri/target/**/bundle/dmg/*.dmg
-            src-tauri/target/release/bundle/macos/*.zip
-            src-tauri/target/release/bundle/macos/*.tar.gz
+            src-tauri/target/**/release/bundle/dmg/*.dmg
+            src-tauri/target/**/release/bundle/macos/*.zip
+            src-tauri/target/**/release/bundle/macos/*.tar.gz
           retention-days: 7
           if-no-files-found: error
 
@@ -315,6 +331,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Generate edition config (Tauri Lite)
+        run: node scripts/generate-edition.js tauri-lite
 
       - name: Build frontend
         run: npm run build
@@ -402,23 +421,126 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Generate edition config (Tauri Lite)
+        run: node scripts/generate-edition.js tauri-lite
+
       - name: Build frontend
         run: npm run build
 
-      - name: Build Android APK
-        env:
-          MINECORD_ANDROID_KEYSTORE_PATH: ${{ secrets.MINECORD_ANDROID_KEYSTORE_PATH }}
-          MINECORD_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.MINECORD_ANDROID_KEYSTORE_PASSWORD }}
-          MINECORD_ANDROID_KEY_ALIAS: ${{ secrets.MINECORD_ANDROID_KEY_ALIAS }}
-          MINECORD_ANDROID_KEY_PASSWORD: ${{ secrets.MINECORD_ANDROID_KEY_PASSWORD }}
+      - name: Initialize Android project
         run: |
-          cd src-tauri/gen/android
-          bash ./gradlew assembleRelease
-          cd ../..
+          rm -rf src-tauri/gen/android
+          npm run tauri -- android init --ci
+
+      - name: Build Android APK
+        run: npm run tauri -- android build --apk --ci
+
+      - name: Verify Android APK
+        run: |
+          set -e
+          APK=$(find src-tauri/gen/android/app/build/outputs/apk -name '*.apk' -type f | head -n 1)
+          if [ -z "$APK" ]; then
+            echo "ERROR: No APK produced"
+            exit 1
+          fi
+          SIZE=$(stat -c%s "$APK")
+          echo "APK: $APK ($SIZE bytes)"
+          if [ "$SIZE" -lt 1000000 ]; then
+            echo "ERROR: APK is unexpectedly small"
+            exit 1
+          fi
+          cp "$APK" MineCord-Android.apk
+          ls -l MineCord-Android.apk
 
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
         with:
           name: mincord-android
-          path: src-tauri/gen/android/app/build/outputs/apk/release/*.apk
+          path: MineCord-Android.apk
           retention-days: 7
+          if-no-files-found: error
+
+  web:
+    name: Web (build + tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run backend tests
+        run: npm test
+
+      - name: Generate edition config (Web / Electron)
+        run: node scripts/generate-edition.js electron
+
+      - name: Build web frontend
+        run: npm run build
+
+      - name: Verify web build
+        run: |
+          set -e
+          for file in dist/web/index.html dist/web/landing.html dist/web/download.html dist/web/features.js; do
+            if [ ! -s "$file" ]; then
+              echo "ERROR: missing or empty $file"
+              exit 1
+            fi
+            echo "$file: $(stat -c%s "$file") bytes"
+          done
+
+      - name: Package web build
+        run: |
+          set -e
+          cd dist
+          zip -r MineCord-Web.zip web
+          ls -l MineCord-Web.zip
+
+      - name: Upload web artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mincord-web
+          path: dist/MineCord-Web.zip
+          retention-days: 7
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: [windows-tauri, macos, linux, android, web]
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.create_release }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: List release assets
+        run: find release-assets -type f -printf '%s %p\n' | sort -n
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ inputs.version }}
+          name: MINECORD v${{ inputs.version }}
+          generate_release_notes: true
+          fail_on_unmatched_files: false
+          files: |
+            release-assets/**/*.exe
+            release-assets/**/*.msi
+            release-assets/**/*.zip
+            release-assets/**/*.dmg
+            release-assets/**/*.tar.gz
+            release-assets/**/*.AppImage
+            release-assets/**/*.deb
+            release-assets/**/*.rpm
+            release-assets/**/*.apk

@@ -1,4 +1,4 @@
-<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MINECORD</title><style>
+﻿<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MINECORD — Minecraft Chat, Servers & Voice</title><link rel="icon" href="/favicon.ico" sizes="any"><link rel="icon" href="/icons/icon-192.png" sizes="192x192" type="image/png"><link rel="icon" href="/icons/icon-512.png" sizes="512x512" type="image/png"><link rel="apple-touch-icon" href="/icons/icon-192.png"><link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#5865f2"><meta name="description" content="Minecraft-themed private friends chat with accounts, servers, channels, DMs and WebRTC voice."><meta name="viewport" content="width=device-width,initial-scale=1"><title>MINECORD</title><style>
 @font-face{font-family:'VT323';src:url('/fonts/vt323.ttf') format('truetype');font-style:normal;font-weight:400;font-display:swap;unicode-range:U+0020-007F,U+00A0-00FF}
 @font-face{font-family:'IBM Plex Sans';src:url('/fonts/ibm-plex-sans-regular.ttf') format('truetype');font-style:normal;font-weight:400;font-display:swap}
 @font-face{font-family:'IBM Plex Sans';src:url('/fonts/ibm-plex-sans-medium.ttf') format('truetype');font-style:normal;font-weight:500;font-display:swap}
@@ -11,6 +11,7 @@
   --side:#1e1f22;--rail:#111214;--hover:#35373c;--line:#202225;--muted:#b5bac1;
   --blue:#5865f2;--green:#23a559;--red:#da373c;--yellow:#faa61a;
   --panel:#1e1f22;--panel-border:#202225;--input-bg:#2a2c31;--input-border:#3e4147
+}
 *{box-sizing:border-box}
 body{margin:0;height:100vh;overflow:hidden;background:#313338}
 button,input,select,textarea{font:inherit;font-family:var(--font-ui)}
@@ -22,13 +23,15 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .danger{background:#da373c}.danger:hover{background:#e84244}
 .secondary{background:#4f545c;color:#fff}.secondary:hover{background:#5d636b}
 .hidden{display:none!important}
-.app{height:100vh;display:grid;grid-template-columns:72px 240px minmax(0,1fr) 230px}
+.app{height:100vh;display:grid;grid-template-columns:72px 240px minmax(0,1fr) 230px;grid-template-rows:1fr;margin:0;padding:0}
 .rail{background:var(--rail);padding:10px 8px;overflow:auto}
 .serverIcon{width:52px;height:52px;border-radius:16px;background:#313338;margin:0 auto 9px;display:grid;place-items:center;cursor:pointer;font-size:23px}
 .serverIcon:hover,.serverIcon.active{background:#5865f2;border-radius:14px}
 .side,.right{background:var(--side);display:flex;flex-direction:column;min-width:0}
 .right{border-left:1px solid var(--line)}
-.sideHead{height:48px;padding:14px;border-bottom:1px solid #111;font-weight:700;font-family:var(--font-minecraft);font-size:16px;letter-spacing:0.5px}
+.sideHead{height:48px;padding:14px;border-bottom:1px solid #111;font-weight:700;font-family:var(--font-minecraft);font-size:16px;letter-spacing:0.5px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.drawerToggle{display:none;padding:6px;background:transparent;color:var(--muted);border-radius:6px}
+.drawerToggle:hover{background:var(--hover);color:#fff}
 .section{padding:12px 10px 5px;color:var(--muted);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;font-family:var(--font-ui)}
 .nav{padding:3px 8px;overflow:auto}
 .navItem{padding:10px 12px;border-radius:6px;color:var(--muted);cursor:pointer;margin:2px 0;font-size:14px;font-weight:500;transition:all 0.15s ease;display:flex;align-items:center;gap:8px}
@@ -41,6 +44,48 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .userText{min-width:0;flex:1}
 .userText b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px;font-weight:600;font-family:var(--font-ui)}
 .userText .muted{font-size:12px;font-weight:400;font-family:var(--font-ui)}
+.main{min-width:0;display:flex;flex-direction:column;height:100%;overflow:hidden}
+.top{flex:none;height:52px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--line);background:var(--panel);font-family:var(--font-minecraft);font-size:19px;letter-spacing:0.5px}
+.top #channelIcon{display:inline-flex;color:var(--muted)}
+.top b{font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.topTools{margin-left:auto;display:flex;align-items:center;gap:8px}
+.topTools button{display:inline-flex;align-items:center;gap:6px;padding:8px;background:transparent;color:var(--muted);border-radius:6px}
+.topTools button:hover{background:var(--hover);color:#fff}
+.messages{flex:1 1 auto;min-height:0;overflow-y:auto;padding:18px 16px;display:flex;flex-direction:column;gap:2px}
+.messages .empty{margin:auto}
+.composer{flex:none;padding:0 16px 16px;background:transparent}
+.composerBox{display:flex;align-items:center;gap:8px;background:var(--input-bg);border:1px solid var(--input-border);border-radius:8px;padding:4px 4px 4px 6px}
+.composerBox:focus-within{border-color:var(--blue);box-shadow:0 0 0 3px rgba(88,101,242,0.2)}
+.composer input{flex:1;min-width:0;background:transparent;border:0;box-shadow:none;padding:10px 8px;font-size:15px}
+.composer input:focus{box-shadow:none;border:0}
+.composer button{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;white-space:nowrap}
+.right{height:100%;overflow:hidden}
+.rightHead{flex:none;height:46px;display:flex;align-items:center;gap:8px;padding:0 14px;font-size:12px;font-weight:600;letter-spacing:0.8px;color:var(--muted);text-transform:uppercase;border-bottom:1px solid var(--line);font-family:var(--font-ui)}
+.people{flex:1 1 auto;min-height:0;overflow-y:auto;padding:8px}
+.people .empty{padding:16px 8px}
+.right>.people:first-of-type{flex:1 1 auto}
+.right>.people:last-of-type{flex:0 1 auto;max-height:38%}
+.mobileOnly{display:none!important}
+@media(max-width:980px){.mobileOnly{display:inline-flex!important}}
+@media(max-width:768px){.drawerToggle{display:inline-flex}}
+.icon{display:inline-flex;align-items:center;justify-content:center;padding:6px;background:transparent;color:var(--muted);border-radius:6px;cursor:pointer}
+.icon:hover{background:var(--hover);color:#fff}
+.drawerOverlay{position:fixed;inset:0;background:rgba(0,0,0,0.62);z-index:1200;opacity:0;pointer-events:none;transition:opacity 0.18s ease}
+.drawerOverlay.open{opacity:1;pointer-events:auto}
+.sideDrawer,.rightDrawer{position:fixed;top:0;bottom:0;width:290px;max-width:86vw;z-index:1201;display:flex;flex-direction:column;background:var(--side);transition:transform 0.2s ease;box-shadow:0 0 32px rgba(0,0,0,0.45)}
+.sideDrawer{left:0;transform:translateX(-102%)}
+.rightDrawer{right:0;transform:translateX(102%)}
+.sideDrawer.open,.rightDrawer.open{transform:translateX(0)}
+.drawerHeader{flex:none;display:flex;align-items:center;justify-content:space-between;gap:10px;height:52px;padding:0 14px;border-bottom:1px solid var(--line);font-family:var(--font-minecraft);font-size:18px;letter-spacing:0.5px}
+.drawerClose{display:inline-flex;align-items:center;justify-content:center;padding:8px;background:transparent;color:var(--muted);border-radius:6px}
+.drawerClose:hover{background:var(--hover);color:#fff}
+.sideDrawer .nav,.rightDrawer .people{overflow-y:auto}
+.worldsPage{display:flex;flex-direction:column;height:100%;overflow:auto;padding:22px;background:#313338}
+.worldsHeader{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.worldsTabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.seasonalBanner{position:relative;border-radius:12px;padding:18px 20px;margin-bottom:18px;background:linear-gradient(135deg,rgba(88,101,242,0.25),rgba(35,165,89,0.18));border:1px solid rgba(88,101,242,0.35);overflow:hidden}
+.seasonalTitle{font-family:var(--font-minecraft);font-size:22px;letter-spacing:0.5px;margin-bottom:6px}
+.seasonalDesc{color:var(--muted);font-size:14px;font-family:var(--font-ui)}
 input[type="text"],input[type="password"],input[type="email"],input[type="url"],select,textarea{
   width:100%;padding:10px 12px;border-radius:6px;border:1px solid var(--input-border);
   background:var(--input-bg);color:#fff;outline:none;transition:border-color 0.15s ease,box-shadow 0.15s ease
@@ -71,10 +116,173 @@ label{display:block;margin:12px 0 4px;font-size:13px;font-weight:500;color:var(-
 .dot.on{background:#23a559}
 .dot.off{background:#747f8d}
 .dot.dnd{background:#da373c}
-.dot.idle{background:#faa61a}:24px;bottom:24px;width:330px;background:#1e1f22;border:1px solid #4b4e55;border-radius:8px;padding:18px;z-index:200;box-shadow:0 15px 60px #000}.empty{height:100%;display:grid;place-items:center;color:#949ba4}.login{text-align:center}.login button{width:100%;margin-top:8px}.login input{width:100%;padding:11px;background:#111214;color:#fff;border:1px solid #4a4d53;border-radius:4px;margin-top:8px}.oauthButton{display:flex;align-items:center;justify-content:center;gap:10px;background:#fff!important;color:#202124!important;font-weight:600;border:1px solid #dadce0!important}.oauthButton:hover{background:#f3f4f5!important}.oauthButton svg{width:20px;height:20px;flex:none}.personInfo{display:flex;flex-direction:column;min-width:0}.activityLine{color:#b5bac1;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.activityCard{padding:8px;border-radius:5px;background:#2b2d31;margin:0 0 6px}.activityCard b{display:block;font-size:15px}.activityCard span{font-size:14px;color:#b5bac1}
+.dot.idle{background:#faa61a}.toast{position:fixed;right:24px;bottom:24px;width:330px;background:#1e1f22;border:1px solid #4b4e55;border-radius:8px;padding:18px;z-index:200;box-shadow:0 15px 60px #000}.empty{height:100%;display:grid;place-items:center;color:#949ba4}.login{text-align:center}.login button{width:100%;margin-top:8px}.login input{width:100%;padding:11px;background:#111214;color:#fff;border:1px solid #4a4d53;border-radius:4px;margin-top:8px}.oauthButton{display:flex;align-items:center;justify-content:center;gap:10px;background:#fff!important;color:#202124!important;font-weight:600;border:1px solid #dadce0!important}.oauthButton:hover{background:#f3f4f5!important}.oauthButton svg{width:20px;height:20px;flex:none}.personInfo{display:flex;flex-direction:column;min-width:0}.activityLine{color:#b5bac1;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.activityCard{padding:8px;border-radius:5px;background:#2b2d31;margin:0 0 6px}.activityCard b{display:block;font-size:15px}.activityCard span{font-size:14px;color:#b5bac1}
+
+/* ===== NEW: Custom Modal System ===== */
+.modalOverlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;visibility:hidden;transition:opacity 0.2s ease,visibility 0.2s ease}
+.modalOverlay.open{opacity:1;visibility:visible}
+.modalCard{background:var(--panel);border:1px solid var(--panel-border);border-radius:12px;padding:24px;max-width:480px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,0.5);transform:scale(0.95);transition:transform 0.2s ease}
+.modalOverlay.open .modalCard{transform:scale(1)}
+.modalHeader{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.modalHeader h3{margin:0;font-family:var(--font-minecraft);font-size:18px}
+.modalClose{background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;padding:0;line-height:1}
+.modalClose:hover{color:#fff}
+.modalBody{margin-bottom:20px}
+.modalFooter{display:flex;justify-content:flex-end;gap:8px}
+.modalInput{width:100%;padding:10px 12px;border-radius:6px;border:1px solid var(--input-border);background:var(--input-bg);color:#fff;outline:none;transition:border-color 0.15s ease,box-shadow 0.15s ease;margin-bottom:12px}
+.modalInput:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(88,101,242,0.25)}
+.modalSelect{width:100%;padding:10px 12px;border-radius:6px;border:1px solid var(--input-border);background:var(--input-bg);color:#fff;outline:none;margin-bottom:12px}
+.modalLabel{display:block;margin:12px 0 4px;font-size:13px;font-weight:500;color:var(--muted);font-family:var(--font-ui)}
+.modalCheckbox{display:flex;align-items:center;gap:8px;margin:16px 0;cursor:pointer}
+.modalCheckbox input{width:auto}
+.modalTextarea{width:100%;min-height:100px;padding:10px 12px;border-radius:6px;border:1px solid var(--input-border);background:var(--input-bg);color:#fff;outline:none;font-family:inherit;resize:vertical;margin-bottom:12px}
+
+/* ===== Improved Login Screen ===== */
+.login{text-align:center}
+.login h1{font-family:var(--font-minecraft);font-size:clamp(32px,6vw,48px);margin:0 0 8px;letter-spacing:1px;display:flex;align-items:center;justify-content:center;gap:12px}
+.login h1 .brandIcon{width:40px;height:40px;vertical-align:-8px;filter:drop-shadow(0 8px 24px rgba(88,101,242,0.3))}
+.login .muted{font-size:14px;max-width:320px;margin:0 auto 24px}
+.login .oauthButton{display:flex;align-items:center;justify-content:center;gap:10px;background:#fff!important;color:#202124!important;font-weight:600;border:1px solid #dadce0!important;border-radius:8px;padding:12px 16px;font-size:14px;font-family:var(--font-ui);width:100%;margin-top:8px;transition:background 0.15s ease}
+.login .oauthButton:hover{background:#f3f4f5!important}
+.login .oauthButton svg{width:20px;height:20px;flex:none}
+.login .divider{display:flex;align-items:center;gap:12px;margin:20px 0;color:var(--muted);font-size:13px}
+.login .divider::before,.login .divider::after{content:'';flex:1;height:1px;background:var(--line)}
+.login input{width:100%;padding:12px 14px;border-radius:8px;border:1px solid var(--input-border);background:var(--input-bg);color:#fff;outline:none;transition:border-color 0.15s ease,box-shadow 0.15s ease;margin-bottom:12px;font-size:15px}
+.login input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(88,101,242,0.25)}
+.login .row{display:flex;gap:12px}
+.login .row > *{flex:1}
+.login button{width:100%;padding:14px 16px;border-radius:8px;font-size:15px;font-weight:600;font-family:var(--font-ui);transition:background 0.15s ease,transform 0.05s ease}
+.login button:active{transform:scale(0.98)}
+.login .primary{background:var(--blue);color:#fff;box-shadow:0 4px 16px rgba(88,101,242,0.3)}
+.login .primary:hover{background:#4a54e0;box-shadow:0 6px 24px rgba(88,101,242,0.4)}
+.login .secondary{background:transparent;color:var(--muted);border:2px solid var(--line)}
+.login .secondary:hover{background:var(--hover);border-color:var(--blue);color:#fff}
+.login .danger{background:var(--red);color:#fff}
+.login .danger:hover{background:#e84244}
+#loginError{display:block;min-height:20px;color:var(--red);font-size:13px;margin-top:12px;text-align:left}
+.login .oauthButton svg{width:20px;height:20px;flex:none}
+/* Layout hardening: keep the grid inside the viewport and allow inner panes to scroll. */
+.app{grid-template-rows:minmax(0,1fr)}
+.main{min-height:0}
+.rail,.side,.right{min-height:0}
+.side{overflow:hidden}
+.right .personInfo{min-width:0;overflow:hidden}
+.right .personInfo .row{min-width:0;overflow:hidden}
+.right .roleBadge{font-size:9px;padding:0 4px;flex:none}
+.friendRow .friendRemove{margin-left:auto;background:none;border:0;color:var(--muted);font-size:18px;line-height:1;padding:0 4px;cursor:pointer}
+.friendRow .friendRemove:hover{color:#fff}
+.sideDrawer .side,.rightDrawer .right{display:flex;flex-direction:column;width:100%;height:100%;min-height:0;border:0}
+.sideDrawer .side{overflow-y:auto}
+@media(max-width:768px){
+  .composer{position:fixed;left:0;right:0;bottom:0;width:auto;max-width:none}
+  .messages{padding-bottom:92px}
+}
 </style><style>
 .iconSprite{position:absolute;width:0;height:0;overflow:hidden}.uiIcon{display:inline-block;width:18px;height:18px;vertical-align:-4px;fill:currentColor;stroke:currentColor;stroke-width:1.2;stroke-linecap:round;stroke-linejoin:round;flex:none}.brandIcon{width:30px;height:30px;vertical-align:-6px;fill:currentColor}.iconButton{display:inline-flex;align-items:center;justify-content:center;gap:7px}.iconButton .uiIcon{width:20px;height:20px}.serverIcon .uiIcon{width:26px;height:26px}.navItem .uiIcon{margin-right:5px}.section .uiIcon{width:14px;height:14px}.sendButton{display:inline-flex;align-items:center;gap:6px}.oauthButton{gap:10px}
-</style><style>.dmInfo{display:inline-flex;flex-direction:column;vertical-align:middle;min-width:0;max-width:145px}.dmHeader{display:flex;align-items:center;gap:5px;white-space:nowrap}.dmPreview{display:block;max-width:145px;font-size:14px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.friendRow{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:4px;color:var(--muted);cursor:pointer}.friendRow:hover{background:var(--hover);color:#fff}.friendRow .dot{width:8px;height:8px;flex:none}.friendName{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.friendState{margin-left:auto;font-size:14px;color:var(--muted)}.serverIcon,.navItem,.friendRow{user-select:none}.callBar{max-height:36vh;overflow:auto}.callBar button{white-space:nowrap}@media(max-width:980px){.app{grid-template-columns:64px 205px minmax(0,1fr)}.right{display:none}.callBar{left:269px;right:0}}@media(max-width:620px){.app{grid-template-columns:54px minmax(145px,38vw) minmax(0,1fr)}.rail{padding:8px 3px}.serverIcon{width:46px;height:46px}.sideHead{padding:14px 9px}.top{padding:0 8px}.topTools{gap:0}.topTools button{padding:6px}.messages{padding:14px 10px}.composer{padding:0 8px 10px}.callBar{left:0;right:0;bottom:0;max-height:45vh;flex-wrap:wrap;padding:8px}.callPeople{flex-basis:100%}.callStatus{max-width:100%}.incoming{left:12px;right:12px;bottom:12px;width:auto}}@media(max-width:390px){.app{grid-template-columns:48px 132px minmax(0,1fr)}.section{padding-left:7px;font-size:13px}.nav{padding:3px}.navItem{padding:7px 4px}.avatar{width:28px;height:28px}.userBar{padding:6px;gap:4px}.userText .muted{font-size:13px}}@media(max-width:768px){.app{grid-template-columns:56px minmax(0,1fr)}.rail{padding:6px 4px}.serverIcon{width:40px;height:40px;border-radius:12px}.side{display:none}.right{display:none}.main{width:100%}.top{padding:0 12px}.topTools{gap:6px}.topTools button{padding:8px 10px}.messages{padding:12px 12px 80px}.composer{position:fixed;bottom:0;left:0;right:0;padding:8px 12px;background:var(--side);border-top:1px solid var(--line);z-index:10}.composerBox{padding:0 10px}.composer input{padding:14px 10px;font-size:16px}.callBar{position:fixed;left:0;right:0;bottom:56px;max-height:50vh;padding:10px 12px}.callPeople{flex-basis:100%;justify-content:center}.callUser{font-size:13px;padding:6px 10px}.incoming{left:12px;right:12px;bottom:72px;width:auto}.modal .card{padding:16px;margin:8px}.login button{padding:14px 16px;font-size:16px}.login input{padding:14px;font-size:16px}.navItem{padding:12px 12px;font-size:16px}.section{padding:10px 8px 4px;font-size:14px}.serverIcon.active{background:#5865f2;border-radius:10px}.avatar{width:32px;height:32px}.userBar{padding:8px}.iconButton .uiIcon{width:22px;height:22px}.dmInfo{max-width:100%}.dmPreview{font-size:14px}.callStatus{font-size:13px}.activityCard{padding:10px}.activityCard b{font-size:15px}.activityCard span{font-size:13px}}@media(max-width:480px){.app{grid-template-columns:48px minmax(0,1fr)}.rail{padding:4px 2px}.serverIcon{width:36px;height:36px}.top{padding:0 8px}.topTools button{padding:6px 8px}.messages{padding:10px 10px 76px}.composer{padding:6px 8px}.composerBox{padding:0 8px}.composer input{padding:12px 8px;font-size:15px}.callBar{padding:8px 10px}.callUser{font-size:12px;padding:5px 8px}.modal .card{width:96vw;padding:12px}.login button{padding:12px 14px;font-size:15px}.login input{padding:12px;font-size:15px}.navItem{padding:10px 10px;font-size:15px}}@media(pointer:coarse){.navItem:hover{background:transparent}.serverIcon:hover{background:transparent}.person:hover{background:transparent}.button:hover{background:#383a40}}.primary,.danger,.iconButton,.oauthButton{touch-action:manipulation}html{-webkit-tap-highlight-color:transparent}*{-webkit-touch-callout:none;-webkit-user-select:none;-khtml-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none}input,textarea{-webkit-user-select:text;-khtml-user-select:text;-moz-user-select:text;-ms-user-select:text;user-select:text}</style></head><body>
+</style><style>.dmInfo{display:inline-flex;flex-direction:column;vertical-align:middle;min-width:0;max-width:145px}.dmHeader{display:flex;align-items:center;gap:5px;white-space:nowrap}.dmPreview{display:block;max-width:145px;font-size:14px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.friendRow{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:4px;color:var(--muted);cursor:pointer}.friendRow:hover{background:var(--hover);color:#fff}.friendRow .dot{width:8px;height:8px;flex:none}.friendName{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.friendState{margin-left:auto;font-size:14px;color:var(--muted)}.serverIcon,.navItem,.friendRow{user-select:none}.callBar{max-height:36vh;overflow:auto}.callBar button{white-space:nowrap}@media(max-width:980px){.app{grid-template-columns:64px 205px minmax(0,1fr)}.right{display:none}.callBar{left:269px;right:0}}@media(max-width:620px){.app{grid-template-columns:54px minmax(145px,38vw) minmax(0,1fr)}.rail{padding:8px 3px}.serverIcon{width:46px;height:46px}.sideHead{padding:14px 9px}.top{padding:0 8px}.topTools{gap:0}.topTools button{padding:6px}.messages{padding:14px 10px}.composer{padding:0 8px 10px}.callBar{left:0;right:0;bottom:0;max-height:45vh;flex-wrap:wrap;padding:8px}.callPeople{flex-basis:100%}.callStatus{max-width:100%}.incoming{left:12px;right:12px;bottom:12px;width:auto}}@media(max-width:390px){.app{grid-template-columns:48px 132px minmax(0,1fr)}.section{padding-left:7px;font-size:13px}.nav{padding:3px}.navItem{padding:7px 4px}.avatar{width:28px;height:28px}.userBar{padding:6px;gap:4px}.userText .muted{font-size:13px}}@media(max-width:768px){.app{grid-template-columns:56px minmax(0,1fr)}.rail{padding:6px 4px}.serverIcon{width:40px;height:40px;border-radius:12px}.side{display:none}.right{display:none}.main{width:100%}.top{padding:0 12px}.topTools{gap:6px}.topTools button{padding:8px 10px}.messages{padding:12px 12px 80px}.composer{position:fixed;bottom:0;left:0;right:0;padding:8px 12px;background:var(--side);border-top:1px solid var(--line);z-index:10}
+}
+/* ===== NEW: Home Page ===== */
+.homePage{display:none;flex-direction:column;height:100%;overflow:auto;padding:24px}
+.homePage.visible{display:flex}
+.homeHeader{margin-bottom:24px}
+.homeHeader h1{font-family:var(--font-minecraft);font-size:32px;margin:0 0 8px;letter-spacing:1px}
+.homeHeader p{color:var(--muted);margin:0;font-size:15px}
+.homeGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.homeCard{background:var(--panel);border:1px solid var(--panel-border);border-radius:12px;padding:20px;transition:transform 0.15s ease,box-shadow 0.15s ease}
+.homeCard:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(0,0,0,0.4)}
+.homeCard h3{font-family:var(--font-minecraft);font-size:18px;margin:0 0 12px;display:flex;align-items:center;gap:10px}
+.homeCard .cardIcon{width:28px;height:28px;fill:var(--blue)}
+.homeCard p{color:var(--muted);font-size:13px;line-height:1.6;margin:0 0 16px}
+.homeCard .btn{width:100%}
+.serverList{list-style:none;padding:0;margin:0;display:grid;gap:8px}
+.serverList li{background:var(--input-bg);border:1px solid var(--panel-border);border-radius:8px;padding:12px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:all 0.15s ease}
+.serverList li:hover{background:var(--hover);border-color:var(--blue)}
+.serverList .serverAvatar{width:40px;height:40px;border-radius:10px;background:var(--blue);display:grid;place-items:center;font-family:var(--font-minecraft);font-size:18px;flex:none}
+.serverList .serverInfo{flex:1;min-width:0}
+.serverList .serverName{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.serverList .serverMeta{font-size:12px;color:var(--muted)}
+
+/* ===== NEW: Featured Minecraft Content ===== */
+.featuredSection{margin-top:24px}
+.featuredHeader{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.featuredHeader h3{font-family:var(--font-minecraft);font-size:20px;margin:0}
+.featuredGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.featuredCard{background:var(--panel);border:1px solid var(--panel-border);border-radius:12px;overflow:hidden;transition:transform 0.15s ease}
+.featuredCard:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(0,0,0,0.4)}
+.featuredCard .featuredImage{height:140px;background:linear-gradient(135deg,#1e3a5f 0%,#0d1b2a 100%);display:grid;place-items:center;position:relative;overflow:hidden}
+.featuredCard .featuredImage::before{content:'';position:absolute;inset:0;background:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="none" stroke="%235865f2" stroke-width="1" opacity="0.1"/></svg>') center/cover}
+.featuredCard .featuredImage svg{width:64px;height:64px;color:var(--blue);filter:drop-shadow(0 4px 12px #0008)}
+.featuredCard .featuredBody{padding:16px}
+.featuredCard .featuredTitle{font-weight:600;font-size:15px;margin:0 0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.featuredCard .featuredMeta{font-size:12px;color:var(--muted);margin-bottom:12px;display:flex;gap:12px;flex-wrap:wrap}
+.featuredCard .featuredMeta span{display:flex;align-items:center;gap:4px}
+.featuredCard .featuredTags{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+.featuredTag{font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;background:rgba(88,101,242,0.2);color:var(--blue);text-transform:uppercase;letter-spacing:0.5px}
+
+/* ===== NEW: Seasonal Events ===== */
+.seasonalBanner{position:relative;background:linear-gradient(90deg,rgba(88,101,242,0.15),rgba(35,165,89,0.15));border:1px solid rgba(88,101,242,0.3);border-radius:12px;padding:20px 24px;margin-bottom:24px;overflow:hidden}
+.seasonalBanner::before{content:'';position:absolute;inset:0;background:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100"><circle cx="20" cy="20" r="15" fill="%235865f2" opacity="0.1"/><circle cx="180" cy="80" r="12" fill="%2323a559" opacity="0.1"/><circle cx="100" cy="50" r="8" fill="%23faa61a" opacity="0.1"/></svg>') center/cover;pointer-events:none}
+.seasonalContent{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.seasonalInfo h4{font-family:var(--font-minecraft);font-size:18px;margin:0 0 6px;color:var(--blue)}
+.seasonalInfo p{margin:0;font-size:13px;color:var(--muted);max-width:400px}
+.seasonalBtn{background:var(--blue);color:#fff;border:none;padding:10px 20px;border-radius:8px;font-weight:600;cursor:pointer;transition:background 0.15s ease;white-space:nowrap}
+.seasonalBtn:hover{background:#4a54e0}
+.seasonalEventsList{display:grid;gap:12px}
+.seasonalEvent{background:var(--panel);border:1px solid var(--panel-border);border-radius:10px;padding:16px;display:flex;align-items:center;gap:16px;transition:border-color 0.15s ease}
+.seasonalEvent:hover{border-color:var(--blue)}
+.seasonalEvent .eventIcon{width:48px;height:48px;border-radius:10px;display:grid;place-items:center;flex:none;background:rgba(88,101,242,0.15);color:var(--blue)}
+.seasonalEvent .eventDetails{flex:1;min-width:0}
+.seasonalEvent .eventTitle{font-weight:600;font-size:14px;margin:0 0 4px}
+.seasonalEvent .eventDesc{font-size:12px;color:var(--muted);margin:0 0 8px}
+.seasonalEvent .eventMeta{display:flex;gap:12px;font-size:11px;color:var(--muted);flex-wrap:wrap}
+.seasonalEvent .eventMeta span{display:flex;align-items:center;gap:4px}
+
+/* ===== NEW: Mobile Drawer Toggle Buttons ===== */
+.drawerToggle{display:none;background:none;border:none;color:var(--muted);padding:8px;cursor:pointer;border-radius:6px;transition:all 0.15s ease}
+.drawerToggle:hover{background:var(--hover);color:#fff}
+.drawerToggle svg{width:22px;height:22px}
+
+@media(max-width:980px){
+  .app{grid-template-columns:64px 205px minmax(0,1fr)}
+  .right{display:none}
+  .callBar{left:269px;right:0}
+}
+@media(max-width:620px){
+  .app{grid-template-columns:54px minmax(145px,38vw) minmax(0,1fr)}
+  .rail{padding:8px 3px}
+  .serverIcon{width:46px;height:46px}
+  .sideHead{padding:14px 9px}
+  .top{padding:0 8px}
+  .topTools{gap:0}
+  .topTools button{padding:6px}
+  .messages{padding:14px 10px}
+  .composer{padding:0 8px 10px}
+  .callBar{left:0;right:0;bottom:0;max-height:45vh;flex-wrap:wrap;padding:8px}
+  .callPeople{flex-basis:100%}
+  .callStatus{max-width:100%}
+  .incoming{left:12px;right:12px;bottom:12px;width:auto}
+}
+@media(max-width:390px){
+  .app{grid-template-columns:48px 132px minmax(0,1fr)}
+  .section{padding-left:7px;font-size:13px}
+  .nav{padding:3px}
+  .navItem{padding:7px 4px}
+  .avatar{width:28px;height:28px}
+  .userBar{padding:6px;gap:4px}
+  .userText .muted{font-size:13px}
+}
+@media(max-width:768px){
+  .app{grid-template-columns:56px minmax(0,1fr)}
+  .rail{padding:6px 4px}
+  .serverIcon{width:40px;height:40px;border-radius:12px}
+  .side{display:none}
+  .right{display:none}
+  .main{width:100%}
+  .top{padding:0 12px}
+  .topTools{gap:6px}
+  .topTools button{padding:8px 10px}
+  .messages{padding:12px 12px 80px}
+  .composer{position:fixed;bottom:0;left:0;right:0;padding:8px 12px;background:var(--side);border-top:1px solid var(--line);z-index:10}.composerBox{padding:0 10px}.composer input{padding:14px 10px;font-size:16px}.callBar{position:fixed;left:0;right:0;bottom:56px;max-height:50vh;padding:10px 12px}.callPeople{flex-basis:100%;justify-content:center}.callUser{font-size:13px;padding:6px 10px}.incoming{left:12px;right:12px;bottom:72px;width:auto}.modal .card{padding:16px;margin:8px}.login button{padding:14px 16px;font-size:16px}.login input{padding:14px;font-size:16px}.navItem{padding:12px 12px;font-size:16px}.section{padding:10px 8px 4px;font-size:14px}.serverIcon.active{background:#5865f2;border-radius:10px}.avatar{width:32px;height:32px}.userBar{padding:8px}.iconButton .uiIcon{width:22px;height:22px}.dmInfo{max-width:100%}.dmPreview{font-size:14px}.callStatus{font-size:13px}.activityCard{padding:10px}.activityCard b{font-size:15px}.activityCard span{font-size:13px}}@media(max-width:480px){.app{grid-template-columns:48px minmax(0,1fr)}.rail{padding:4px 2px}.serverIcon{width:36px;height:36px}.top{padding:0 8px}.topTools button{padding:6px 8px}.messages{padding:10px 10px 76px}.composer{padding:6px 8px}.composerBox{padding:0 8px}.composer input{padding:12px 8px;font-size:15px}.callBar{padding:8px 10px}.callUser{font-size:12px;padding:5px 8px}.modal .card{width:96vw;padding:12px}.login button{padding:12px 14px;font-size:15px}.login input{padding:12px;font-size:15px}.navItem{padding:10px 10px;font-size:15px}}@media(pointer:coarse){.navItem:hover{background:transparent}.serverIcon:hover{background:transparent}.person:hover{background:transparent}.button:hover{background:#383a40}}.primary,.danger,.iconButton,.oauthButton{touch-action:manipulation}html{-webkit-tap-highlight-color:transparent}*{-webkit-touch-callout:none;-webkit-user-select:none;-khtml-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none}input,textarea{-webkit-user-select:text;-khtml-user-select:text;-moz-user-select:text;-ms-user-select:text;user-select:text}</style></head><body>
 <svg class="iconSprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
 <symbol id="icon-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5v9a1.5 1.5 0 0 1-1.5 1.5h-5v-6h-5v6h-5A1.5 1.5 0 0 1 3 19.5z"/></symbol>
 <symbol id="icon-server" viewBox="0 0 24 24"><path d="M4 4h16v6H4zM4 14h16v6H4z"/><path d="M7 7h.01M7 17h.01M11 7h6M11 17h6" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
@@ -107,10 +315,107 @@ label{display:block;margin:12px 0 4px;font-size:13px;font-weight:500;color:var(-
 <symbol id="icon-channel" viewBox="0 0 24 24"><path d="M4 5h16v14H4zM8 9h8M8 13h5" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
 <symbol id="icon-mute" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 11a7 7 0 0 0 12 5M12 18v4m-4 0h8M3 3l18 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
 </svg>
-<div id="login" class="modal"><div class="card login"><h1><svg class="brandIcon" aria-hidden="true"><use href="#icon-minecraft"></use></svg> MINECORD</h1><p class="muted">Minecraft-focused chat, servers, DMs and voice.</p><button class="oauthButton" onclick="location.href='/auth/google'"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M21.6 12.23c0-.72-.06-1.42-.18-2.09H12v3.96h5.38a4.6 4.6 0 0 1-2 3.02v2.56h3.23c1.9-1.75 2.99-4.33 2.99-7.45z"/><path fill="#34A853" d="M12 22c2.7 0 4.97-.9 6.63-2.44l-3.23-2.56c-.9.6-2.06.96-3.4.96-2.6 0-4.8-1.76-5.6-4.12H3.06v2.64A10 10 0 0 0 12 22z"/><path fill="#FBBC05" d="M6.4 13.84a6 6 0 0 1 0-3.68V7.52H3.06a10 10 0 0 0 0 8.96z"/><path fill="#EA4335" d="M12 6.04c1.47 0 2.8.5 3.84 1.52l2.88-2.88A9.64 9.64 0 0 0 12 2a10 10 0 0 0-8.94 5.52L6.4 10.16C7.2 7.8 9.4 6.04 12 6.04z"/></svg>Continue with Google</button><button class="oauthButton" onclick="location.href='/auth/microsoft'"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#f25022" d="M2 2h9v9H2z"/><path fill="#7fba00" d="M13 2h9v9h-9z"/><path fill="#00a4ef" d="M2 13h9v9H2z"/><path fill="#ffb900" d="M13 13h9v9h-9z"/></svg>Continue with Microsoft</button><button class="oauthButton" onclick="location.href='/auth/github'"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .9a11.1 11.1 0 0 0-3.51 21.63c.55.1.76-.24.76-.53v-2.08c-3.1.67-3.76-1.32-3.76-1.32-.5-1.28-1.24-1.62-1.24-1.62-1.01-.69.08-.68.08-.68 1.12.08 1.7 1.15 1.7 1.15.99 1.69 2.6 1.2 3.23.92.1-.72.39-1.2.7-1.48-2.48-.28-5.09-1.24-5.09-5.52 0-1.22.44-2.22 1.15-3-.12-.28-.5-1.42.1-2.96 0 0 .94-.3 3.06 1.14a10.7 10.7 0 0 1 5.57 0c2.12-1.44 3.05-1.14 3.05-1.14.61 1.54.23 2.68.11 2.96.72.78 1.15 1.78 1.15 3.01 0 4.29-2.62 5.23-5.11 5.51.4.35.75 1.02.75 2.06V22c0 .29.2.63.76.52A11.1 11.1 0 0 0 12 .9z"/></svg>Continue with GitHub</button><p class="muted">Local account</p><input id="username" maxlength="24" placeholder="Username"><input id="password" type="password" maxlength="200" placeholder="Password (12+ characters)"><div id="loginError" class="muted" role="status"></div><div class="row"><button id="enter" class="primary" style="flex:1">Sign in</button><button id="register" style="flex:1">Create account</button></div></div></div>
-<div class="app"><aside class="rail"><div id="servers"></div><div class="serverIcon" id="newServer" title="Add Server"><svg class="uiIcon"><use href="#icon-add"></use></svg></div></aside><aside class="side"><div class="sideHead" id="serverTitle">MINECORD</div><div class="section">CHANNELS</div><div id="channels" class="nav"></div><div class="section">DIRECT MESSAGES <button id="newDM" class="icon" style="float:right;padding:0" title="New DM"><svg class="uiIcon"><use href="#icon-add"></use></svg></button></div><div id="dms" class="nav"></div><div class="section">FRIENDS</div><div class="nav"><div class="navItem" id="addFriend"><svg class="uiIcon"><use href="#icon-add"></use></svg> Add Friend</div></div><div id="friendList" class="nav" aria-label="Friends"></div><div class="userBar"><div id="meAvatar" class="avatar">?</div><div class="userText"><b id="meName">Offline</b><span id="meStatus" class="muted">offline</span></div><button id="profileBtn" class="icon" title="Settings"><svg class="uiIcon"><use href="#icon-settings"></use></svg></button></div></aside>
-<main class="main"><div class="top"><span id="channelIcon"><svg class="uiIcon"><use href="#icon-hash"></use></svg></span><b id="channelTitle">general</b><div class="topTools"><button id="callBtn" class="icon" title="Voice Call"><svg class="uiIcon"><use href="#icon-call"></use></svg></button><button id="groupCallBtn" class="icon" title="Group Call"><svg class="uiIcon"><use href="#icon-video"></use></svg></button><button id="inviteBtn" class="icon" title="Invite"><svg class="uiIcon"><use href="#icon-invite"></use></svg></button></div></div><div id="messages" class="messages"></div><form id="composer" class="composer"><div class="composerBox"><input id="messageInput" autocomplete="off" placeholder="Message #general"><button class="primary">Send</button></div></form></main>
-<aside class="right"><div class="rightHead">MEMBERS</div><div id="people" class="people"></div><div class="rightHead">ACTIVITY</div><div id="activityList" class="people"></div></aside></div>
+<div id="login" class="modal hidden"><div class="card login"><h1><svg class="brandIcon" aria-hidden="true"><use href="#icon-minecraft"></use></svg> MINECORD</h1><p class="muted">Minecraft-focused chat, servers, DMs and voice.</p><button class="oauthButton" onclick="location.href='/auth/google'"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M21.6 12.23c0-.72-.06-1.42-.18-2.09H12v3.96h5.38a4.6 4.6 0 0 1-2 3.02v2.56h3.23c1.9-1.75 2.99-4.33 2.99-7.45z"/><path fill="#34A853" d="M12 22c2.7 0 4.97-.9 6.63-2.44l-3.23-2.56c-.9.6-2.06.96-3.4.96-2.6 0-4.8-1.76-5.6-4.12H3.06v2.64A10 10 0 0 0 12 22z"/><path fill="#FBBC05" d="M6.4 13.84a6 6 0 0 1 0-3.68V7.52H3.06a10 10 0 0 0 0 8.96z"/><path fill="#EA4335" d="M12 6.04c1.47 0 2.8.5 3.84 1.52l2.88-2.88A9.64 9.64 0 0 0 12 2a10 10 0 0 0-8.94 5.52L6.4 10.16C7.2 7.8 9.4 6.04 12 6.04z"/></svg>Continue with Google</button><button class="oauthButton" onclick="location.href='/auth/microsoft'"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#f25022" d="M2 2h9v9H2z"/><path fill="#7fba00" d="M13 2h9v9h-9z"/><path fill="#00a4ef" d="M2 13h9v9H2z"/><path fill="#ffb900" d="M13 13h9v9h-9z"/></svg>Continue with Microsoft</button><button class="oauthButton" onclick="location.href='/auth/github'"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .9a11.1 11.1 0 0 0-3.51 21.63c.55.1.76-.24.76-.53v-2.08c-3.1.67-3.76-1.32-3.76-1.32-.5-1.28-1.24-1.62-1.24-1.62-1.01-.69.08-.68.08-.68 1.12.08 1.7 1.15 1.7 1.15.99 1.69 2.6 1.2 3.23.92.1-.72.39-1.2.7-1.48-2.48-.28-5.09-1.24-5.09-5.52 0-1.22.44-2.22 1.15-3-.12-.28-.5-1.42.1-2.96 0 0 .94-.3 3.06 1.14a10.7 10.7 0 0 1 5.57 0c2.12-1.44 3.05-1.14 3.05-1.14.61 1.54.23 2.68.11 2.96.72.78 1.15 1.78 1.15 3.01 0 4.29-2.62 5.23-5.11 5.51.4.35.75 1.02.75 2.06V22c0 .29.2.63.76.52A11.1 11.1 0 0 0 12 .9z"/></svg>Continue with GitHub</button><p class="muted">Local account</p><input id="username" maxlength="24" placeholder="Username"><input id="password" type="password" maxlength="200" placeholder="Password (12+ characters)"><div id="loginError" class="muted" role="status"></div><div class="row"><button id="enter" class="primary" style="flex:1">Sign in</button><button id="register" style="flex:1">Create account</button></div></div></div>
+<div class="app"><aside class="rail"><div id="servers"></div><div class="serverIcon" id="newServer" title="Add Server"><svg class="uiIcon"><use href="#icon-add"></use></svg></div></aside><aside class="side"><div class="sideHead" id="serverTitle">MINECORD<button class="drawerToggle" onclick="openDrawer('side')" aria-label="Open sidebar"><svg class="uiIcon"><use href="#icon-menu"></use></svg></button></div><div class="nav" style="padding:8px"><div class="navItem" id="homeNav" role="button" tabindex="0" onclick="showHome(true)"><svg class="uiIcon"><use href="#icon-home"></use></svg> Home</div></div><div class="section">CHANNELS</div><div id="channels" class="nav"></div><div class="section">DIRECT MESSAGES <button id="newDM" class="icon" style="float:right;padding:0" title="New DM"><svg class="uiIcon"><use href="#icon-add"></use></svg></button></div><div id="dms" class="nav"></div><div class="section">FRIENDS</div><div class="nav"><div class="navItem" id="addFriend"><svg class="uiIcon"><use href="#icon-add"></use></svg> Add Friend</div></div><div id="friendList" class="nav" aria-label="Friends"></div><div class="section">GAMES</div><div class="nav"><div class="navItem" id="gamesTabFlappy" data-game="flappy" onclick="openGame('flappy')"><svg class="uiIcon"><use href="#icon-activity"></use></svg> Flappy Bird</div><div class="navItem" id="gamesTabChess" data-game="chess" onclick="openGame('chess')"><svg class="uiIcon"><use href="#icon-users"></use></svg> Chess</div><div class="navItem" id="gamesTabSnake" data-game="snake" onclick="openGame('snake')"><svg class="uiIcon"><use href="#icon-activity"></use></svg> Snake</div></div><div id="gamesList" class="nav"></div>
+<div class="section">WORLDS</div>
+<div class="nav">
+<div class="navItem" id="worldsTabMy" data-tab="my" onclick="switchWorldsTab('my')"><svg class="uiIcon"><use href="#icon-server"></use></svg> My Worlds</div>
+<div class="navItem" id="worldsTabFriends" data-tab="friends" onclick="switchWorldsTab('friends')"><svg class="uiIcon"><use href="#icon-users"></use></svg> Friends' Worlds</div>
+</div><div class="userBar"><div id="meAvatar" class="avatar">?</div><div class="userText"><b id="meName">Offline</b><span id="meStatus" class="muted">offline</span></div><button id="profileBtn" class="icon" title="Settings"><svg class="uiIcon"><use href="#icon-settings"></use></svg></button></div></aside>
+<main class="main"><div class="top"><button id="sideDrawerBtn" class="icon mobileOnly" onclick="openDrawer('side')" aria-label="Open navigation" title="Navigation"><svg class="uiIcon"><use href="#icon-menu"></use></svg></button><span id="channelIcon"><svg class="uiIcon"><use href="#icon-hash"></use></svg></span><b id="channelTitle">general</b><div class="topTools"><button id="callBtn" class="icon" title="Voice Call"><svg class="uiIcon"><use href="#icon-call"></use></svg></button><button id="groupCallBtn" class="icon" title="Group Call"><svg class="uiIcon"><use href="#icon-video"></use></svg></button><button id="inviteBtn" class="icon" title="Invite"><svg class="uiIcon"><use href="#icon-invite"></use></svg></button><button id="membersDrawerBtn" class="icon mobileOnly" onclick="openDrawer('right')" aria-label="Open members" title="Members"><svg class="uiIcon"><use href="#icon-users"></use></svg></button></div></div><div id="messages" class="messages"></div><form id="composer" class="composer"><div class="composerBox"><input id="messageInput" autocomplete="off" placeholder="Message #general"><button class="primary">Send</button></div></form></main><aside class="right"><div class="rightHead">MEMBERS</div><div id="people" class="people"></div><div class="rightHead">ACTIVITY</div><div id="activityList" class="people"></div></aside></div>
+
+<!-- ===== NEW: Home Page / Dashboard ===== -->
+<div class="homePage" id="homePage" role="main" style="display:none;flex-direction:column;height:100%;overflow:auto;padding:24px">
+  <div class="homeHeader" style="margin-bottom:24px">
+    <h1 style="font-family:var(--font-minecraft);font-size:32px;margin:0 0 8px;letter-spacing:1px"><svg class="uiIcon" style="width:28px;height:28px;vertical-align:-6px"><use href="#icon-home"></use></svg> Welcome back</h1>
+    <p style="color:var(--muted);margin:0;font-size:15px">Your Minecraft social hub. Join servers, chat with friends, and voice call.</p>
+  </div>
+  
+  <div class="homeGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px">
+    <div class="homeCard" style="background:var(--panel);border:1px solid var(--panel-border);border-radius:12px;padding:20px;transition:transform 0.15s ease,box-shadow 0.15s ease">
+      <h3 style="font-family:var(--font-minecraft);font-size:18px;margin:0 0 12px;display:flex;align-items:center;gap:10px"><svg class="cardIcon" aria-hidden="true" style="width:28px;height:28px;fill:var(--blue)"><use href="#icon-server"></use></svg> Your Servers</h3>
+      <p style="color:var(--muted);font-size:13px;line-height:1.6;margin:0 0 16px">Quick access to your servers and channels.</p>
+      <ul class="serverList" id="homeServerList" style="list-style:none;padding:0;margin:0;display:grid;gap:8px"></ul>
+      <button class="primary btn" onclick="showHome(false);selectFirstServer()" style="width:100%"><svg class="uiIcon" style="width:18px;height:18px"><use href="#icon-add"></use></svg> Add Server</button>
+    </div>
+    
+    <div class="homeCard" style="background:var(--panel);border:1px solid var(--panel-border);border-radius:12px;padding:20px;transition:transform 0.15s ease,box-shadow 0.15s ease">
+      <h3 style="font-family:var(--font-minecraft);font-size:18px;margin:0 0 12px;display:flex;align-items:center;gap:10px"><svg class="cardIcon" aria-hidden="true" style="width:28px;height:28px;fill:var(--green)"><use href="#icon-users"></use></svg> Friends & DMs</h3>
+      <p style="color:var(--muted);font-size:13px;line-height:1.6;margin:0 0 16px">Start a conversation or see who's online.</p>
+      <button class="primary btn" onclick="showHome(false);promptNewDM()" style="width:100%"><svg class="uiIcon" style="width:18px;height:18px"><use href="#icon-dm"></use></svg> New DM</button>
+      <button class="secondary btn" style="margin-top:8px;width:100%" onclick="showHome(false);promptAddFriend()"><svg class="uiIcon" style="width:18px;height:18px"><use href="#icon-add"></use></svg> Add Friend</button>
+    </div>
+    
+    <div class="homeCard" style="background:var(--panel);border:1px solid var(--panel-border);border-radius:12px;padding:20px;transition:transform 0.15s ease,box-shadow 0.15s ease">
+      <h3 style="font-family:var(--font-minecraft);font-size:18px;margin:0 0 12px;display:flex;align-items:center;gap:10px"><svg class="cardIcon" aria-hidden="true" style="width:28px;height:28px;fill:var(--blue)"><use href="#icon-call"></use></svg> Voice</h3>
+      <p style="color:var(--muted);font-size:13px;line-height:1.6;margin:0 0 16px">Join voice channels or start private calls.</p>
+      <button class="primary btn" onclick="showHome(false);selectFirstVoiceChannel()" style="width:100%"><svg class="uiIcon" style="width:18px;height:18px"><use href="#icon-call"></use></svg> Join Voice</button>
+    </div>
+    
+    <div class="homeCard" style="background:var(--panel);border:1px solid var(--panel-border);border-radius:12px;padding:20px;transition:transform 0.15s ease,box-shadow 0.15s ease">
+      <h3 style="font-family:var(--font-minecraft);font-size:18px;margin:0 0 12px;display:flex;align-items:center;gap:10px"><svg class="cardIcon" aria-hidden="true" style="width:28px;height:28px;fill:var(--yellow)"><use href="#icon-settings"></use></svg> Settings</h3>
+      <p style="color:var(--muted);font-size:13px;line-height:1.6;margin:0 0 16px">Customize your profile, notifications, and Minecraft linking.</p>
+      <button class="secondary btn" onclick="showHome(false);renderUser();show('settingsModal');window.loadGameSettings?.()" style="width:100%"><svg class="uiIcon" style="width:18px;height:18px"><use href="#icon-settings"></use></svg> Open Settings</button>
+    </div>
+  </div>
+
+  <!-- ===== NEW: Featured Minecraft Content ===== -->
+  <div class="featuredSection" id="featuredSection" style="margin-top:24px">
+    <div class="featuredHeader" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <h3 style="font-family:var(--font-minecraft);font-size:20px;margin:0"><svg class="uiIcon" style="width:22px;height:22px"><use href="#icon-minecraft"></use></svg> Featured Minecraft Content</h3>
+    </div>
+    <div class="featuredGrid" id="featuredGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px"></div>
+  </div>
+
+  <!-- ===== NEW: Seasonal Events ===== -->
+  <div class="seasonalBanner" id="seasonalBanner" style="display:none;position:relative;background:linear-gradient(90deg,rgba(88,101,242,0.15),rgba(35,165,89,0.15));border:1px solid rgba(88,101,242,0.3);border-radius:12px;padding:20px 24px;margin-bottom:24px;overflow:hidden">
+    <div class="seasonalBanner::before" style="content:'';position:absolute;inset:0;background:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100"><circle cx="20" cy="20" r="15" fill="%235865f2" opacity="0.1"/><circle cx="180" cy="80" r="12" fill="%2323a559" opacity="0.1"/><circle cx="100" cy="50" r="8" fill="%23faa61a" opacity="0.1"/></svg>') center/cover;pointer-events:none"></div>
+    <div class="seasonalContent" style="position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+      <div class="seasonalInfo">
+        <h4 class="seasonalTitle" style="font-family:var(--font-minecraft);font-size:18px;margin:0 0 6px;color:var(--blue)"></h4>
+        <p class="seasonalDesc" style="margin:0;font-size:13px;color:var(--muted);max-width:400px"></p>
+      </div>
+      <button class="seasonalBtn" id="seasonalBtn" onclick="scrollToSeasonalEvents()" style="background:var(--blue);color:#fff;border:none;padding:10px 20px;border-radius:8px;font-weight:600;cursor:pointer;transition:background 0.15s ease;white-space:nowrap">View Events</button>
+    </div>
+  </div>
+  
+  <div class="seasonalEventsList" id="seasonalEventsList" style="display:grid;gap:12px"></div>
+</div>
+
+<!-- ===== NEW: Mini-Games Page ===== -->
+<div class="worldsPage" id="gamePage" role="main" style="display:none;flex-direction:column;height:100%;overflow:auto;padding:24px">
+  <div class="worldsHeader" style="margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+    <div>
+      <h1 style="font-family:var(--font-minecraft);font-size:32px;margin:0 0 8px;letter-spacing:1px"><svg class="uiIcon" style="width:28px;height:28px;vertical-align:-6px"><use href="#icon-activity"></use></svg> Mini-Games</h1>
+      <p style="color:var(--muted);margin:0;font-size:15px">Play classic games with friends or solo.</p>
+    </div>
+    <button class="secondary" onclick="closeGamePage()" style="padding:8px 16px"><svg class="uiIcon" style="width:18px;height:18px"><use href="#icon-close"></use></svg> Close</button>
+  </div>
+  <div class="worldsTabs" style="display:flex;gap:8px;margin-bottom:16px">
+    <button class="navItem" id="gameTabFlappy" data-game="flappy" onclick="switchGameTab('flappy')" style="padding:10px 16px;background:var(--hover);color:#fff"><svg class="uiIcon"><use href="#icon-activity"></use></svg> Flappy Bird</button>
+    <button class="navItem" id="gameTabChess" data-game="chess" onclick="switchGameTab('chess')" style="padding:10px 16px;color:var(--muted)"><svg class="uiIcon"><use href="#icon-users"></use></svg> Chess</button>
+    <button class="navItem" id="gameTabSnake" data-game="snake" onclick="switchGameTab('snake')" style="padding:10px 16px;color:var(--muted)"><svg class="uiIcon"><use href="#icon-activity"></use></svg> Snake</button>
+  </div>
+  <div id="gameContainer" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:400px"></div>
+</div>
+
+<!-- ===== NEW: Worlds Page ===== -->
+<div class="worldsPage" id="worldsPage" role="main" style="display:none;flex-direction:column;height:100%;overflow:auto;padding:24px">
+  <div class="worldsHeader">
+    <div>
+      <h1 style="font-family:var(--font-minecraft);font-size:32px;margin:0 0 8px;letter-spacing:1px"><svg class="uiIcon" style="width:28px;height:28px;vertical-align:-6px"><use href="#icon-server"></use></svg> Worlds</h1>
+      <p style="color:var(--muted);margin:0;font-size:15px">Discover Minecraft worlds shared by you and your friends.</p>
+    </div>
+    <button class="secondary" onclick="showWorldsPage(false)" style="padding:8px 16px"><svg class="uiIcon" style="width:18px;height:18px"><use href="#icon-close"></use></svg> Close</button>
+  </div>
+  <div class="worldsTabs">
+    <button class="navItem active" id="worldsPageTabMy" data-tab="my" onclick="switchWorldsTab('my')">My Worlds</button>
+    <button class="navItem" id="worldsPageTabFriends" data-tab="friends" onclick="switchWorldsTab('friends')">Friends' Worlds</button>
+  </div>
+  <div id="worldsGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px"></div>
+  <div id="worldsEmpty" class="muted" style="padding:24px;text-align:center"></div>
+</div>
+
 <div id="callBar" class="callBar hidden"><b id="callTitle"><svg class="uiIcon"><use href="#icon-call"></use></svg> Call</b><div id="callPeople" class="callPeople"></div><div id="voiceStatus" class="callStatus" role="status"></div><span id="voiceUsageStatus" class="callStatus" role="status"></span><button id="voiceUsageButton" title="Check this account's TURN usage">TURN usage</button><button id="muteBtn"><svg class="uiIcon"><use href="#icon-mic"></use></svg><span>Mute</span></button><button id="deafenBtn"><svg class="uiIcon"><use href="#icon-deafen"></use></svg><span>Deafen</span></button><button id="endCall" class="danger"><svg class="uiIcon"><use href="#icon-hangup"></use></svg><span>End</span></button></div>
 <div id="incoming" class="incoming hidden"><b><svg class="uiIcon"><use href="#icon-call"></use></svg> Incoming call</b><div id="incomingText" style="margin:10px 0"></div><div class="row"><button id="acceptCall" class="primary" style="flex:1">Accept</button><button id="declineCall" class="danger" style="flex:1">Decline</button></div></div>
 <div id="settingsModal" class="modal hidden"><div class="card"><div class="row" style="justify-content:space-between"><h2><svg class="uiIcon"><use href="#icon-settings"></use></svg> Settings</h2><button onclick="show('settingsModal',false)" style="background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;padding:0;line-height:1">&times;</button></div><div style="text-align:center;margin:15px"><div id="settingsAvatar" class="avatar" style="width:96px;height:96px;margin:auto;font-size:32px"><svg class="uiIcon"><use href="#icon-user"></use></svg></div></div><label>Display name</label><input id="settingsDisplayName" maxlength="32"><label>Avatar image URL (HTTPS only)</label><input id="settingsAvatarUrl" maxlength="500" placeholder="https://example.com/avatar.png"><p class="muted">The image host may receive your request when your profile is shown.</p><label>Username</label><input id="settingsUsername" disabled><label>Sign-in provider</label><input id="settingsProvider" disabled><label class="row" style="margin:14px 0"><input id="showGameActivity" type="checkbox" style="width:auto;margin:0"> Show game activity</label><div id="currentActivity" class="muted"></div><h3>Eaglercraft browser integration</h3><p class="muted">Pair the MINECORD Activity extension for Chrome using this one-time code. The extension only reports whether the configured Eaglercraft page is open.</p><button id="pairEaglercraft">Generate pairing code</button><button id="revokeEaglercraft">Unpair extension</button><div id="pairingCode" class="muted" style="word-break:break-all"></div><h3><svg class="uiIcon" style="margin-right:8px"><use href="#icon-minecraft"></use></svg> Minecraft</h3><input id="mcName" maxlength="32" placeholder="Minecraft username"><input id="mcUuid" maxlength="80" placeholder="Minecraft UUID (optional)"><select id="mcEdition"><option>Java</option><option>Bedrock</option></select><div class="row" style="margin-top:12px"><button id="saveProfile" class="primary" style="flex:1">Save</button><button id="signOut" class="danger">Sign Out</button></div></div><div id="gamesSection" style="margin-top:24px;padding-top:24px;border-top:1px solid var(--line)"><h3><svg class="uiIcon" style="margin-right:8px"><use href="#icon-activity"></use></svg> Games</h3><p class="muted" style="margin:0 0 16px">Link your Minecraft accounts and manage saved servers for each edition.</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-top:16px"><div class="card" style="padding:16px;border:1px solid var(--line);background:var(--panel)"><div class="row" style="align-items:center;margin-bottom:12px"><svg class="uiIcon" style="width:28px;height:28px;color:var(--green)"><use href="#icon-minecraft"></use></svg><h4 style="margin:0;margin-left:12px">Minecraft Java Edition</h4></div><p class="muted" style="margin:0 0 16px;font-size:14px">Link your official Minecraft Java account via Microsoft authentication. View your profile and skin.</p><div style="display:flex;flex-direction:column;gap:8px"><input id="mcJavaName" maxlength="32" placeholder="Minecraft username"><input id="mcJavaUuid" maxlength="80" placeholder="Minecraft UUID (optional)"><button id="linkJavaAccount" class="primary" style="width:100%">Link Java Account</button></div><div id="javaAccountStatus" class="muted" style="margin-top:8px;min-height:20px"></div><div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--line)"><h5 style="margin:0 0 8px">Saved Java Servers</h5><div id="javaServerList" class="muted" style="font-size:13px">No saved servers</div><button id="addJavaServer" class="secondary" style="width:100%;margin-top:8px"><svg class="uiIcon"><use href="#icon-add"></use></svg> Add Server</button></div></div><div class="card" style="padding:16px;border:1px solid var(--line);background:var(--panel)"><div class="row" style="align-items:center;margin-bottom:12px"><svg class="uiIcon" style="width:28px;height:28px;color:#0078d4"><use href="#icon-minecraft-bedrock"></use></svg><h4 style="margin:0;margin-left:12px">Minecraft Bedrock Edition</h4></div><p class="muted" style="margin:0 0 16px;font-size:14px">Link your Bedrock account. Save and share server addresses and ports for Windows 10/11, consoles, and mobile.</p><div style="display:flex;flex-direction:column;gap:8px"><input id="mcBedrockName" maxlength="32" placeholder="Bedrock username (Xbox Gamertag)"><input id="mcBedrockXuid" maxlength="80" placeholder="Xbox User ID (XUID)"><button id="linkBedrockAccount" class="primary" style="width:100%">Link Bedrock Account</button></div><div id="bedrockAccountStatus" class="muted" style="margin-top:8px;min-height:20px"></div><div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--line)"><h5 style="margin:0 0 8px">Saved Bedrock Servers</h5><div id="bedrockServerList" class="muted" style="font-size:13px">No saved servers</div><button id="addBedrockServer" class="secondary" style="width:100%;margin-top:8px"><svg class="uiIcon"><use href="#icon-add"></use></svg> Add Server</button></div></div><div class="card" style="padding:16px;border:1px solid var(--line);background:var(--panel)"><div class="row" style="align-items:center;margin-bottom:12px"><svg class="uiIcon" style="width:28px;height:28px;color:#ff6b00"><use href="#icon-eaglercraft"></use></svg><h4 style="margin:0;margin-left:12px">Eaglercraft</h4></div><p class="muted" style="margin:0 0 16px;font-size:14px">Configure Eaglercraft browser integration. Save and share supported server links.</p><div style="display:flex;flex-direction:column;gap:8px"><input id="eaglerUrl" maxlength="200" placeholder="Eaglercraft server URL (e.g., https://eaglercraft.com/mc/)"><button id="saveEaglerUrl" class="primary" style="width:100%">Save URL</button></div><div id="eaglerStatus" class="muted" style="margin-top:8px;min-height:20px"></div><div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--line)"><h5 style="margin:0 0 8px">Saved Eaglercraft Links</h5><div id="eaglerLinkList" class="muted" style="font-size:13px">No saved links</div><button id="addEaglerLink" class="secondary" style="width:100%;margin-top:8px"><svg class="uiIcon"><use href="#icon-add"></use></svg> Add Link</button></div></div></div><div id="audioBin"></div>
@@ -121,9 +426,10 @@ function activityTitle(a){if(!a)return'';if(a.active===false)return a.game==='ea
 function activityDetails(a){if(!a||a.active===false)return'';const details=[];if(a.playerName)details.push(esc(a.playerName));if(a.serverName)details.push(esc(a.serverName));const minutes=Math.max(0,Math.floor((Date.now()-(a.startedAt||Date.now()))/60000));if(minutes>0)details.push(`${minutes} min`);return details.join(' · ')}
 function renderActivities(){const cards=[];for(const [name,a] of Object.entries(activities)){if(!a)continue;cards.push(`<div class="activityCard"><b>${esc(name)} — ${activityTitle(a)}</b><span>${a.active===false?'Offline':activityDetails(a)||'Active now'}</span></div>`)}$('activityList').innerHTML=cards.join('')||'<div class="muted" style="padding:8px">No active games. Eaglercraft status is unavailable until its browser connector is paired.</div>';const own=activities[me?.username];$('currentActivity').textContent=own?`${activityTitle(own)}${activityDetails(own)?' · '+activityDetails(own):''}`:'No active game detected.'}
 async function connect(){try{const response=await fetch('/api/rtc-config');if(response.ok){const config=await response.json();rtcConfig={iceServers:config.iceServers};rtcWarnings=config.warnings||[]}else throw new Error(`Voice configuration request failed (${response.status}).`)}catch(error){console.warn('Voice configuration unavailable:',error.message);rtcWarnings=['Voice network configuration is unavailable. Voice may not connect.']}ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host);ws.onopen=()=>$('meStatus').textContent='online';ws.onmessage=e=>{try{handle(JSON.parse(e.data))}catch(err){console.error(err)}};ws.onclose=()=>{$('meStatus').textContent='offline';leaveServerVoice(false);finishCall(false);for(const peer of callPeers.keys())closeCallPeer(peer);setTimeout(()=>{if(me&&document.visibilityState!=='unloaded')connect()},3000)}}
-function handle(m){if(m.type==='ready'){me=m.me;servers=m.servers;online=m.online;activities=m.activities||{};renderAll()}if(m.type==='profile'){me=m.me;renderUser()}if(m.type==='activity_update'){if(m.activity)activities[m.username]=m.activity;else delete activities[m.username];renderActivities();renderPeople()}if(m.type==='presence'){online=m.online;renderPeople();renderDMs()}if(m.type==='server_created'||m.type==='server_joined'){if(!servers.some(s=>s.id===m.server.id))servers.push(m.server);renderServers();selectServer(m.server.id)}if(m.type==='channel_created'){let s=servers.find(x=>x.id===m.serverId);if(s&&!s.channels.some(x=>x.id===m.channel.id)){s.channels.push(m.channel);renderChannels()}}if(m.type==='history'&&m.scope===scope())renderMessages(m.messages);if(m.type==='message'&&m.scope===scope())addMessage(m.item);if(m.type==='dm_history'&&currentDM===m.username){$('messages').innerHTML='';m.messages.forEach(addMessage)}if(m.type==='dm'){let x=m.message;if(currentDM===x.from||currentDM===x.to)addMessage(x);else if(x.from!==me.username)unread[x.from]=(unread[x.from]||0)+1;renderDMs()}if(m.type==='friend_request'&&confirm('Accept friend request from '+m.from+'?'))send({type:'friend_accept',with:m.from});if(m.type==='friend_status')renderDMs();if(m.type==='invite')prompt('Share this invite code:',m.code);if(m.type==='error')alert(m.message);
+function promptFriendRequests(list){const from=list.shift();if(!from)return;showConfirm('Accept friend request from '+from+'?','Friend Request').then(ok=>{send(ok?{type:'friend_accept',with:from}:{type:'friend_reject',with:from});promptFriendRequests(list)})}
+function handle(m){if(m.type==='ready'){me=m.me;servers=m.servers;online=m.online;activities=m.activities||{};renderAll();if(Array.isArray(m.pendingFriendRequests)&&m.pendingFriendRequests.length)promptFriendRequests(m.pendingFriendRequests.slice())}if(m.type==='profile'){me=m.me;renderUser()}if(m.type==='activity_update'){if(m.activity)activities[m.username]=m.activity;else delete activities[m.username];renderActivities();renderPeople()}if(m.type==='presence'){online=m.online;renderPeople();renderDMs()}if(m.type==='server_created'||m.type==='server_joined'){if(!servers.some(s=>s.id===m.server.id))servers.push(m.server);renderServers();selectServer(m.server.id)}if(m.type==='channel_created'){let s=servers.find(x=>x.id===m.serverId);if(s&&!s.channels.some(x=>x.id===m.channel.id)){s.channels.push(m.channel);renderChannels()}}if(m.type==='history'&&m.scope===scope())renderMessages(m.messages);if(m.type==='message'&&m.scope===scope())addMessage(m.item);if(m.type==='dm_history'&&currentDM===m.username){$('messages').innerHTML='';m.messages.forEach(addMessage)}if(m.type==='dm'){let x=m.message;if(currentDM===x.from||currentDM===x.to)addMessage(x);else if(x.from!==me.username)unread[x.from]=(unread[x.from]||0)+1;renderDMs()}if(m.type==='friend_request') showConfirm('Accept friend request from ' + m.from + '?', 'Friend Request').then(accepted => { send(accepted ? {type:'friend_accept',with:m.from} : {type:'friend_reject',with:m.from}); });if(m.type==='friend_status'){renderDMs();if(m.status==='pending')showAlert(m.user + ' will see your friend request when they sign in.','Friend Request Sent');else if(m.status==='rejected')showAlert(m.user + ' declined your friend request.','Friend Request');else if(m.status==='removed')showAlert(m.user + ' removed you from their friends.','Friend Removed');}if(m.type==='invite') showPrompt('Share this invite code:', 'Invite Code', {value: m.code, required: true}); if(m.type==='error') showAlert(m.message);
 if(m.type==='voice_members'&&m.room===voiceRoom){voiceMembers=new Set(m.members);m.members.filter(x=>x!==me.username).forEach(x=>makeServerPeer(x,shouldInitiatePeer(x),m.room));renderCallBar()}if(m.type==='voice_peer_joined'&&m.room===voiceRoom){voiceMembers.add(m.peer);makeServerPeer(m.peer,shouldInitiatePeer(m.peer),m.room);renderCallBar()}if(m.type==='voice_peer_rejoined'&&m.room===voiceRoom){voiceMembers.add(m.peer);closePeer(m.peer);makeServerPeer(m.peer,shouldInitiatePeer(m.peer),m.room);renderCallBar()}if(m.type==='voice_peer_left'&&m.room===voiceRoom){voiceMembers.delete(m.peer);closePeer(m.peer);renderCallBar()}if(m.type==='voice_signal')voiceSignal(m);
-if(m.type==='incoming_call'){incomingCall=m;$('incomingText').textContent=`${m.from} is calling you${m.typeName==='group'?' in a group call':''}.`;show('incoming')}if(m.type==='call_started'){activeCall={id:m.callId,participants:new Set(m.participants),type:m.typeName};startCall().catch(e=>alert(e.message))}if(m.type==='call_accepted'){activeCall={id:m.callId,participants:new Set(m.participants),type:activeCall?.type||'private'};startCall().catch(console.error)}if(m.type==='call_member_joined'){if(!activeCall)activeCall={id:m.callId,participants:new Set(),type:'group'};activeCall.participants=new Set(m.participants);makeCallPeer(m.user,true);updateCall()}if((m.type==='call_declined'||m.type==='call_member_left')&&activeCall?.id===m.callId){activeCall.participants.delete(m.user);closeCallPeer(m.user);updateCall()}if(m.type==='call_ended'&&activeCall?.id===m.callId)finishCall(false);if(m.type==='call_signal')callSignal(m)}
+if(m.type==='incoming_call'){incomingCall=m;$('incomingText').textContent=`${m.from} is calling you${m.typeName==='group'?' in a group call':''}.`;show('incoming')}if(m.type==='call_started'){activeCall={id:m.callId,participants:new Set(m.participants),type:m.typeName};startCall().catch(e=>showAlert(e.message))}if(m.type==='call_accepted'){activeCall={id:m.callId,participants:new Set(m.participants),type:activeCall?.type||'private'};startCall().catch(console.error)}if(m.type==='call_member_joined'){if(!activeCall)activeCall={id:m.callId,participants:new Set(),type:'group'};activeCall.participants=new Set(m.participants);makeCallPeer(m.user,true);updateCall()}if((m.type==='call_declined'||m.type==='call_member_left')&&activeCall?.id===m.callId){activeCall.participants.delete(m.user);closeCallPeer(m.user);updateCall()}if(m.type==='call_ended'&&activeCall?.id===m.callId)finishCall(false);if(m.type==='call_signal')callSignal(m)}
 function renderAll(){renderUser();renderServers();renderPeople();renderDMs();renderActivities();if(!currentServer&&servers[0])selectServer(servers[0].id)}
 function renderUser(){if(!me)return;$('meName').textContent=me.displayName||me.username;$('meAvatar').innerHTML=avatar(me);$('settingsAvatar').innerHTML=avatar(me);$('settingsDisplayName').value=me.displayName||'';$('settingsAvatarUrl').value=me.avatar||'';$('settingsUsername').value=me.username||'';$('settingsProvider').value=me.oauth?.provider||'Local profile';$('mcName').value=me.minecraft?.username||'';$('mcUuid').value=me.minecraft?.uuid||'';$('mcEdition').value=me.minecraft?.edition||'Java';const linked=$('minecraftLinkStatus');if(linked)linked.textContent=window.minecordMinecraftNotice||(me.minecraft?`Linked Java profile: ${me.minecraft.username}`:'No official Minecraft account linked.');const unlink=$('minecraftUnlinkButton');if(unlink)unlink.hidden=!me.minecraft;$('showGameActivity').checked=me.showGameActivity!==false;activities[me.username]=me.activity||activities[me.username];renderActivities()}
 function renderServers(){let html='';for(const s of servers)html+=`<div class="serverIcon ${currentServer?.id===s.id?'active':''}" title="${esc(s.name)}" onclick="selectServer('${s.id}')"><svg class="uiIcon"><use href="#icon-server"></use></svg></div>`;$('servers').innerHTML=html}
@@ -132,11 +438,11 @@ function renderChannels(){let html='';for(const c of currentServer?.channels||[]
 function selectChannel(id){currentDM=null;const nextChannel=currentServer?.channels.find(c=>c.id===id);if(!nextChannel)return;const nextRoom=nextChannel.type==='voice'?`${currentServer.id}:${nextChannel.id}`:'';if(voiceRoom&&voiceRoom!==nextRoom)leaveServerVoice();currentChannel=nextChannel;$('channelTitle').textContent=currentChannel.name;$('channelIcon').innerHTML=`<svg class="uiIcon"><use href="#icon-${currentChannel.type==='voice'?'call':'hash'}"></use></svg>`;$('messageInput').placeholder=currentChannel.type==='voice'?'Voice channel selected':'Message #'+currentChannel.name;renderChannels();renderDMs();$('messages').innerHTML='';if(currentChannel.type==='voice'){joinServerVoice();$('messages').innerHTML='<div class="empty">Voice channel selected. Your voice controls are below.</div>'}else send({type:'history',scope:scope()})}
 function renderMessages(a){$('messages').innerHTML='';a.forEach(addMessage)}
 function addMessage(m){const d=document.createElement('div'),u=userObj(m.from||m.username);d.className='msg';const when=new Date(m.at||Date.now()).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});d.innerHTML=`<div class="avatar">${avatar(u)}</div><div class="msgBody"><div class="meta"><span class="name">${esc(u.displayName||u.username)}</span><span class="time">${when}</span></div><div class="bubble">${esc(m.text||'')}</div></div>`;$('messages').appendChild(d);$('messages').scrollTop=$('messages').scrollHeight}
-function renderPeople(){$('people').innerHTML='';for(const x of online){const el=document.createElement('div');el.className='person';if(x!==me?.username)el.onclick=()=>openDM(x);const activity=activities[x];el.innerHTML='<span class="dot on"></span><span class="personInfo">'+esc(x)+(x===me?.username?' (you)':'')+(activity?'<span class="activityLine">'+activityTitle(activity)+'</span>':'')+'</span>';$('people').appendChild(el)}if(!online.length)$('people').innerHTML='<div class="muted" style="padding:10px">Nobody online.</div>';renderActivities()}
+function renderPeople(){$('people').innerHTML='';for(const x of online){const el=document.createElement('div');el.className='person';el.dataset.user=x;if(x!==me?.username)el.onclick=()=>openDM(x);const activity=activities[x];el.innerHTML='<span class="dot on"></span><span class="personInfo">'+esc(x)+(x===me?.username?' (you)':'')+(activity?'<span class="activityLine">'+activityTitle(activity)+'</span>':'')+'</span>';$('people').appendChild(el)}if(!online.length)$('people').innerHTML='<div class="muted" style="padding:10px">Nobody online.</div>';renderActivities()}
 function renderDMs(){const names=[...new Set(online.filter(x=>x&&x!==me?.username))];let html='';for(const x of names)html+=`<div class="navItem ${currentDM===x?'active':''}" onclick="openDM('${esc(x)}')"><svg class="uiIcon"><use href="#icon-dm"></use></svg> ${esc(x)} ${unread[x]?'<span class="count">'+unread[x]+'</span>':''}</div>`;$('dms').innerHTML=html||'<div class="muted" style="padding:8px">No friends online.</div>'}
 function openDM(n){if(voiceRoom)leaveServerVoice();currentDM=n;currentChannel=null;unread[n]=0;$('channelTitle').textContent=n;$('channelIcon').textContent='@';$('messageInput').placeholder='Message '+n;renderChannels();renderDMs();$('messages').innerHTML='';send({type:'dm_history',username:n})}
-$('composer').onsubmit=e=>{e.preventDefault();let t=$('messageInput').value.trim();if(!t)return;if(currentDM)send({type:'dm',to:currentDM,text:t});else if(currentChannel?.type==='text')send({type:'message',scope:scope(),text:t});$('messageInput').value=''};$('enter').onclick=()=>login(false);$('register').onclick=()=>login(true);async function login(createAccount){const username=$('username').value.trim(),password=$('password').value;$('loginError').textContent='';try{const response=await fetch('/api/auth/'+(createAccount?'register':'login'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})}),result=await response.json();if(!response.ok)throw new Error(result.error||'Sign-in failed.');me=result.user;show('login',false);connect()}catch(error){$('loginError').textContent=error.message}}$('password').onkeydown=e=>{if(e.key==='Enter')login(false)};$('username').onkeydown=e=>{if(e.key==='Enter')$('password').focus()};$('newServer').onclick=()=>{let n=prompt('Server name?');if(n)send({type:'create_server',name:n})};$('newDM').onclick=()=>{let n=prompt('MINECORD username?');if(n)openDM(n)};$('addFriend').onclick=()=>{let n=prompt('Friend username?');if(n)send({type:'friend_request',to:n})};$('inviteBtn').onclick=()=>currentServer&&send({type:'invite_create',serverId:currentServer.id});$('profileBtn').onclick=()=>{renderUser();show('settingsModal')};$('showGameActivity').onchange=async()=>{try{const response=await fetch('/api/activity/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:$('showGameActivity').checked})}),result=await response.json();if(!response.ok)throw new Error(result.error||'Could not save activity preference.');me.showGameActivity=result.enabled;if(!result.enabled)delete activities[me.username];renderActivities()}catch(error){$('showGameActivity').checked=!$('showGameActivity').checked;alert(error.message)}};$('pairEaglercraft').onclick=async()=>{try{const response=await fetch('/api/activity/pairing',{method:'POST'}),result=await response.json();if(!response.ok)throw new Error(result.error||'Could not create pairing code.');$('pairingCode').textContent=`One-time code (expires in 5 minutes): ${result.code}`}catch(error){$('pairingCode').textContent=error.message}};$('revokeEaglercraft').onclick=async()=>{try{const response=await fetch('/api/activity/pairing/revoke',{method:'POST'}),result=await response.json();if(!response.ok)throw new Error(result.error||'Could not unpair.');$('pairingCode').textContent='Activity extension unpaired.'}catch(error){$('pairingCode').textContent=error.message}};$('saveProfile').onclick=()=>{let n=$('settingsDisplayName').value.trim();if(!n)return alert('Display name cannot be empty.');send({type:'profile',displayName:n});let mc=$('mcName').value.trim();if(mc)send({type:'minecraft_link',minecraftUsername:mc,minecraftUuid:$('mcUuid').value.trim(),edition:$('mcEdition').value});show('settingsModal',false)};$('signOut').onclick=async()=>{await fetch('/api/auth/logout',{method:'POST'});location.href='/'};
-async function createChannel(){if(!currentServer)return;let n=prompt('Channel name?');if(!n)return;let t=(prompt('Type: text or voice','text')||'').toLowerCase();if(!['text','voice'].includes(t))return alert('Use text or voice.');send({type:'create_channel',serverId:currentServer.id,name:n,channelType:t})}
+$('composer').onsubmit=e=>{e.preventDefault();let t=$('messageInput').value.trim();if(!t)return;if(currentDM)send({type:'dm',to:currentDM,text:t});else if(currentChannel?.type==='text')send({type:'message',scope:scope(),text:t});$('messageInput').value=''};$('enter').onclick=()=>login(false);$('register').onclick=()=>login(true);async function login(createAccount){const username=$('username').value.trim(),password=$('password').value;$('loginError').textContent='';try{const response=await fetch('/api/auth/'+(createAccount?'register':'login'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})}),result=await response.json();if(!response.ok)throw new Error(result.error||'Sign-in failed.');me=result.user;show('login',false);connect()}catch(error){$('loginError').textContent=error.message}}$('password').onkeydown=e=>{if(e.key==='Enter')login(false)};$('username').onkeydown=e=>{if(e.key==='Enter')$('password').focus()};$('newServer').onclick=()=>{showPrompt('Server name?', 'Create Server', {placeholder: 'Enter server name', required: true}).then(n=>{if(n)send({type:'create_server',name:n})})};$('newDM').onclick=()=>{showPrompt('MINECORD username?', 'New DM', {placeholder: 'Enter username', required: true}).then(n=>{if(n)openDM(n)})};$('addFriend').onclick=()=>{showPrompt('Friend username?', 'Add Friend', {placeholder: 'Enter username', required: true}).then(n=>{if(n)send({type:'friend_request',to:n})})};$('inviteBtn').onclick=()=>currentServer&&send({type:'invite_create',serverId:currentServer.id});$('profileBtn').onclick=()=>{renderUser();show('settingsModal');window.loadGameSettings?.()};$('showGameActivity').onchange=async()=>{try{const response=await fetch('/api/activity/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:$('showGameActivity').checked})}),result=await response.json();if(!response.ok)throw new Error(result.error||'Could not save activity preference.');me.showGameActivity=result.enabled;if(!result.enabled)delete activities[me.username];renderActivities()}catch(error){$('showGameActivity').checked=!$('showGameActivity').checked;showAlert(error.message)}};$('pairEaglercraft').onclick=async()=>{try{const response=await fetch('/api/activity/pairing',{method:'POST'}),result=await response.json();if(!response.ok)throw new Error(result.error||'Could not create pairing code.');$('pairingCode').textContent=`One-time code (expires in 5 minutes): ${result.code}`}catch(error){$('pairingCode').textContent=error.message}};$('revokeEaglercraft').onclick=async()=>{try{const response=await fetch('/api/activity/pairing/revoke',{method:'POST'}),result=await response.json();if(!response.ok)throw new Error(result.error||'Could not unpair.');$('pairingCode').textContent='Activity extension unpaired.'}catch(error){$('pairingCode').textContent=error.message}};$('saveProfile').onclick=()=>{let n=$('settingsDisplayName').value.trim();if(!n)return showAlert('Display name cannot be empty.');send({type:'profile',displayName:n});let mc=$('mcName').value.trim();if(mc)send({type:'minecraft_link',minecraftUsername:mc,minecraftUuid:$('mcUuid').value.trim(),edition:$('mcEdition').value});show('settingsModal',false)};$('signOut').onclick=async()=>{await fetch('/api/auth/logout',{method:'POST'});location.href='/'};
+async function createChannel(){if(!currentServer)return;const name = await showPrompt('Channel name?', 'Create Channel', {placeholder: 'Channel name', required: true}); if(!name) return; const type = await showPrompt('Type: text or voice', 'Channel Type', {placeholder: 'text or voice', value: 'text'}); if(!['text','voice'].includes(type.toLowerCase())) return showAlert('Use text or voice.'); send({type:'create_channel',serverId:currentServer.id,name:name,channelType:type})}
 const pendingIceCandidates=new WeakMap();
 async function setRemoteDescription(pc,description){await pc.setRemoteDescription(description);const candidates=pendingIceCandidates.get(pc)||[];pendingIceCandidates.delete(pc);for(const candidate of candidates){try{await pc.addIceCandidate(candidate)}catch(error){console.warn('Could not add queued voice ICE candidate:',error.message)}}}
 async function addIceCandidate(pc,candidate){if(!pc.remoteDescription){const candidates=pendingIceCandidates.get(pc)||[];candidates.push(candidate);pendingIceCandidates.set(pc,candidates);return}await pc.addIceCandidate(candidate)}
@@ -266,8 +572,8 @@ function updateCall(){renderCallBar()}
 function stopMic(){if(localStream){localStream.getTracks().forEach(t=>t.stop());localStream=null}}
 function renderVoiceControls(){$('muteBtn').innerHTML=`<svg class="uiIcon" aria-hidden="true"><use href="#icon-${muted?'mute':'mic'}"></use></svg><span>${muted?'Unmute':'Mute'}</span>`;$('deafenBtn').innerHTML=`<svg class="uiIcon" aria-hidden="true"><use href="#icon-deafen"></use></svg><span>${deafened?'Undeafen':'Deafen'}</span>`;$('muteBtn').setAttribute('aria-pressed',String(muted));$('deafenBtn').setAttribute('aria-pressed',String(deafened))}
 function finishCall(notify=true){if(notify&&activeCall)send({type:'call_end',callId:activeCall.id});for(const user of callPeers.keys())closeCallPeer(user);activeCall=null;muted=false;deafened=false;localStream?.getAudioTracks().forEach(track=>track.enabled=true);document.querySelectorAll('#audioBin audio').forEach(audio=>audio.muted=false);renderVoiceControls();if(!voiceRoom)stopMic();renderCallBar()}
-$('callBtn').onclick=()=>{if(!currentDM)return alert('Open a DM first.');send({type:'call_start',to:currentDM,callType:'private'})};
-$('groupCallBtn').onclick=()=>{if(!currentDM)return alert('Open a DM first.');const targets=(prompt('Users to call, comma separated',currentDM)||'').split(',').map(name=>name.trim()).filter(Boolean);if(targets.length)send({type:'call_start',to:targets,callType:'group'})};
+$('callBtn').onclick=()=>{if(!currentDM)return showAlert('Open a DM first.');send({type:'call_start',to:currentDM,callType:'private'})};
+$('groupCallBtn').onclick=()=>{if(!currentDM)return showAlert('Open a DM first.');showPrompt('Users to call, comma separated', 'Start Group Call', {placeholder: 'user1, user2, user3', value: currentDM || ''}).then(targets=>{const users=(targets||'').split(',').map(name=>name.trim()).filter(Boolean);if(users.length)send({type:'call_start',to:users,callType:'group'})})};
 $('acceptCall').onclick=async()=>{if(!incomingCall)return;try{await mic()}catch(error){show('callBar');setVoiceStatus(voiceErrorMessage(error),'error');return}const call=incomingCall;incomingCall=null;show('incoming',false);activeCall={id:call.callId,participants:new Set(call.participants),type:call.typeName};send({type:'call_accept',callId:call.callId});await startCall()};
 $('declineCall').onclick=()=>{if(incomingCall){send({type:'call_decline',callId:incomingCall.callId});incomingCall=null;show('incoming',false)}};
 $('endCall').onclick=()=>activeCall?finishCall(true):leaveServerVoice();
@@ -275,10 +581,32 @@ $('muteBtn').onclick=()=>{muted=!muted;localStream?.getAudioTracks().forEach(tra
 $('deafenBtn').onclick=()=>{deafened=!deafened;document.querySelectorAll('#audioBin audio').forEach(audio=>audio.muted=deafened);renderVoiceControls()};
 $('voiceUsageButton').onclick=async()=>{const node=$('voiceUsageStatus');node.textContent='Checking…';try{const response=await fetch('/api/rtc-usage'),result=await response.json();if(!response.ok)throw new Error(result.error||'TURN usage could not be retrieved.');node.textContent=`TURN usage: ${result.usageInGB.toFixed(3)} GB`}catch(error){node.textContent=error.message}};
 (async()=>{const query=new URLSearchParams(location.search),error=query.get('auth_error');if(error)$('loginError').textContent=error;if(query.has('oauth'))history.replaceState({},'','/');try{const response=await fetch('/api/auth/me'),result=await response.json();if(response.ok){me=result.user;show('login',false);connect()}else show('login',true)}catch(error){$('loginError').textContent='Cannot reach MINECORD. Check the server connection.';show('login',true)}fetch('/api/config').then(response=>response.json()).then(config=>{document.querySelectorAll('.oauthButton')[0].hidden=!config.google;document.querySelectorAll('.oauthButton')[1].hidden=!config.microsoft;document.querySelectorAll('.oauthButton')[2].hidden=!config.github}).catch(()=>{});setInterval(renderActivities,60000)})();
-</script><script>
-(()=>{window.minecordMinecraftNotice='';const heading=Array.from(document.querySelectorAll('#settingsModal h3')).find(item=>item.textContent.includes('Minecraft'));if(!heading)return;for(const field of ['mcName','mcUuid','mcEdition'])$(field).style.display='none';const status=document.createElement('div');status.id='minecraftLinkStatus';status.className='muted';status.style.margin='8px 0';const link=document.createElement('button');link.id='minecraftLinkButton';link.textContent='Link official Minecraft Java account';const unlink=document.createElement('button');unlink.id='minecraftUnlinkButton';unlink.textContent='Unlink account';unlink.className='danger';unlink.style.marginLeft='8px';heading.after(status,link,unlink);link.onclick=()=>{link.disabled=true;location.href='/auth/minecraft/link'};unlink.onclick=async()=>{try{const response=await fetch('/api/minecraft/link',{method:'DELETE'}),result=await response.json();if(!response.ok)throw new Error(result.error||'Could not unlink the Minecraft account.');me=result.user;window.minecordMinecraftNotice='';renderUser()}catch(error){status.textContent=error.message}};const query=new URLSearchParams(location.search),errors={cancelled:'Minecraft account linking was cancelled.',authorization_failed:'Microsoft authorization failed. Check the app registration and callback URL.',service_error:'The identity service returned an invalid response.',no_profile:'No eligible Minecraft Java profile was found for this Microsoft account.',already_linked:'That Minecraft account is already linked to another MINECORD account.',link_failed:'Could not link the Minecraft account. Confirm that this Microsoft account owns Minecraft Java Edition.'};if(query.has('minecraft_link')){window.minecordMinecraftNotice='Minecraft Java account linked successfully.';history.replaceState({},'','/')}else if(query.has('minecraft_link_error')){window.minecordMinecraftNotice=errors[query.get('minecraft_link_error')]||'Minecraft account linking failed.';history.replaceState({},'','/')}$('saveProfile').onclick=()=>{const name=$('settingsDisplayName').value.trim();if(!name)return alert('Display name cannot be empty.');send({type:'profile',displayName:name,avatar:$('settingsAvatarUrl').value.trim()});show('settingsModal',false)};fetch('/api/config').then(response=>response.json()).then(config=>{link.hidden=!config.microsoft;unlink.hidden=!me?.minecraft}).catch(()=>{link.hidden=true;unlink.hidden=true})})();
-</script><script>
-(()=>{const panel=document.querySelector('#login .login'),intro=panel?.querySelector('p');if(intro){const note=document.createElement('p');note.className='muted';note.textContent='MINECORD accounts and chat work without Minecraft. Microsoft sign-in and Minecraft linking are optional.';intro.after(note)}const heading=Array.from(document.querySelectorAll('#settingsModal h3')).find(item=>item.textContent.includes('Minecraft'));if(heading)heading.textContent='Minecraft account (optional)';const link=$('minecraftLinkButton');if(link)link.textContent='Link official Minecraft Java account (optional)'})();
+
+// Keep the mobile drawers in sync with the desktop sidebars.
+function syncDrawers(){
+  const pairs=[['servers','drawerServers'],['channels','drawerChannels'],['dms','drawerDms'],['friendList','drawerFriendList'],['people','drawerPeople'],['activityList','drawerActivityList'],['worldsList','drawerWorldsList'],['worldsGrid','drawerWorldsList']];
+  for(const [src,dst] of pairs){
+    const a=$(src),b=$(dst);
+    if(!a||!b)continue;
+    if(src==='worldsGrid'&&$('worldsList'))continue;
+    b.innerHTML=a.innerHTML;
+  }
+}
+setTimeout(syncDrawers,0);
+
+// Escape key to close game page
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    const gamePage = $('gamePage');
+    if (gamePage && gamePage.style.display === 'flex') {
+      closeGamePage();
+    }
+    const homePage = $('homePage');
+    if (homePage && homePage.style.display === 'flex') {
+      showHome(false);
+    }
+  }
+});
 </script><script>
 (()=>{const svg=(name,cls='uiIcon')=>`<svg class="${cls}" aria-hidden="true"><use href="#icon-${name}"></use></svg>`;const buttonIcon=(id,name,label)=>{const node=$(id);if(node){node.innerHTML=svg(name)+`<span>${label}</span>`;node.classList.add('iconButton')}};const loginTitle=document.querySelector('#login h1');if(loginTitle)loginTitle.innerHTML=`${svg('minecraft','brandIcon')} MINECORD`;const brand=$('newServer');if(brand){brand.innerHTML=svg('add');brand.title='Add server'}const newDm=$('newDM');if(newDm)newDm.innerHTML=svg('add');const friends=document.querySelector('.section+ .nav #addFriend');if(friends)friends.innerHTML=`${svg('add')} Add Friend`;const friendsHeading=Array.from(document.querySelectorAll('.section')).find(node=>node.textContent.trim()==='FRIENDS');if(friendsHeading)friendsHeading.innerHTML=`${svg('friends')} FRIENDS`;const profile=$('profileBtn');if(profile){profile.innerHTML=svg('settings');profile.title='Settings';profile.setAttribute('aria-label','Settings')}const channelIcon=$('channelIcon');if(channelIcon)channelIcon.innerHTML=svg('hash');buttonIcon('callBtn','call','Voice call');buttonIcon('groupCallBtn','video','Group call');buttonIcon('inviteBtn','invite','Invite');buttonIcon('muteBtn','mic','Mute');buttonIcon('deafenBtn','deafen','Deafen');buttonIcon('endCall','hangup','End');const callTitle=document.querySelector('#callBar>b');if(callTitle)callTitle.innerHTML=`${svg('call')} Call`;const incomingTitle=document.querySelector('#incoming>b');if(incomingTitle)incomingTitle.innerHTML=`${svg('call')} Incoming call`;const settingsTitle=document.querySelector('#settingsModal h2');if(settingsTitle)settingsTitle.innerHTML=`${svg('settings')} Settings`;const closeButton=document.querySelector('#settingsModal .row button');if(closeButton){closeButton.innerHTML=svg('close');closeButton.setAttribute('aria-label','Close settings');closeButton.title='Close settings'}const activityTitleNode=Array.from(document.querySelectorAll('.rightHead')).find(node=>node.textContent.trim()==='ACTIVITY');if(activityTitleNode)activityTitleNode.innerHTML=`${svg('activity')} ACTIVITY`;const gameTitle=Array.from(document.querySelectorAll('#settingsModal h3')).find(node=>node.textContent.includes('Minecraft'));if(gameTitle)gameTitle.innerHTML=`${svg('minecraft')} Minecraft account (optional)`;const eaglerTitle=Array.from(document.querySelectorAll('#settingsModal h3')).find(node=>node.textContent.includes('Eaglercraft'));if(eaglerTitle)eaglerTitle.innerHTML=`${svg('eaglercraft')} Eaglercraft browser integration`;const sendButton=document.querySelector('#composer button');if(sendButton)sendButton.innerHTML=`${svg('send')}<span>Send</span>`;const msButton=Array.from(document.querySelectorAll('.oauthButton')).find(node=>node.textContent.includes('Microsoft'));if(msButton)msButton.querySelector('svg').outerHTML=svg('microsoft');
  for(const [id,name,label] of [['callBtn','call','Voice call'],['groupCallBtn','video','Group call'],['inviteBtn','invite','Invite']]){const node=$(id);node.innerHTML=svg(name);node.title=label;node.setAttribute('aria-label',label)}
@@ -349,79 +677,1902 @@ document.addEventListener('visibilitychange',()=>{
 });
 </script><script>
 (()=> {
- const settings=$('settingsModal')?.querySelector('.card');
- if(!settings)return;
- const accountSection=document.createElement('section');
- accountSection.id='accountLinkSettings';
- accountSection.innerHTML='<h3>Linked sign-in accounts</h3><p class="muted">Link Google, Microsoft, or GitHub to sign in to this same MINECORD account. Account merging preserves provider identities after you independently verify both accounts.</p><div id="linkedAccountList" class="muted">Loading linked accounts…</div><div id="accountLinkError" class="muted" role="status"></div>';
- $('settingsProvider').insertAdjacentElement('afterend',accountSection);
- const ownerSection=document.createElement('section');
- ownerSection.id='ownerRoleSettings';
- ownerSection.hidden=true;
- ownerSection.innerHTML='<h3>App Owner: account roles</h3><p class="muted">App Owners can assign Member or Developer roles. The App Owner role is configured only by the server operator.</p><div id="ownerRoleList" class="muted">Loading accounts…</div>';
- accountSection.insertAdjacentElement('afterend',ownerSection);
- const labels={google:'Google',microsoft:'Microsoft',github:'GitHub'};
- const showAccountMessage=message=>{ $('accountLinkError').textContent=message||'' };
- async function refreshAccountSettings(){
-  if(!me)return;
-  const accountResponse=await fetch('/api/auth/links');
-  const accountData=await accountResponse.json();
-  if(!accountResponse.ok)throw new Error(accountData.error||'Could not load linked accounts.');
-  const linked=new Map();
-  for(const account of accountData.accounts)linked.set(account.provider,(linked.get(account.provider)||0)+1);
-  const accountMarkup=[];
-  for(const provider of Object.keys(labels)){
-   const linkedCount=linked.get(provider)||0;
-   if(linkedCount)accountMarkup.push(`<div class="row" style="justify-content:space-between;margin:6px 0"><span>${labels[provider]} linked${linkedCount>1?` · ${linkedCount} sign-in accounts`:''}</span><button class="danger" data-unlink="${provider}">${linkedCount>1?'Unlink all':'Unlink'}</button></div>`);
-   else if(accountData.providers[provider])accountMarkup.push(`<button data-link="${provider}" style="margin:4px">Link ${labels[provider]}</button>`);
+  const settings=$('settingsModal')?.querySelector('.card');
+  if(!settings)return;
+
+  // ============================================================
+  // ACCOUNT LINKING SECTION (OAuth + Minecraft)
+  // ============================================================
+  const accountSection=document.createElement('section');
+  accountSection.id='accountLinkSettings';
+  accountSection.innerHTML=`
+    <h3>Linked sign-in accounts</h3>
+    <p class="muted">Link Google, Microsoft, or GitHub to sign in to this same MINECORD account. Account merging preserves provider identities after you independently verify both accounts.</p>
+    <div id="linkedAccountList" class="muted">Loading linked accounts…</div>
+    <div id="accountLinkError" class="muted" role="status"></div>
+
+    <h3 style="margin-top:20px"><svg class="uiIcon" style="margin-right:8px"><use href="#icon-minecraft"></use></svg> Minecraft accounts</h3>
+    <p class="muted">Link your Minecraft profiles for game activity, server discovery, and cross-play. Minecraft linking is optional and not required for chat, friends, or DMs.</p>
+    <div id="minecraftLinkStatus" class="muted" style="margin:8px 0"></div>
+    <div class="row" style="flex-wrap:wrap;gap:8px;margin:8px 0">
+      <button id="minecraftLinkButton" class="primary"><svg class="uiIcon"><use href="#icon-minecraft"></use></svg> Link Minecraft Java</button>
+      <button id="bedrockLinkButton" class="primary"><svg class="uiIcon"><use href="#icon-minecraft-bedrock"></use></svg> Link Xbox/Bedrock</button>
+      <button id="minecraftUnlinkButton" class="danger" hidden>Unlink Java</button>
+      <button id="bedrockUnlinkButton" class="danger" hidden>Unlink Bedrock</button>
+    </div>
+  `;
+  $('settingsProvider').insertAdjacentElement('afterend',accountSection);
+
+  const ownerSection=document.createElement('section');
+  ownerSection.id='ownerRoleSettings';
+  ownerSection.hidden=true;
+  ownerSection.innerHTML='<h3>App Owner: account roles</h3><p class="muted">App Owners can assign Member or Developer roles. The App Owner role is configured only by the server operator.</p><div id="ownerRoleList" class="muted">Loading accounts…</div>';
+  accountSection.insertAdjacentElement('afterend',ownerSection);
+
+  // ============================================================
+  // GAME LINKING SECTION (Minecraft profiles, servers, worlds)
+  // ============================================================
+  const gameSection=document.createElement('section');
+  gameSection.id='gameLinkingSettings';
+  gameSection.innerHTML=`
+    <h3 style="margin-top:20px"><svg class="uiIcon" style="margin-right:8px"><use href="#icon-server"></use></svg> Game Linking</h3>
+    <p class="muted">Your linked game profiles, saved servers, and shared worlds.</p>
+    <div id="gameLinkingStatus" class="muted" style="margin:8px 0">Loading game linking data…</div>
+    <div id="gameAccountsList"></div>
+    <div id="gameServersList" style="margin-top:16px"></div>
+    <div id="worldsSummary" style="margin-top:16px"></div>
+  `;
+  accountSection.insertAdjacentElement('afterend',gameSection);
+
+  const labels={google:'Google',microsoft:'Microsoft',github:'GitHub'};
+  const showAccountMessage=message=>{ $('accountLinkError').textContent=message||'' };
+  const showGameLinkingMessage=message=>{ $('gameLinkingStatus').textContent=message||'' };
+
+  // Minecraft linking button handlers
+  function setupMinecraftButtons() {
+    const mcLink = $('minecraftLinkButton');
+    const brLink = $('bedrockLinkButton');
+    const mcUnlink = $('minecraftUnlinkButton');
+    const brUnlink = $('bedrockUnlinkButton');
+    
+    if (mcLink) mcLink.onclick = () => { mcLink.disabled = true; location.href = '/auth/minecraft/link'; };
+    if (brLink) brLink.onclick = () => { brLink.disabled = true; location.href = '/auth/bedrock/link'; };
+    if (mcUnlink) mcUnlink.onclick = async () => {
+      try {
+        const response = await fetch('/api/minecraft/link', { method: 'DELETE' });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Could not unlink the Minecraft account.');
+        me = result.user;
+        window.minecordMinecraftNotice = '';
+        renderUser();
+        refreshGameLinking();
+      } catch (error) {
+        showGameLinkingMessage(error.message);
+      }
+    };
+    if (brUnlink) brUnlink.onclick = async () => {
+      try {
+        const response = await fetch('/api/games/accounts/bedrock', { method: 'DELETE' });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Could not unlink the Bedrock account.');
+        me = result.user;
+        window.minecordBedrockNotice = '';
+        renderUser();
+        refreshGameLinking();
+      } catch (error) {
+        showGameLinkingMessage(error.message);
+      }
+    };
   }
-  accountMarkup.push(`<div class="muted">${accountData.hasLocalPassword?'Local password sign-in is enabled.':'OAuth-only account: keep at least one provider linked.'}</div>`);
-  $('linkedAccountList').innerHTML=accountMarkup.join('')||'<div class="muted">No OAuth providers are configured on this server.</div>';
-  $('linkedAccountList').querySelectorAll('[data-link]').forEach(button=>button.onclick=async()=>{
-   try{
-    const response=await fetch(`/api/auth/links/${button.dataset.link}/start`,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
-    const result=await response.json();
-    if(!response.ok)throw new Error(result.error||'Could not start account linking.');
-    location.href=result.authorizeUrl;
-   }catch(error){showAccountMessage(error.message)}
+
+  async function refreshAccountSettings(){
+    if(!me)return;
+    const accountResponse=await fetch('/api/auth/links');
+    const accountData=await accountResponse.json();
+    if(!accountResponse.ok)throw new Error(accountData.error||'Could not load linked accounts.');
+    const linked=new Map();
+    for(const account of accountData.accounts)linked.set(account.provider,(linked.get(account.provider)||0)+1);
+    const accountMarkup=[];
+    for(const provider of Object.keys(labels)){
+      const linkedCount=linked.get(provider)||0;
+      if(linkedCount)accountMarkup.push(`<div class="row" style="justify-content:space-between;margin:6px 0"><span>${labels[provider]} linked${linkedCount>1?' · '+linkedCount+' sign-in accounts':''}</span><button class="danger" data-unlink="${provider}">${linkedCount>1?'Unlink all':'Unlink'}</button></div>`);
+      else if(accountData.providers[provider])accountMarkup.push(`<button data-link="${provider}" style="margin:4px">Link ${labels[provider]}</button>`);
+    }
+    accountMarkup.push(`<div class="muted">${accountData.hasLocalPassword?'Local password sign-in is enabled.':'OAuth-only account: keep at least one provider linked.'}</div>`);
+    $('linkedAccountList').innerHTML=accountMarkup.join('')||'<div class="muted">No OAuth providers are configured on this server.</div>';
+    $('linkedAccountList').querySelectorAll('[data-link]').forEach(button=>button.onclick=async()=>{
+      try{
+        const response=await fetch(`/api/auth/links/${button.dataset.link}/start`,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
+        const result=await response.json();
+        if(!response.ok)throw new Error(result.error||'Could not start account linking.');
+        location.href=result.authorizeUrl;
+      }catch(error){showAccountMessage(error.message)}
+    });
+    $('linkedAccountList').querySelectorAll('[data-unlink]').forEach(button=>button.onclick=async()=>{
+      showConfirm(`Unlink all ${labels[button.dataset.unlink]} sign-in accounts from this MINECORD account?`).then(ok=>{if(!ok)return;});
+      try{
+        const response=await fetch(`/api/auth/links/${button.dataset.unlink}`,{method:'DELETE'});
+        const result=await response.json();
+        if(!response.ok)throw new Error(result.error||'Could not unlink provider.');
+        await refreshAccountSettings();
+      }catch(error){showAccountMessage(error.message)}
+    });
+    ownerSection.hidden=me.role!=='app_owner';
+    if(ownerSection.hidden)return;
+    const usersResponse=await fetch('/api/admin/users');
+    const usersResult=await usersResponse.json();
+    if(!usersResponse.ok)throw new Error(usersResult.error||'Could not load account roles.');
+    $('ownerRoleList').innerHTML=usersResult.users.map(user=>`<div class="row" style="justify-content:space-between;margin:6px 0"><span>${esc(user.username)} · ${esc(user.role)}</span>${user.role==='app_owner'?'':`<select data-role-user="${esc(user.username)}"><option value="member"${user.role==='member'?' selected':''}>Member</option><option value="developer"${user.role==='developer'?' selected':''}>Developer</option></select><button data-save-role="${esc(user.username)}">Save role</button>`}</div>`).join('');
+    $('ownerRoleList').querySelectorAll('[data-save-role]').forEach(button=>button.onclick=async()=>{
+      const username=button.dataset.saveRole;
+      const role=$('ownerRoleList').querySelector(`[data-role-user="${CSS.escape(username)}"]`).value;
+      try{
+        const response=await fetch(`/api/admin/users/${encodeURIComponent(username)}/role`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role})});
+        const result=await response.json();
+        if(!response.ok)throw new Error(result.error||'Could not update account role.');
+        await refreshAccountSettings();
+      }catch(error){showAccountMessage(error.message)}
+    });
+  }
+
+  async function refreshGameLinking() {
+    if (!me) return;
+    showGameLinkingMessage('Loading game linking data…');
+    try {
+      // Fetch game accounts
+      const accountsRes = await fetch('/api/games/accounts');
+      const accountsData = await accountsRes.json();
+      
+      // Fetch game servers
+      const serversRes = await fetch('/api/games/servers');
+      const serversData = await serversRes.json();
+      
+      // Fetch worlds
+      const worldsRes = await fetch('/api/games/worlds/discover');
+      const worldsData = await worldsRes.json();
+
+      // Render game accounts
+      const accounts = accountsData.accounts || [];
+      if (accounts.length > 0) {
+        let accountsHtml = '<h4>Linked Game Accounts</h4>';
+        for (const acc of accounts) {
+          const verified = acc.rawData ? JSON.parse(acc.rawData).verified : false;
+          const editionIcon = acc.edition === 'java' ? '#icon-minecraft' : acc.edition === 'bedrock' ? '#icon-minecraft-bedrock' : '#icon-eaglercraft';
+          const editionLabel = acc.edition === 'java' ? 'Java Edition' : acc.edition === 'bedrock' ? 'Bedrock Edition' : 'Eaglercraft';
+          accountsHtml += `
+            <div class="row" style="justify-content:space-between;margin:8px 0;padding:8px;background:var(--panel);border:1px solid var(--panel-border);border-radius:8px">
+              <div>
+                <svg class="uiIcon" style="width:20px;height:20px;vertical-align:-4px"><use href="${editionIcon}"></use></svg>
+                <strong> ${esc(acc.username)}</strong> (${editionLabel})
+                ${acc.uuid ? `<br><small class="muted">UUID: ${esc(acc.uuid)}</small>` : ''}
+                ${acc.xuid ? `<br><small class="muted">XUID: ${esc(acc.xuid)}</small>` : ''}
+                ${verified ? '<span style="color:var(--green)"> ● Verified</span>' : '<span style="color:var(--yellow)"> ● Unverified</span>'}
+              </div>
+              <button class="danger" data-unlink-game="${acc.edition}">Unlink</button>
+            </div>
+          `;
+        }
+        $('gameAccountsList').innerHTML = accountsHtml;
+        
+        // Add unlink handlers
+        $('gameAccountsList').querySelectorAll('[data-unlink-game]').forEach(btn => {
+          btn.onclick = async () => {
+            const edition = btn.dataset.unlinkGame;
+            try {
+              const response = await fetch('/api/games/accounts/' + edition, { method: 'DELETE' });
+              const result = await response.json();
+              if (!response.ok) throw new Error(result.error || 'Could not unlink account.');
+              me = result.user;
+              renderUser();
+              refreshGameLinking();
+            } catch (error) {
+              showGameLinkingMessage(error.message);
+            }
+          };
+        });
+      } else {
+        $('gameAccountsList').innerHTML = '<p class="muted">No game accounts linked. Use the Minecraft accounts section above to link your profiles.</p>';
+      }
+
+      // Render game servers
+      const servers = serversData.servers || [];
+      if (servers.length > 0) {
+        let serversHtml = '<h4 style="margin-top:16px">Your Servers</h4>';
+        serversHtml += servers.map(s => `
+          <div class="row" style="justify-content:space-between;margin:6px 0;padding:8px;background:var(--panel);border:1px solid var(--panel-border);border-radius:8px">
+            <div>
+              <svg class="uiIcon" style="width:18px;height:18px;vertical-align:-3px"><use href="#icon-server"></use></svg>
+              <strong> ${esc(s.name)}</strong> (${s.edition})
+              <br><small class="muted">${esc(s.address)}${s.port ? ':' + s.port : ''}</small>
+            </div>
+            <div style="display:flex;gap:4px">
+              <button class="secondary" onclick="copyToClipboard('${esc(s.address)}${s.port ? ':' + s.port : ''}', 'Server address copied')"><svg class="uiIcon"><use href="#icon-copy"></use></svg></button>
+              <button class="secondary" onclick="shareWorld('${esc(s.id)}')"><svg class="uiIcon"><use href="#icon-users"></use></svg></button>
+            </div>
+          </div>
+        `).join('');
+        $('gameServersList').innerHTML = serversHtml;
+      } else {
+        $('gameServersList').innerHTML = '<p class="muted" style="margin-top:16px">No servers saved. Add servers from the Worlds tab or Settings.</p>';
+      }
+
+      // Render worlds summary
+      const worlds = worldsData.worlds || [];
+      const myWorlds = worlds.filter(w => w.owner === me.username);
+      const friendsWorlds = worlds.filter(w => w.owner !== me.username);
+      
+      let worldsHtml = '<h4 style="margin-top:16px">Worlds Discovery</h4>';
+      if (myWorlds.length > 0 || friendsWorlds.length > 0) {
+        worldsHtml += `
+          <div class="row" style="gap:16px;margin:8px 0">
+            <div class="muted">My Worlds: <strong>${myWorlds.length}</strong> | Friends' Worlds: <strong>${friendsWorlds.length}</strong></div>
+            <button class="primary" onclick="switchWorldsTab('my');showWorldsPage(true)">Open Worlds</button>
+          </div>
+        `;
+      } else {
+        worldsHtml += '<p class="muted">No worlds discovered yet. Add servers and share with friends to see worlds here.</p>';
+      }
+      $('worldsSummary').innerHTML = worldsHtml;
+      
+      showGameLinkingMessage('');
+      setupMinecraftButtons();
+      
+    } catch (error) {
+      showGameLinkingMessage('Failed to load game linking data: ' + error.message);
+    }
+  }
+
+  // Minecraft linking status handling
+  const query = new URLSearchParams(location.search);
+  const linkMessages = {success:'Account linked successfully.',cancelled:'Account linking was cancelled.',already_linked:'That provider account is linked to a different MINECORD account.',provider_already_linked:'Unlink the existing account from this provider before linking another.',provider_failed:'The identity provider could not complete account linking.'};
+  if(query.has('account_link')||query.has('account_link_error')){
+    show('settingsModal');
+    showAccountMessage(linkMessages[query.get('account_link')]||linkMessages[query.get('account_link_error')]||'Account linking failed.');
+    history.replaceState({},'','/');
+  }
+  
+  // Minecraft/Bedrock linking status
+  const minecraftErrors = {
+    cancelled: 'Minecraft account linking was cancelled.',
+    authorization_failed: 'Microsoft authorization failed. Check the app registration and callback URL.',
+    service_error: 'The identity service returned an invalid response.',
+    no_profile: 'No eligible Minecraft Java profile was found for this Microsoft account.',
+    no_xuid: 'Could not retrieve Xbox ID (XUID).',
+    no_gamertag: 'Could not retrieve Xbox gamertag.',
+    already_linked: 'That account is already linked to another MINECORD account.',
+    link_failed: 'Could not link the account.'
+  };
+  
+  if (query.has('minecraft_link')) {
+    show('settingsModal');
+    window.minecordMinecraftNotice = 'Minecraft Java account linked successfully.';
+    refreshGameLinking();
+    history.replaceState({}, '', '/');
+  } else if (query.has('minecraft_link_error')) {
+    show('settingsModal');
+    window.minecordMinecraftNotice = minecraftErrors[query.get('minecraft_link_error')] || 'Minecraft account linking failed.';
+    history.replaceState({}, '', '/');
+  } else if (query.has('bedrock_link')) {
+    show('settingsModal');
+    window.minecordBedrockNotice = 'Xbox/Bedrock account linked successfully.';
+    refreshGameLinking();
+    history.replaceState({}, '', '/');
+  } else if (query.has('bedrock_link_error')) {
+    show('settingsModal');
+    window.minecordBedrockNotice = minecraftErrors[query.get('bedrock_link_error')] || 'Bedrock account linking failed.';
+    history.replaceState({}, '', '/');
+  }
+
+  $('profileBtn').addEventListener('click', () => {
+    refreshAccountSettings().catch(error => showAccountMessage(error.message));
+    refreshGameLinking();
   });
-  $('linkedAccountList').querySelectorAll('[data-unlink]').forEach(button=>button.onclick=async()=>{
-   if(!confirm(`Unlink all ${labels[button.dataset.unlink]} sign-in accounts from this MINECORD account?`))return;
-   try{
-    const response=await fetch(`/api/auth/links/${button.dataset.unlink}`,{method:'DELETE'});
-    const result=await response.json();
-    if(!response.ok)throw new Error(result.error||'Could not unlink provider.');
-    await refreshAccountSettings();
-   }catch(error){showAccountMessage(error.message)}
-  });
-  ownerSection.hidden=me.role!=='app_owner';
-  if(ownerSection.hidden)return;
-  const usersResponse=await fetch('/api/admin/users');
-  const usersResult=await usersResponse.json();
-  if(!usersResponse.ok)throw new Error(usersResult.error||'Could not load account roles.');
-  $('ownerRoleList').innerHTML=usersResult.users.map(user=>`<div class="row" style="justify-content:space-between;margin:6px 0"><span>${esc(user.username)} · ${esc(user.role)}</span>${user.role==='app_owner'?'':`<select data-role-user="${esc(user.username)}"><option value="member"${user.role==='member'?' selected':''}>Member</option><option value="developer"${user.role==='developer'?' selected':''}>Developer</option></select><button data-save-role="${esc(user.username)}">Save role</button>`}</div>`).join('');
-  $('ownerRoleList').querySelectorAll('[data-save-role]').forEach(button=>button.onclick=async()=>{
-   const username=button.dataset.saveRole;
-   const role=$('ownerRoleList').querySelector(`[data-role-user="${CSS.escape(username)}"]`).value;
-   try{
-    const response=await fetch(`/api/admin/users/${encodeURIComponent(username)}/role`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role})});
-    const result=await response.json();
-    if(!response.ok)throw new Error(result.error||'Could not update account role.');
-    await refreshAccountSettings();
-   }catch(error){showAccountMessage(error.message)}
-  });
- }
- $('profileBtn').addEventListener('click',()=>refreshAccountSettings().catch(error=>showAccountMessage(error.message)));
- const query=new URLSearchParams(location.search);
- const linkMessages={success:'Account linked successfully.',cancelled:'Account linking was cancelled.',already_linked:'That provider account is linked to a different MINECORD account.',provider_already_linked:'Unlink the existing account from this provider before linking another.',provider_failed:'The identity provider could not complete account linking.'};
- if(query.has('account_link')||query.has('account_link_error')){
-  show('settingsModal');
-  showAccountMessage(linkMessages[query.get('account_link')]||linkMessages[query.get('account_link_error')]||'Account linking failed.');
-  history.replaceState({},'','/');
- }
+
+  // Initial load
+  if (me) {
+    refreshAccountSettings();
+    refreshGameLinking();
+  }
 })();
 </script>
+
 <script src="/edition.js"></script>
 <script src="/features.js"></script>
 <script src="/desktop-updater.js"></script>
+<script>
+// ===== Mini-Games Implementation =====
+let currentGame = null;
+let gameLoopId = null;
+
+function switchGameTab(game) {
+  currentGame = game;
+  // Update sidebar tabs
+  ['Flappy', 'Chess', 'Snake'].forEach(g => {
+    const btn = $('gamesTab' + g);
+    if (btn) {
+      btn.classList.toggle('active', g.toLowerCase() === game);
+      btn.style.background = g.toLowerCase() === game ? 'var(--hover)' : '';
+      btn.style.color = g.toLowerCase() === game ? '#fff' : 'var(--muted)';
+    }
+    const drawerBtn = $('drawerGamesTab' + g);
+    if (drawerBtn) {
+      drawerBtn.classList.toggle('active', g.toLowerCase() === game);
+    }
+  });
+  // Update page tabs
+  const pageBtn = $('gameTab' + game.charAt(0).toUpperCase() + game.slice(1));
+  if (pageBtn) {
+    ['Flappy', 'Chess', 'Snake'].forEach(g => {
+      const b = $('gameTab' + g);
+      if (b) {
+        b.classList.toggle('active', g.toLowerCase() === game);
+        b.style.background = g.toLowerCase() === game ? 'var(--hover)' : '';
+        b.style.color = g.toLowerCase() === game ? '#fff' : 'var(--muted)';
+      }
+    });
+  }
+  renderGame(game);
+}
+
+function openGame(game) {
+  showWorldsPage(false);
+  showHome(false);
+  const app = document.querySelector('.app');
+  if (app) app.style.display = 'none';
+  const gamePage = $('gamePage');
+  if (gamePage) {
+    gamePage.style.display = 'flex';
+    gamePage.classList.add('visible');
+    switchGameTab(game);
+  }
+}
+
+function renderGame(game) {
+  const container = $('gameContainer');
+  if (!container) return;
+  
+  if (game === 'flappy') {
+    renderFlappyBird(container);
+  } else if (game === 'chess') {
+    renderChess(container);
+  } else if (game === 'snake') {
+    renderSnake(container);
+  }
+}
+
+let currentGameKeyHandler = null;
+function cleanupGame() {
+  if (gameLoopId) {
+    cancelAnimationFrame(gameLoopId);
+    clearTimeout(gameLoopId);
+    gameLoopId = null;
+  }
+  if (currentGameKeyHandler) {
+    document.removeEventListener('keydown', currentGameKeyHandler);
+    currentGameKeyHandler = null;
+  }
+  currentGame = null;
+}
+
+// ===== Flappy Bird =====
+function renderFlappyBird(container) {
+  cleanupGame();
+  currentGame = 'flappy';
+  container.innerHTML = `
+    <div style="text-align:center;max-width:400px;width:100%">
+      <canvas id="flappyCanvas" width="400" height="600" style="background:#70c5ce;border:2px solid var(--panel-border);border-radius:8px;display:block;margin:0 auto;touch-action:none"></canvas>
+      <div style="margin-top:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+        <button class="primary" id="flappyStart">Start</button>
+        <button class="secondary" id="flappyPause">Pause</button>
+        <div class="muted" style="display:flex;align-items:center;gap:8px">Score: <strong id="flappyScore">0</strong> | Best: <strong id="flappyBest">0</strong></div>
+      </div>
+      <p class="muted" style="margin-top:8px;font-size:12px">Click or press Space to flap. Navigate through pipes!</p>
+    </div>
+  `;
+  
+  const canvas = $('flappyCanvas');
+  const ctx = canvas.getContext('2d');
+  const bestScore = parseInt(localStorage.getItem('flappyBest') || '0');
+  $('flappyBest').textContent = bestScore;
+  
+  // Game state
+  let bird = { x: 80, y: 300, velocity: 0, radius: 15 };
+  let pipes = [];
+  let score = 0;
+  let gameState = 'ready'; // ready, playing, gameover, paused
+  let frameCount = 0;
+  const gravity = 0.5;
+  const jumpForce = -8;
+  const pipeGap = 150;
+  const pipeWidth = 60;
+  const pipeSpeed = 3;
+  const pipeSpawnInterval = 120;
+  
+  function resetGame() {
+    bird = { x: 80, y: 300, velocity: 0, radius: 15 };
+    pipes = [];
+    score = 0;
+    frameCount = 0;
+    gameState = 'ready';
+    $('flappyScore').textContent = '0';
+  }
+  
+  function spawnPipe() {
+    const minHeight = 50;
+    const maxHeight = canvas.height - pipeGap - minHeight;
+    const topHeight = Math.random() * (maxHeight - minHeight) + minHeight;
+    pipes.push({
+      x: canvas.width,
+      topHeight: topHeight,
+      bottomY: topHeight + pipeGap,
+      passed: false
+    });
+  }
+  
+  function update() {
+    if (gameState !== 'playing') return;
+    
+    frameCount++;
+    
+    // Bird physics
+    bird.velocity += gravity;
+    bird.y += bird.velocity;
+    
+    // Pipe spawning
+    if (frameCount % pipeSpawnInterval === 0) {
+      spawnPipe();
+    }
+    
+    // Pipe movement and collision
+    for (let i = pipes.length - 1; i >= 0; i--) {
+      const pipe = pipes[i];
+      pipe.x -= pipeSpeed;
+      
+      // Score
+      if (!pipe.passed && pipe.x + pipeWidth < bird.x) {
+        pipe.passed = true;
+        score++;
+        $('flappyScore').textContent = score;
+        if (score > bestScore) {
+          localStorage.setItem('flappyBest', score);
+          $('flappyBest').textContent = score;
+        }
+      }
+      
+      // Collision detection
+      const birdLeft = bird.x - bird.radius;
+      const birdRight = bird.x + bird.radius;
+      const birdTop = bird.y - bird.radius;
+      const birdBottom = bird.y + bird.radius;
+      
+      if (birdRight > pipe.x && birdLeft < pipe.x + pipeWidth) {
+        if (birdTop < pipe.topHeight || birdBottom > pipe.bottomY) {
+          gameOver();
+          return;
+        }
+      }
+      
+      // Remove off-screen pipes
+      if (pipe.x + pipeWidth < 0) {
+        pipes.splice(i, 1);
+      }
+    }
+    
+    // Boundary collision
+    if (bird.y - bird.radius < 0 || bird.y + bird.radius > canvas.height) {
+      gameOver();
+    }
+  }
+  
+  function gameOver() {
+    gameState = 'gameover';
+    if (gameLoopId) {
+      cancelAnimationFrame(gameLoopId);
+      clearTimeout(gameLoopId);
+      gameLoopId = null;
+    }
+    showAlert('Game Over! Score: ' + score);
+    resetGame();
+    draw();
+  }
+  
+  function draw() {
+    // Clear
+    ctx.fillStyle = '#70c5ce';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Draw pipes
+    ctx.fillStyle = '#2ecc71';
+    for (const pipe of pipes) {
+      // Top pipe
+      ctx.fillRect(pipe.x, 0, pipeWidth, pipe.topHeight);
+      // Bottom pipe
+      ctx.fillRect(pipe.x, pipe.bottomY, pipeWidth, canvas.height - pipe.bottomY);
+      
+      // Pipe caps
+      ctx.fillRect(pipe.x - 5, pipe.topHeight - 20, pipeWidth + 10, 20);
+      ctx.fillRect(pipe.x - 5, pipe.bottomY, pipeWidth + 10, 20);
+    }
+    
+    // Draw bird
+    ctx.fillStyle = '#f1c40f';
+    ctx.beginPath();
+    ctx.arc(bird.x, bird.y, bird.radius, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Bird eye
+    ctx.fillStyle = '#2c3e50';
+    ctx.beginPath();
+    ctx.arc(bird.x + 5, bird.y - 3, 4, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Draw "Get Ready" text
+    if (gameState === 'ready') {
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.font = 'bold 30px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('Click to Start', canvas.width / 2, canvas.height / 2);
+    } else if (gameState === 'paused') {
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.font = 'bold 30px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('Paused', canvas.width / 2, canvas.height / 2);
+    }
+  }
+  
+  function gameLoop() {
+    update();
+    draw();
+    if (gameState === 'playing') {
+      gameLoopId = requestAnimationFrame(gameLoop);
+    }
+  }
+  
+  // Event handlers
+  function flap() {
+    if (gameState === 'ready') {
+      gameState = 'playing';
+      gameLoop();
+    } else if (gameState === 'playing') {
+      bird.velocity = jumpForce;
+    }
+  }
+  
+  canvas.addEventListener('click', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    // Only flap if clicking on canvas
+    if (e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) {
+      flap();
+    }
+  });
+  
+  currentGameKeyHandler = (e) => {
+    if (currentGame === 'flappy' && (e.code === 'Space' || e.key === ' ')) {
+      e.preventDefault();
+      flap();
+    }
+  };
+  document.addEventListener('keydown', currentGameKeyHandler);
+  
+  $('flappyStart').onclick = () => {
+    if (gameState === 'ready' || gameState === 'gameover') {
+      resetGame();
+      gameState = 'playing';
+      gameLoop();
+    } else if (gameState === 'paused') {
+      gameState = 'playing';
+      gameLoop();
+    }
+  };
+  
+  $('flappyPause').onclick = () => {
+    if (gameState === 'playing') {
+      gameState = 'paused';
+      if (gameLoopId) {
+        cancelAnimationFrame(gameLoopId);
+        clearTimeout(gameLoopId);
+        gameLoopId = null;
+      }
+      draw();
+    }
+  };
+  
+  // Initial draw
+  draw();
+}
+
+// ===== Chess =====
+function renderChess(container) {
+  cleanupGame();
+  currentGame = 'chess';
+  container.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;gap:12px;max-width:500px;width:100%">
+      <div style="display:flex;justify-content:space-between;width:100%;max-width:480px">
+        <div style="font-weight:600">White: <span id="chessWhiteTime">10:00</span></div>
+        <div style="font-weight:600">Black: <span id="chessBlackTime">10:00</span></div>
+      </div>
+      <canvas id="chessCanvas" width="480" height="480" style="background:#2c3e50;border:2px solid var(--panel-border);border-radius:8px;display:block;margin:0 auto;touch-action:none"></canvas>
+      <div style="margin-top:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+        <button class="primary" id="chessNewGame">New Game</button>
+        <button class="secondary" id="chessUndo">Undo</button>
+        <button class="secondary" id="chessFlip">Flip Board</button>
+        <div class="muted" style="display:flex;align-items:center;gap:8px">Status: <strong id="chessStatus">White to move</strong></div>
+      </div>
+      <p class="muted" style="margin-top:8px;font-size:12px;max-width:480px">Click a piece to select, then click destination to move. Supports basic moves, captures, castling, and pawn promotion.</p>
+    </div>
+  `;
+  
+  const canvas = $('chessCanvas');
+  const ctx = canvas.getContext('2d');
+  const squareSize = 60;
+  
+  // Chess board state
+  let board = [
+    ['br','bn','bb','bq','bk','bb','bn','br'],
+    ['bp','bp','bp','bp','bp','bp','bp','bp'],
+    [null,null,null,null,null,null,null,null],
+    [null,null,null,null,null,null,null,null],
+    [null,null,null,null,null,null,null,null],
+    [null,null,null,null,null,null,null,null],
+    ['wp','wp','wp','wp','wp','wp','wp','wp'],
+    ['wr','wn','wb','wq','wk','wb','wn','wr']
+  ];
+  
+  let selectedSquare = null;
+  let currentTurn = 'w';
+  let boardFlipped = false;
+  let moveHistory = [];
+  let whiteTime = 600; // 10 minutes
+  let blackTime = 600;
+  let lastTime = Date.now();
+  let timersRunning = false;
+  
+  // Piece symbols
+  const pieceSymbols = {
+    'wp': '♙', 'wr': '♖', 'wn': '♘', 'wb': '♗', 'wq': '♕', 'wk': '♔',
+    'bp': '♟', 'br': '♜', 'bn': '♞', 'bb': '♝', 'bq': '♛', 'bk': '♚'
+  };
+  
+  function getSquareFromCoords(x, y) {
+    const col = boardFlipped ? 7 - Math.floor(x / squareSize) : Math.floor(x / squareSize);
+    const row = boardFlipped ? Math.floor(y / squareSize) : 7 - Math.floor(y / squareSize);
+    if (col < 0 || col > 7 || row < 0 || row > 7) return null;
+    return { row, col };
+  }
+  
+  function getCoordsFromSquare(row, col) {
+    const x = boardFlipped ? (7 - col) * squareSize : col * squareSize;
+    const y = boardFlipped ? row * squareSize : (7 - row) * squareSize;
+    return { x, y };
+  }
+  
+  function isValidMove(piece, fromRow, fromCol, toRow, toCol) {
+    const target = board[toRow][toCol];
+    const color = piece[0];
+    const type = piece[1];
+    
+    // Can't capture own piece
+    if (target && target[0] === color) return false;
+    
+    const dr = toRow - fromRow;
+    const dc = toCol - fromCol;
+    const absDr = Math.abs(dr);
+    const absDc = Math.abs(dc);
+    
+    // Pawn
+    if (type === 'p') {
+      const dir = color === 'w' ? -1 : 1;
+      const startRow = color === 'w' ? 6 : 1;
+      
+      // Forward move
+      if (dc === 0) {
+        if (dr === dir && !target) return true;
+        if (fromRow === startRow && dr === 2 * dir && !board[fromRow + dir][fromCol] && !target) return true;
+      }
+      // Capture
+      if (absDc === 1 && dr === dir && target && target[0] !== color) return true;
+      // En passant (simplified - not fully implemented)
+      return false;
+    }
+    
+    // Rook
+    if (type === 'r') {
+      if (dr === 0 || dc === 0) {
+        const stepR = dr === 0 ? 0 : (dr > 0 ? 1 : -1);
+        const stepC = dc === 0 ? 0 : (dc > 0 ? 1 : -1);
+        let r = fromRow + stepR, c = fromCol + stepC;
+        while (r !== toRow || c !== toCol) {
+          if (board[r][c]) return false;
+          r += stepR; c += stepC;
+        }
+        return true;
+      }
+      return false;
+    }
+    
+    // Bishop
+    if (type === 'b') {
+      if (absDr === absDc) {
+        const stepR = dr > 0 ? 1 : -1;
+        const stepC = dc > 0 ? 1 : -1;
+        let r = fromRow + stepR, c = fromCol + stepC;
+        while (r !== toRow || c !== toCol) {
+          if (board[r][c]) return false;
+          r += stepR; c += stepC;
+        }
+        return true;
+      }
+      return false;
+    }
+    
+    // Queen
+    if (type === 'q') {
+      if (dr === 0 || dc === 0 || absDr === absDc) {
+        const stepR = dr === 0 ? 0 : (dr > 0 ? 1 : -1);
+        const stepC = dc === 0 ? 0 : (dc > 0 ? 1 : -1);
+        let r = fromRow + stepR, c = fromCol + stepC;
+        while (r !== toRow || c !== toCol) {
+          if (board[r][c]) return false;
+          r += stepR; c += stepC;
+        }
+        return true;
+      }
+      return false;
+    }
+    
+    // King
+    if (type === 'k') {
+      if (absDr <= 1 && absDc <= 1) return true;
+      // Castling (simplified)
+      return false;
+    }
+    
+    // Knight
+    if (type === 'n') {
+      return (absDr === 2 && absDc === 1) || (absDr === 1 && absDc === 2);
+    }
+    
+    return false;
+  }
+  
+  function makeMove(fromRow, fromCol, toRow, toCol) {
+    const piece = board[fromRow][fromCol];
+    const target = board[toRow][toCol];
+    
+    // Save for undo
+    moveHistory.push({
+      board: board.map(row => [...row]),
+      fromRow, fromCol, toRow, toCol,
+      captured: target,
+      turn: currentTurn
+    });
+    
+    board[toRow][toCol] = piece;
+    board[fromRow][fromCol] = null;
+    
+    // Pawn promotion
+    if (piece[1] === 'p' && (toRow === 0 || toRow === 7)) {
+      board[toRow][toCol] = piece[0] + 'q';
+    }
+    
+    currentTurn = currentTurn === 'w' ? 'b' : 'w';
+    updateStatus();
+    draw();
+  }
+  
+  function undoMove() {
+    if (moveHistory.length === 0) return;
+    const last = moveHistory.pop();
+    board = last.board.map(row => [...row]);
+    currentTurn = last.turn;
+    updateStatus();
+    draw();
+  }
+  
+  function updateStatus() {
+    const statusEl = $('chessStatus');
+    if (statusEl) {
+      statusEl.textContent = (currentTurn === 'w' ? 'White' : 'Black') + ' to move';
+    }
+  }
+  
+  function draw() {
+    // Draw board
+    for (let row = 0; row < 8; row++) {
+      for (let col = 0; col < 8; col++) {
+        const { x, y } = getCoordsFromSquare(row, col);
+        const isLight = (row + col) % 2 === 0;
+        ctx.fillStyle = isLight ? '#f0d9b5' : '#b58863';
+        ctx.fillRect(x, y, squareSize, squareSize);
+        
+        // Highlight selected
+        if (selectedSquare && selectedSquare.row === row && selectedSquare.col === col) {
+          ctx.fillStyle = 'rgba(88, 101, 242, 0.4)';
+          ctx.fillRect(x, y, squareSize, squareSize);
+        }
+        
+        // Highlight valid moves
+        if (selectedSquare) {
+          const piece = board[selectedSquare.row][selectedSquare.col];
+          if (piece && isValidMove(piece, selectedSquare.row, selectedSquare.col, row, col)) {
+            ctx.fillStyle = 'rgba(35, 165, 89, 0.3)';
+            ctx.beginPath();
+            ctx.arc(x + squareSize/2, y + squareSize/2, 10, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        
+        // Draw piece
+        const piece = board[row][col];
+        if (piece) {
+          ctx.font = '48px Arial';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillStyle = piece[0] === 'w' ? '#fff' : '#000';
+          ctx.fillText(pieceSymbols[piece], x + squareSize/2, y + squareSize/2 + 4);
+        }
+      }
+      
+      // Coordinates
+      ctx.font = '10px Arial';
+      ctx.fillStyle = '#666';
+      for (let i = 0; i < 8; i++) {
+        const file = boardFlipped ? String.fromCharCode(97 + 7 - i) : String.fromCharCode(97 + i);
+        const rank = boardFlipped ? (i + 1) : (8 - i);
+        const { x: fx, y: fy } = getCoordsFromSquare(boardFlipped ? 7 : 0, i);
+        ctx.fillText(file, fx + squareSize/2, fy + squareSize - 4);
+        const { x: rx, y: ry } = getCoordsFromSquare(boardFlipped ? i : 7-i, boardFlipped ? 7 : 0);
+        ctx.fillText(rank, rx + 4, ry + squareSize/2 + 4);
+      }
+    }
+  }
+  
+  function gameLoop() {
+    if (!timersRunning) return;
+    const now = Date.now();
+    const delta = (now - lastTime) / 1000;
+    lastTime = now;
+    
+    if (currentTurn === 'w') {
+      whiteTime -= delta;
+      if (whiteTime <= 0) whiteTime = 0;
+    } else {
+      blackTime -= delta;
+      if (blackTime <= 0) blackTime = 0;
+    }
+    
+    updateTimers();
+    if (whiteTime > 0 && blackTime > 0) {
+      gameLoopId = requestAnimationFrame(gameLoop);
+    }
+  }
+  
+  function updateTimers() {
+    const format = (t) => {
+      const m = Math.floor(Math.max(0, t) / 60);
+      const s = Math.floor(Math.max(0, t) % 60);
+      return `${m}:${s.toString().padStart(2, '0')}`;
+    };
+    const wt = $('chessWhiteTime');
+    const bt = $('chessBlackTime');
+    if (wt) wt.textContent = format(whiteTime);
+    if (bt) bt.textContent = format(blackTime);
+  }
+  
+  // Event handlers
+  canvas.addEventListener('click', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const square = getSquareFromCoords(x, y);
+    if (!square) return;
+    
+    const { row, col } = square;
+    const piece = board[row][col];
+    
+    if (selectedSquare) {
+      if (selectedSquare.row === row && selectedSquare.col === col) {
+        selectedSquare = null;
+      } else if (piece && piece[0] === currentTurn) {
+        selectedSquare = { row, col };
+      } else if (isValidMove(board[selectedSquare.row][selectedSquare.col], selectedSquare.row, selectedSquare.col, row, col)) {
+        makeMove(selectedSquare.row, selectedSquare.col, row, col);
+        selectedSquare = null;
+      } else {
+        selectedSquare = null;
+      }
+    } else if (piece && piece[0] === currentTurn) {
+      selectedSquare = { row, col };
+    }
+    draw();
+  });
+  
+  $('chessNewGame').onclick = () => {
+    board = [
+      ['br','bn','bb','bq','bk','bb','bn','br'],
+      ['bp','bp','bp','bp','bp','bp','bp','bp'],
+      [null,null,null,null,null,null,null,null],
+      [null,null,null,null,null,null,null,null],
+      [null,null,null,null,null,null,null,null],
+      [null,null,null,null,null,null,null,null],
+      ['wp','wp','wp','wp','wp','wp','wp','wp'],
+      ['wr','wn','wb','wq','wk','wb','wn','wr']
+    ];
+    selectedSquare = null;
+    currentTurn = 'w';
+    moveHistory = [];
+    whiteTime = 600;
+    blackTime = 600;
+    timersRunning = true;
+    lastTime = Date.now();
+    updateStatus();
+    updateTimers();
+    gameLoopId = requestAnimationFrame(gameLoop);
+    draw();
+  };
+  
+  $('chessUndo').onclick = () => {
+    if (moveHistory.length > 0) {
+      undoMove();
+    }
+  };
+  
+  $('chessFlip').onclick = () => {
+    boardFlipped = !boardFlipped;
+    draw();
+  };
+  
+  // Start game
+  timersRunning = true;
+  lastTime = Date.now();
+  updateStatus();
+  updateTimers();
+  gameLoopId = requestAnimationFrame(gameLoop);
+  draw();
+}
+
+// ===== Snake =====
+function renderSnake(container) {
+  cleanupGame();
+  currentGame = 'snake';
+  container.innerHTML = `
+    <div style="text-align:center;max-width:400px;width:100%">
+      <canvas id="snakeCanvas" width="400" height="400" style="background:#1a1a2e;border:2px solid var(--panel-border);border-radius:8px;display:block;margin:0 auto;touch-action:none"></canvas>
+      <div style="margin-top:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+        <button class="primary" id="snakeStart">Start</button>
+        <button class="secondary" id="snakePause">Pause</button>
+        <div class="muted" style="display:flex;align-items:center;gap:8px">Score: <strong id="snakeScore">0</strong> | Best: <strong id="snakeBest">0</strong></div>
+      </div>
+      <p class="muted" style="margin-top:8px;font-size:12px">Use arrow keys or WASD to move. Eat food to grow!</p>
+    </div>
+  `;
+  
+  const canvas = $('snakeCanvas');
+  const ctx = canvas.getContext('2d');
+  const gridSize = 20;
+  const tileCount = canvas.width / gridSize;
+  
+  let snake = [{ x: 10, y: 10 }];
+  let food = { x: 15, y: 15 };
+  let dx = 0, dy = 0;
+  let score = 0;
+  let gameState = 'ready';
+  let gameSpeed = 100;
+  const bestScore = parseInt(localStorage.getItem('snakeBest') || '0');
+  $('snakeBest').textContent = bestScore;
+  
+  function resetGame() {
+    snake = [{ x: 10, y: 10 }];
+    food = { x: 15, y: 15 };
+    dx = 0; dy = 0;
+    score = 0;
+    gameState = 'ready';
+    $('snakeScore').textContent = '0';
+  }
+  
+  function spawnFood() {
+    food = {
+      x: Math.floor(Math.random() * tileCount),
+      y: Math.floor(Math.random() * tileCount)
+    };
+    // Make sure food doesn't spawn on snake
+    for (const segment of snake) {
+      if (segment.x === food.x && segment.y === food.y) {
+        spawnFood();
+        return;
+      }
+    }
+  }
+  
+  function update() {
+    if (gameState !== 'playing') return;
+    
+    const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+    
+    // Wall collision
+    if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount) {
+      gameOver();
+      return;
+    }
+    
+    // Self collision
+    for (const segment of snake) {
+      if (segment.x === head.x && segment.y === head.y) {
+        gameOver();
+        return;
+      }
+    }
+    
+    snake.unshift(head);
+    
+    // Food collision
+    if (head.x === food.x && head.y === food.y) {
+      score++;
+      $('snakeScore').textContent = score;
+      if (score > bestScore) {
+        localStorage.setItem('snakeBest', score);
+        $('snakeBest').textContent = score;
+      }
+      spawnFood();
+    } else {
+      snake.pop();
+    }
+  }
+  
+  function gameOver() {
+    gameState = 'gameover';
+    if (gameLoopId) {
+      cancelAnimationFrame(gameLoopId);
+      clearTimeout(gameLoopId);
+      gameLoopId = null;
+    }
+    showAlert('Game Over! Score: ' + score);
+    resetGame();
+    draw();
+  }
+  
+  function draw() {
+    // Clear
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Grid lines (subtle)
+    ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= tileCount; i++) {
+      ctx.beginPath();
+      ctx.moveTo(i * gridSize, 0);
+      ctx.lineTo(i * gridSize, canvas.height);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, i * gridSize);
+      ctx.lineTo(canvas.width, i * gridSize);
+      ctx.stroke();
+    }
+    
+    // Draw food
+    ctx.fillStyle = '#e74c3c';
+    ctx.fillRect(food.x * gridSize + 2, food.y * gridSize + 2, gridSize - 4, gridSize - 4);
+    
+    // Draw snake
+    for (let i = 0; i < snake.length; i++) {
+      const segment = snake[i];
+      const isHead = i === 0;
+      ctx.fillStyle = isHead ? '#2ecc71' : '#27ae60';
+      ctx.fillRect(segment.x * gridSize + 1, segment.y * gridSize + 1, gridSize - 2, gridSize - 2);
+      
+      // Head eyes
+      if (isHead) {
+        ctx.fillStyle = '#fff';
+        const eyeSize = 3;
+        const eyeOffset = 5;
+        if (dx === 1) { // Right
+          ctx.fillRect(segment.x * gridSize + gridSize - eyeOffset, segment.y * gridSize + eyeOffset, eyeSize, eyeSize);
+          ctx.fillRect(segment.x * gridSize + gridSize - eyeOffset, segment.y * gridSize + gridSize - eyeOffset - eyeSize, eyeSize, eyeSize);
+        } else if (dx === -1) { // Left
+          ctx.fillRect(segment.x * gridSize + eyeOffset - eyeSize, segment.y * gridSize + eyeOffset, eyeSize, eyeSize);
+          ctx.fillRect(segment.x * gridSize + eyeOffset - eyeSize, segment.y * gridSize + gridSize - eyeOffset - eyeSize, eyeSize, eyeSize);
+        } else if (dy === 1) { // Down
+          ctx.fillRect(segment.x * gridSize + eyeOffset, segment.y * gridSize + gridSize - eyeOffset, eyeSize, eyeSize);
+          ctx.fillRect(segment.x * gridSize + gridSize - eyeOffset - eyeSize, segment.y * gridSize + gridSize - eyeOffset, eyeSize, eyeSize);
+        } else { // Up
+          ctx.fillRect(segment.x * gridSize + eyeOffset, segment.y * gridSize + eyeOffset - eyeSize, eyeSize, eyeSize);
+          ctx.fillRect(segment.x * gridSize + gridSize - eyeOffset - eyeSize, segment.y * gridSize + eyeOffset - eyeSize, eyeSize, eyeSize);
+        }
+      }
+    }
+    
+    // Draw "Get Ready" text
+    if (gameState === 'ready') {
+      ctx.fillStyle = 'rgba(255,255,255,0.7)';
+      ctx.font = 'bold 24px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('Press Arrow Key to Start', canvas.width / 2, canvas.height / 2);
+    } else if (gameState === 'paused') {
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 30px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('Paused', canvas.width / 2, canvas.height / 2);
+    }
+  }
+  
+  function gameLoop() {
+    update();
+    draw();
+    if (gameState === 'playing') {
+      gameLoopId = setTimeout(gameLoop, gameSpeed);
+    }
+  }
+  
+  // Event handlers
+  currentGameKeyHandler = (e) => {
+    if (currentGame !== 'snake') return;
+    
+    const key = e.key;
+    const directionKey = key === 'ArrowUp' || key === 'ArrowDown' || key === 'ArrowLeft' || key === 'ArrowRight' || key === 'w' || key === 'a' || key === 's' || key === 'd';
+    if (gameState === 'ready' && directionKey) {
+      // Apply the chosen direction before the first tick so the snake does not self-collide.
+      if ((key === 'ArrowUp' || key === 'w') && dy !== 1) { dx = 0; dy = -1; }
+      else if ((key === 'ArrowDown' || key === 's') && dy !== -1) { dx = 0; dy = 1; }
+      else if ((key === 'ArrowLeft' || key === 'a') && dx !== 1) { dx = -1; dy = 0; }
+      else if ((key === 'ArrowRight' || key === 'd') && dx !== -1) { dx = 1; dy = 0; }
+      if (dx === 0 && dy === 0) { dx = 1; dy = 0; }
+      gameState = 'playing';
+      gameLoop();
+      return;
+    }
+    
+    if (gameState !== 'playing') return;
+    
+    // Prevent reverse direction
+    if ((key === 'ArrowUp' || key === 'w') && dy !== 1) { dx = 0; dy = -1; }
+    else if ((key === 'ArrowDown' || key === 's') && dy !== -1) { dx = 0; dy = 1; }
+    else if ((key === 'ArrowLeft' || key === 'a') && dx !== 1) { dx = -1; dy = 0; }
+    else if ((key === 'ArrowRight' || key === 'd') && dx !== -1) { dx = 1; dy = 0; }
+  };
+  document.addEventListener('keydown', currentGameKeyHandler);
+  
+  $('snakeStart').onclick = () => {
+    if (gameState === 'ready' || gameState === 'gameover') {
+      resetGame();
+      gameState = 'playing';
+      // Start moving right by default
+      dx = 1; dy = 0;
+      gameLoop();
+    } else if (gameState === 'paused') {
+      gameState = 'playing';
+      gameLoop();
+    }
+  };
+  
+  $('snakePause').onclick = () => {
+    if (gameState === 'playing') {
+      gameState = 'paused';
+      if (gameLoopId) {
+        cancelAnimationFrame(gameLoopId);
+        clearTimeout(gameLoopId);
+        gameLoopId = null;
+      }
+      draw();
+    }
+  };
+  
+  draw();
+}
+
+// Close game page handler
+function closeGamePage() {
+  const gamePage = $('gamePage');
+  if (gamePage) {
+    gamePage.style.display = 'none';
+    gamePage.classList.remove('visible');
+  }
+  cleanupGame();
+  const app = document.querySelector('.app');
+  if (app) app.style.display = 'grid';
+  const homePage = $('homePage');
+  if (homePage) {
+    homePage.style.display = 'none';
+    homePage.classList.remove('visible');
+    homePage.classList.add('hidden');
+  }
+  homeVisible = false;
+}
+
+// ===== NEW: Home Page Functions =====
+function showHome(on) {
+  homeVisible = on;
+  $('homePage').classList.toggle('visible', on);
+  $('homePage').classList.toggle('hidden', !on);
+  const app = document.querySelector('.app');
+  if (app) {
+    app.style.display = on ? 'none' : 'grid';
+  }
+  const homePage = $('homePage');
+  if (homePage) {
+    homePage.style.display = on ? 'flex' : 'none';
+  }
+  if (on) {
+    renderHomeServers();
+    renderFeaturedContent();
+    updateSeasonalBanner();
+  }
+}
+
+function promptNewDM(){showPrompt('MINECORD username?','New DM',{placeholder:'Enter username',required:true}).then(n=>{if(n)openDM(n)})}
+function promptAddFriend(){showPrompt('Friend username?','Add Friend',{placeholder:'Enter username',required:true}).then(n=>{if(n)send({type:'friend_request',to:n})})}
+function selectFirstServer(){if(!servers.length){showHome(false);return document.getElementById('newServer').click()}showHome(false);selectServer(servers[0].id)}
+function selectFirstVoiceChannel(){showHome(false);const server=servers.find(s=>s.channels?.some(c=>c.type==='voice'));if(!server)return showAlert('Create a voice channel in one of your servers first.','Voice');const channel=server.channels.find(c=>c.type==='voice');selectServer(server.id);selectChannel(channel.id)}
+function renderHomeServers() {
+  const list = $('homeServerList');
+  if (!list) return;
+  if (!servers.length) {
+    list.innerHTML = '<li style="padding:16px;text-align:center;color:var(--muted)">No servers yet. Click "Add Server" in the sidebar to create one!</li>';
+    return;
+  }
+  list.innerHTML = servers.map(s => `<li onclick="showHome(false);selectServer('${s.id}')"><div class="serverAvatar">${esc(s.name[0].toUpperCase())}</div><div class="serverInfo"><div class="serverName">${esc(s.name)}</div><div class="serverMeta">${s.channels?.length||0} channels · ${s.members?.length||0} members</div></div></li>`).join('');
+}
+
+function renderFeaturedContent() {
+  const grid = $('featuredGrid');
+  if (!grid) return;
+  grid.innerHTML = featuredContent.map(item => `<article class="featuredCard"><div class="featuredImage"><svg class="uiIcon" style="width:64px;height:64px"><use href="#icon-${item.icon}"></use></svg></div><div class="featuredBody"><h4 class="featuredTitle">${esc(item.title)}</h4><p class="muted" style="font-size:13px;margin:0 0 8px;line-height:1.5">${esc(item.desc)}</p><div class="featuredMeta"><span><svg class="uiIcon" style="width:14px;height:14px"><use href="#icon-${item.type==='server'?'server-crown':item.type==='guide'?'calendar':item.type==='app'?'eaglercraft':'minecraft'}"></use></svg> ${esc(item.type.charAt(0).toUpperCase()+item.type.slice(1))}</span></div><div class="featuredTags">${item.tags.map(t=>`<span class="featuredTag">${esc(t)}</span>`).join('')}</div></div></article>`).join('');
+}
+
+function updateSeasonalBanner() {
+  const now = new Date();
+  const month = now.getMonth();
+  const activeEvent = seasonalEvents.find(e => {
+    const [start] = e.period.split(' - ');
+    return e.type === 'event' && (month === 11 || month === 0); // Dec/Jan
+  });
+  if (activeEvent) {
+    const banner = $('seasonalBanner');
+    if (banner) {
+      banner.style.display = 'block';
+      $('seasonalTitle').textContent = activeEvent.title;
+      $('seasonalDesc').textContent = activeEvent.desc;
+    }
+  }
+  renderSeasonalEvents();
+}
+
+function renderSeasonalEvents() {
+  const now = Date.now();
+  const active = seasonalEvents.filter(e => {
+    const [start, end] = e.period.split(' - ');
+    return true; // Show all for now
+  });
+  const upcoming = seasonalEvents.filter(e => !active.includes(e));
+  
+  const activeHtml = active.map(e => `<div class="seasonalEvent"><div class="eventIcon"><svg class="uiIcon" style="width:24px;height:24px"><use href="#icon-${e.icon}"></use></svg></div><div class="eventDetails"><h4 class="eventTitle">${esc(e.title)}</h4><p class="eventDesc">${esc(e.desc)}</p><div class="eventMeta"><span><svg class="uiIcon" style="width:12px;height:12px"><use href="#icon-calendar"></use></svg> ${esc(e.period)}</span><span><svg class="uiIcon" style="width:12px;height:12px"><use href="#icon-${e.type==='contest'?'gift':'calendar'}"></use></svg> ${esc(e.type.charAt(0).toUpperCase()+e.type.slice(1))}</span></div></div></div>`).join('');
+  
+  const upcomingHtml = upcoming.map(e => `<div class="seasonalEvent" style="opacity:0.7"><div class="eventIcon"><svg class="uiIcon" style="width:24px;height:24px"><use href="#icon-${e.icon}"></use></svg></div><div class="eventDetails"><h4 class="eventTitle">${esc(e.title)}</h4><p class="eventDesc">${esc(e.desc)}</p><div class="eventMeta"><span><svg class="uiIcon" style="width:12px;height:12px"><use href="#icon-calendar"></use></svg> ${esc(e.period)}</span><span><svg class="uiIcon" style="width:12px;height:12px"><use href="#icon-${e.type==='contest'?'gift':'calendar'}"></use></svg> ${esc(e.type.charAt(0).toUpperCase()+e.type.slice(1))}</span></div></div></div>`).join('');
+  
+  const list = $('seasonalEventsList');
+  if (list) list.innerHTML = activeHtml + upcomingHtml || '<div class="muted" style="padding:16px">No seasonal events at this time.</div>';
+}
+
+function scrollToSeasonalEvents() {
+  const list = $('seasonalEventsList');
+  if (list) list.scrollIntoView({ behavior: 'smooth' });
+}
+
+// ===== NEW: Drawer Functions =====
+function openDrawer(side) {
+  closeDrawer(side === 'side' ? 'right' : 'side');
+  const overlay = $(side === 'side' ? 'sideDrawerOverlay' : 'rightDrawerOverlay');
+  const drawer = $(side === 'side' ? 'sideDrawer' : 'rightDrawer');
+  if (overlay && drawer) {
+    overlay.classList.add('open');
+    drawer.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+}
+
+function closeDrawer(side) {
+  const overlay = $(side === 'side' ? 'sideDrawerOverlay' : 'rightDrawerOverlay');
+  const drawer = $(side === 'side' ? 'sideDrawer' : 'rightDrawer');
+  if (overlay && drawer) {
+    overlay.classList.remove('open');
+    drawer.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+}
+
+// ===== NEW: Featured & Seasonal Content =====
+const featuredContent = [
+  {title:'Minecraft Java Edition Server List',desc:'Discover the best Java Edition servers curated by the community. Survival, Creative, Minigames, and more.',type:'server',tags:['Java','Survival','Creative'],icon:'server-crown'},
+  {title:'Bedrock Cross-Play Guide',desc:'How to play with friends across Xbox, PlayStation, Switch, Mobile, and Windows 10/11.',type:'guide',tags:['Bedrock','Cross-Play'],icon:'minecraft-bedrock'},
+  {title:'Eaglercraft Browser Client',desc:'Play Minecraft in your browser - no install needed. Works on Chromebooks, school computers, and more.',type:'app',tags:['Browser','Free'],icon:'eaglercraft'},
+  {title:'Resource Pack Showcase',desc:'Top rated texture packs and resource packs for Java and Bedrock. HD, PvP, Faithful, and more.',type:'content',tags:['Resource Packs','Java','Bedrock'],icon:'minecraft'},
+  {title:'Redstone Tutorial Series',desc:'Learn redstone from basics to advanced. Build farms, doors, computers, and flying machines.',type:'guide',tags:['Redstone','Tutorial'],icon:'minecraft'},
+  {title:'Modded Minecraft Starter Pack',desc:'Best modpacks for beginners. Forge, Fabric, and Neoforge modloaders explained.',type:'guide',tags:['Mods','Forge','Fabric'],icon:'minecraft'}
+];
+
+const seasonalEvents = [
+  {title:'Winter Festival 2024',desc:'Celebrate the season with exclusive cosmetics, snow-themed maps, and daily login rewards!',icon:'snowflake',period:'Dec 15 - Jan 15',type:'event'},
+  {title:'New Year Countdown',desc:'Join the global countdown event with fireworks, party games, and a special midnight surprise.',icon:'sparkles',period:'Dec 31 - Jan 1',type:'event'},
+  {title:'Spring Building Contest',desc:'Build the best spring-themed creation. Winners get exclusive cosmetics and Discord roles.',icon:'gift',period:'Mar 1 - Mar 31',type:'contest'},
+  {title:'Minecraft Live Viewing Party',desc:'Watch Minecraft Live together in voice chat. React to announcements and win prizes!',icon:'calendar',period:'Oct 2025 (TBA)',type:'event'}
+];
+
+// ===== NEW: Drawer Overlay HTML =====
+document.body.insertAdjacentHTML('beforeend', `
+<div class="drawerOverlay" id="sideDrawerOverlay" onclick="closeDrawer('side')"></div>
+<aside class="sideDrawer" id="sideDrawer" role="dialog" aria-label="Servers and channels">
+  <div class="drawerHeader">
+    <span class="section"><svg class="uiIcon"><use href="#icon-server"></use></svg> SERVERS</span>
+    <button class="drawerClose" onclick="closeDrawer('side')" aria-label="Close"><svg class="uiIcon"><use href="#icon-close"></use></svg></button>
+  </div>
+  <div class="side" style="flex:1;overflow:auto">
+    <div id="drawerServers"></div>
+    <div class="section">CHANNELS</div>
+    <div id="drawerChannels" class="nav"></div>
+    <div class="nav"><div class="navItem" id="drawerHomeNav" role="button" tabindex="0" onclick="showHome(true)"><svg class="uiIcon"><use href="#icon-home"></use></svg> Home</div></div>
+    <div class="section">DIRECT MESSAGES</div>
+    <div id="drawerDms" class="nav"></div>
+    <div class="section">FRIENDS</div>
+    <div class="nav"><div class="navItem" id="drawerAddFriend"><svg class="uiIcon"><use href="#icon-add"></use></svg> Add Friend</div></div>
+    <div id="drawerFriendList" class="nav" aria-label="Friends"></div>
+    <div class="section">GAMES</div>
+    <div class="nav"><div class="navItem" id="drawerGamesTabFlappy" data-game="flappy" onclick="openGame('flappy')"><svg class="uiIcon"><use href="#icon-activity"></use></svg> Flappy Bird</div><div class="navItem" id="drawerGamesTabChess" data-game="chess" onclick="openGame('chess')"><svg class="uiIcon"><use href="#icon-users"></use></svg> Chess</div><div class="navItem" id="drawerGamesTabSnake" data-game="snake" onclick="openGame('snake')"><svg class="uiIcon"><use href="#icon-activity"></use></svg> Snake</div></div>
+    <div id="drawerGamesList" class="nav"></div>
+    <div class="section">WORLDS</div>
+    <div class="nav"><div class="navItem" id="drawerWorldsTabMy" data-tab="my" onclick="switchWorldsTab('my')"><svg class="uiIcon"><use href="#icon-server"></use></svg> My Worlds</div><div class="navItem" id="drawerWorldsTabFriends" data-tab="friends" onclick="switchWorldsTab('friends')"><svg class="uiIcon"><use href="#icon-users"></use></svg> Friends' Worlds</div></div>
+    <div id="drawerWorldsList" class="nav"></div>
+    <div class="section">SHOP</div>
+    <div class="nav"><div class="navItem" id="drawerShopNav" onclick="document.getElementById('shopNav')?.click()"><svg class="uiIcon"><use href="#icon-shop"></use></svg> Shop</div></div>
+  </div>
+</aside>
+
+<div class="drawerOverlay" id="rightDrawerOverlay" onclick="closeDrawer('right')"></div>
+<aside class="rightDrawer" id="rightDrawer" role="dialog" aria-label="Members and activity">
+  <div class="drawerHeader">
+    <span class="section"><svg class="uiIcon"><use href="#icon-user"></use></svg> MEMBERS</span>
+    <button class="drawerClose" onclick="closeDrawer('right')" aria-label="Close"><svg class="uiIcon"><use href="#icon-close"></use></svg></button>
+  </div>
+  <div class="right" style="flex:1;overflow:auto">
+    <div id="drawerPeople" class="people"></div>
+    <div class="rightHead">ACTIVITY</div>
+    <div id="drawerActivityList" class="people"></div>
+  </div>
+</aside>
+`);
+
+// ===== Override renderAll to show home page first =====
+const originalRenderAll = renderAll;
+renderAll = function() {
+  renderUser();
+  renderServers();
+  renderPeople();
+  renderDMs();
+  renderActivities();
+  renderHomeServers();
+  renderFeaturedContent();
+  updateSeasonalBanner();
+  showHome(true);
+  if (!currentServer && servers[0]) {
+    selectServer(servers[0].id);
+    showHome(false);
+  }
+}
+
+// ===== NEW: Featured Content Rendering =====
+function renderFeaturedContent() {
+  const grid = $('featuredGrid');
+  if (!grid) return;
+  grid.innerHTML = featuredContent.map(item => `<article class="featuredCard"><div class="featuredImage"><svg class="uiIcon" style="width:64px;height:64px"><use href="#icon-${item.icon}"></use></svg></div><div class="featuredBody"><h4 class="featuredTitle">${esc(item.title)}</h4><p class="muted" style="font-size:13px;margin:0 0 8px;line-height:1.5">${esc(item.desc)}</p><div class="featuredMeta"><span><svg class="uiIcon" style="width:14px;height:14px"><use href="#icon-${item.type==='server'?'server-crown':item.type==='guide'?'calendar':item.type==='app'?'eaglercraft':'minecraft'}"></use></svg> ${esc(item.type.charAt(0).toUpperCase()+item.type.slice(1))}</span></div><div class="featuredTags">${item.tags.map(t=>`<span class="featuredTag">${esc(t)}</span>`).join('')}</div></div></article>`).join('');
+}
+
+function updateSeasonalBanner() {
+  const now = new Date();
+  const month = now.getMonth();
+  const activeEvent = seasonalEvents.find(e => {
+    const [start] = e.period.split(' - ');
+    return e.type === 'event' && (month === 11 || month === 0);
+  });
+  if (activeEvent) {
+    const banner = $('seasonalBanner');
+    if (banner) {
+      banner.style.display = 'block';
+      $('seasonalTitle').textContent = activeEvent.title;
+      $('seasonalDesc').textContent = activeEvent.desc;
+    }
+  }
+  renderSeasonalEvents();
+}
+
+function renderSeasonalEvents() {
+  const now = Date.now();
+  const active = seasonalEvents.filter(e => {
+    const [start, end] = e.period.split(' - ');
+    return true; // Show all for now
+  });
+  const upcoming = seasonalEvents.filter(e => !active.includes(e));
+  
+  const activeHtml = active.map(e => `<div class="seasonalEvent"><div class="eventIcon"><svg class="uiIcon" style="width:24px;height:24px"><use href="#icon-${e.icon}"></use></svg></div><div class="eventDetails"><h4 class="eventTitle">${esc(e.title)}</h4><p class="eventDesc">${esc(e.desc)}</p><div class="eventMeta"><span><svg class="uiIcon" style="width:12px;height:12px"><use href="#icon-calendar"></use></svg> ${esc(e.period)}</span><span><svg class="uiIcon" style="width:12px;height:12px"><use href="#icon-${e.type==='contest'?'gift':'calendar'}"></use></svg> ${esc(e.type.charAt(0).toUpperCase()+e.type.slice(1))}</span></div></div></div>`).join('');
+  
+  const upcomingHtml = upcoming.map(e => `<div class="seasonalEvent" style="opacity:0.7"><div class="eventIcon"><svg class="uiIcon" style="width:24px;height:24px"><use href="#icon-${e.icon}"></use></svg></div><div class="eventDetails"><h4 class="eventTitle">${esc(e.title)}</h4><p class="eventDesc">${esc(e.desc)}</p><div class="eventMeta"><span><svg class="uiIcon" style="width:12px;height:12px"><use href="#icon-calendar"></use></svg> ${esc(e.period)}</span><span><svg class="uiIcon" style="width:12px;height:12px"><use href="#icon-${e.type==='contest'?'gift':'calendar'}"></use></svg> ${esc(e.type.charAt(0).toUpperCase()+e.type.slice(1))}</span></div></div></div>`).join('');
+  
+  const list = $('seasonalEventsList');
+  if (list) list.innerHTML = activeHtml + upcomingHtml || '<div class="muted" style="padding:16px">No seasonal events at this time.</div>';
+}
+
+function updateSeasonalBanner() {
+  const now = new Date();
+  const month = now.getMonth();
+  const activeEvent = seasonalEvents.find(e => {
+    const [start] = e.period.split(' - ');
+    return e.type === 'event' && (month === 11 || month === 0);
+  });
+  if (activeEvent) {
+    const banner = $('seasonalBanner');
+    if (banner) {
+      banner.style.display = 'block';
+      $('seasonalTitle').textContent = activeEvent.title;
+      $('seasonalDesc').textContent = activeEvent.desc;
+    }
+  }
+  renderSeasonalEvents();
+}
+
+function scrollToSeasonalEvents() {
+  const list = $('seasonalEventsList');
+  if (list) list.scrollIntoView({ behavior: 'smooth' });
+}
+
+// ===== Drawer Functions =====
+function openDrawer(side) {
+  closeDrawer(side === 'side' ? 'right' : 'side');
+  const overlay = $(side === 'side' ? 'sideDrawerOverlay' : 'rightDrawerOverlay');
+  const drawer = $(side === 'side' ? 'sideDrawer' : 'rightDrawer');
+  if (overlay && drawer) {
+    overlay.classList.add('open');
+    drawer.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+}
+
+function closeDrawer(side) {
+  const overlay = $(side === 'side' ? 'sideDrawerOverlay' : 'rightDrawerOverlay');
+  const drawer = $(side === 'side' ? 'sideDrawer' : 'rightDrawer');
+  if (overlay && drawer) {
+    overlay.classList.remove('open');
+    drawer.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+}
+
+// ===== Close game page handler =====
+function closeGamePage() {
+  const gamePage = $('gamePage');
+  if (gamePage) {
+    gamePage.style.display = 'none';
+    gamePage.classList.remove('visible');
+  }
+  cleanupGame();
+  const app = document.querySelector('.app');
+  if (app) app.style.display = 'grid';
+  const homePage = $('homePage');
+  if (homePage) {
+    homePage.style.display = 'none';
+    homePage.classList.remove('visible');
+    homePage.classList.add('hidden');
+  }
+  homeVisible = false;
+}
+
+// ===== NEW: Custom Modal System =====
+let activeModal = null;
+
+function showModal(contentHtml, options = {}) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modalOverlay';
+  overlay.innerHTML = `
+    <div class="modalCard" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modalHeader">
+        <h3 id="modalTitle">${esc(options.title || '')}</h3>
+        <button class="modalClose" aria-label="Close">&times;</button>
+      </div>
+      <div class="modalBody">${contentHtml}</div>
+      <div class="modalFooter">${options.footerHtml || ''}</div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  activeModal = overlay;
+  
+  // Force reflow before opening
+  overlay.offsetHeight;
+  overlay.classList.add('open');
+  
+  // Focus trap
+  const closeBtn = overlay.querySelector('.modalClose');
+  const card = overlay.querySelector('.modalCard');
+  
+  const closeNow = () => {
+    overlay.classList.remove('open');
+    overlay.addEventListener('transitionend', () => {
+      if (overlay.parentNode) overlay.remove();
+      if (activeModal === overlay) activeModal = null;
+    }, { once: true });
+  };
+  const close = () => {
+    closeNow();
+    if (options.onClose) options.onClose(false);
+  };
+  
+  closeBtn.onclick = close;
+  overlay.onclick = (e) => { if (e.target === overlay) close(); };
+  
+  // Handle escape key
+  const onKeyDown = (e) => {
+    if (e.key === 'Escape' && activeModal === overlay) close();
+  };
+  document.addEventListener('keydown', onKeyDown);
+  overlay.addEventListener('transitionend', () => {
+    if (!overlay.classList.contains('open')) {
+      document.removeEventListener('keydown', onKeyDown);
+    }
+  });
+  
+  return {
+    close,
+    closeNow,
+    card,
+    overlay,
+    promise: new Promise((resolve) => {
+      overlay._resolve = resolve;
+    })
+  };
+}
+
+function showConfirm(message, title = 'Confirm', options = {}) {
+  const confirmHtml = `
+    <p style="margin:0 0 16px;font-size:14px;line-height:1.5">${esc(message)}</p>
+  `;
+  const footerHtml = `
+    <button class="secondary" data-action="cancel">${esc(options.cancelText || 'Cancel')}</button>
+    <button class="primary" data-action="confirm">${esc(options.confirmText || 'Confirm')}</button>
+  `;
+  
+  return new Promise((resolve) => {
+    const modal = showModal(confirmHtml, {
+      title,
+      footerHtml,
+      onClose: (result) => resolve(result)
+    });
+    
+    modal.card.querySelector('[data-action="confirm"]').onclick = () => {
+      modal.closeNow();
+      resolve(true);
+    };
+    modal.card.querySelector('[data-action="cancel"]').onclick = () => {
+      modal.closeNow();
+      resolve(false);
+    };
+  });
+}
+
+function showPrompt(message, title = 'Enter value', options = {}) {
+  const inputId = 'modalPromptInput';
+  const promptHtml = `
+    <p style="margin:0 0 16px;font-size:14px;line-height:1.5">${esc(message)}</p>
+    <label class="modalLabel" for="${inputId}">${esc(options.label || 'Value')}</label>
+    <input type="${options.type || 'text'}" id="${inputId}" class="modalInput" placeholder="${esc(options.placeholder || '')}" value="${esc(options.value || '')}" autocomplete="${options.autocomplete || 'off'}">
+  `;
+  const footerHtml = `
+    <button class="secondary" data-action="cancel">${esc(options.cancelText || 'Cancel')}</button>
+    <button class="primary" data-action="confirm">${esc(options.confirmText || 'OK')}</button>
+  `;
+  
+  return new Promise((resolve) => {
+    const modal = showModal(promptHtml, {
+      title,
+      footerHtml,
+      onClose: (result) => resolve(result)
+    });
+    
+    const input = modal.card.querySelector(`#${inputId}`);
+    setTimeout(() => input.focus(), 100);
+    
+    const handleConfirm = () => {
+      const value = input.value.trim();
+      if (options.required && !value) {
+        input.style.borderColor = 'var(--red)';
+        return;
+      }
+      modal.closeNow();
+      resolve(value);
+    };
+    
+    modal.card.querySelector('[data-action="confirm"]').onclick = handleConfirm;
+    modal.card.querySelector('[data-action="cancel"]').onclick = () => {
+      modal.closeNow();
+      resolve(null);
+    };
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleConfirm();
+      else if (e.key === 'Escape') { modal.closeNow(); resolve(null); }
+    });
+  });
+}
+
+function showAlert(message, title = 'Notice') {
+  const alertHtml = `<p style="margin:0;font-size:14px;line-height:1.5">${esc(message)}</p>`;
+  const footerHtml = `<button class="primary" data-action="ok">${esc('OK')}</button>`;
+  
+  return new Promise((resolve) => {
+    const modal = showModal(alertHtml, {
+      title,
+      footerHtml,
+      onClose: () => resolve()
+    });
+    modal.card.querySelector('[data-action="ok"]').onclick = () => {
+      modal.closeNow();
+      resolve();
+    };
+  });
+}
+
+function showError(message, title = 'Error') {
+  return showAlert(message, title);
+}
+
+// Override window.alert, window.confirm, window.prompt for backward compatibility
+// Note: These are async so they can't fully replace sync versions
+// but we can provide async versions
+window.showConfirm = showConfirm;
+window.showPrompt = showPrompt;
+window.showAlert = showAlert;
+window.modalPrompt = showPrompt;
+window.modalConfirm = showConfirm;
+
+// Wrap the final renderer implementations (some are redefined by later scripts)
+// so the mobile drawers always mirror the desktop sidebars.
+(function wrapRenderers(){
+  const names=['renderServers','renderChannels','renderDMs','renderPeople','renderActivities','renderFriends','renderWorlds'];
+  for(const name of names){
+    const original=window[name];
+    if(typeof original!=='function'||original.__drawerWrapped)continue;
+    const wrapped=function(...args){
+      const result=original.apply(this,args);
+      const sync=()=>{try{syncDrawers()}catch(error){console.warn('Drawer sync failed:',error.message)}};
+      if(result&&typeof result.then==='function')result.then(sync,sync);else sync();
+      return result;
+    };
+    wrapped.__drawerWrapped=true;
+    window[name]=wrapped;
+  }
+  for(const id of ['drawerPeople','drawerFriendList']){
+    const node=$(id);
+    if(node)node.addEventListener('click',event=>{
+      const row=event.target.closest('[data-user]');
+      if(row&&row.dataset.user)openDM(row.dataset.user);
+    });
+  }
+  for(const [id,side] of [['sideDrawer','side'],['rightDrawer','right']]){
+    const drawer=$(id);
+    if(drawer)drawer.addEventListener('click',event=>{
+      if(event.target.closest('.drawerClose'))return;
+      if(event.target.closest('.navItem,.serverIcon,[data-user]'))closeDrawer(side);
+    });
+  }
+  syncDrawers();
+})();
+</script>
+<script>
+// ===== Settings: game accounts, saved servers, and linked sign-in providers =====
+(function () {
+  async function api(url, options = {}) {
+    const response = await fetch(url, {
+      headers: { 'Content-Type': 'application/json' },
+      ...options
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || `Request failed (${response.status}).`);
+    return result;
+  }
+
+  let cachedServers = [];
+
+  function serverRow(server) {
+    const target = server.port ? `${server.address}:${server.port}` : server.address;
+    return `<div class="shopRow" style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)">
+      <div style="flex:1;min-width:0"><b style="display:block;overflow:hidden;text-overflow:ellipsis">${esc(server.name)}</b><small class="muted">${esc(target)}</small></div>
+      <button type="button" data-game-join="${esc(server.id)}">Join</button>
+      <button type="button" class="danger" data-game-delete="${esc(server.id)}">Delete</button>
+    </div>`;
+  }
+
+  async function loadAccountLinks() {
+    const data = await api('/api/auth/links');
+    const container = $('linkedAccountList');
+    if (!container) return;
+    const accounts = data.accounts || [];
+    container.innerHTML = accounts.length
+      ? accounts.map(account => `<div class="shopRow" style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)"><div style="flex:1"><b>${esc(account.provider)}</b><small class="muted" style="display:block">Linked sign-in provider</small></div><button type="button" class="danger" data-unlink="${esc(account.provider)}">Unlink</button></div>`).join('')
+      : '<span class="muted">No linked sign-in providers.</span>';
+    $('minecraftLinkStatus').textContent = accounts.some(account => account.provider === 'microsoft')
+      ? 'Microsoft account linked.'
+      : 'Microsoft account not linked.';
+  }
+
+  async function loadGameSettings() {
+    try {
+      const [accountsResult, serversResult] = await Promise.all([
+        api('/api/games/accounts'),
+        api('/api/games/servers')
+      ]);
+      cachedServers = serversResult.servers || [];
+      const accounts = accountsResult.accounts || [];
+      const java = accounts.find(account => account.edition === 'java');
+      const bedrock = accounts.find(account => account.edition === 'bedrock');
+      $('javaAccountStatus').textContent = java
+        ? `Linked as ${java.username}${java.uuid ? ` · ${java.uuid}` : ''}`
+        : 'No Java account linked yet.';
+      $('bedrockAccountStatus').textContent = bedrock
+        ? `Linked as ${bedrock.username}${bedrock.xuid ? ` · XUID ${bedrock.xuid}` : ''}`
+        : 'No Bedrock account linked yet.';
+      const javaServers = cachedServers.filter(server => server.edition === 'java');
+      const bedrockServers = cachedServers.filter(server => server.edition === 'bedrock');
+      $('javaServerList').innerHTML = javaServers.length ? javaServers.map(serverRow).join('') : '<span class="muted">No saved servers</span>';
+      $('bedrockServerList').innerHTML = bedrockServers.length ? bedrockServers.map(serverRow).join('') : '<span class="muted">No saved servers</span>';
+      const linksResult = await api('/api/games/eaglercraft/links');
+      $('eaglerLinkList').innerHTML = (linksResult.links || []).length
+        ? linksResult.links.map(link => `<div class="shopRow" style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)"><div style="flex:1;min-width:0"><b style="display:block;word-break:break-all">${esc(link.url)}</b><small class="muted">${link.validated ? 'Verified' : 'Not verified'}</small></div><button type="button" class="danger" data-eagler-delete="${esc(link.url)}">Remove</button></div>`).join('')
+        : '<span class="muted">No Eaglercraft links saved.</span>';
+      await loadAccountLinks();
+      $('gameLinkingStatus').textContent = '';
+    } catch (error) {
+      $('gameLinkingStatus').textContent = error.message;
+    }
+  }
+
+  async function addGameServer(edition) {
+    const name = await showPrompt('Server name?', `Add ${edition} server`, { required: true });
+    if (!name) return;
+    const address = await showPrompt('Server address (host or host:port)', `Add ${edition} server`, { placeholder: 'play.example.com:25565', required: true });
+    if (!address) return;
+    try {
+      await api('/api/games/servers', { method: 'POST', body: JSON.stringify({ edition, name, address }) });
+      await loadGameSettings();
+    } catch (error) {
+      showAlert(error.message, 'Could not add server');
+    }
+  }
+
+  function bind(id, event, handler) {
+    const node = $(id);
+    if (node) node[event] = handler;
+  }
+
+  bind('linkJavaAccount', 'onclick', async () => {
+    const username = $('mcJavaName').value.trim();
+    try {
+      await api('/api/games/accounts/java', {
+        method: 'POST',
+        body: JSON.stringify({ username, uuid: $('mcJavaUuid').value.trim() })
+      });
+      $('javaAccountStatus').textContent = `Linked as ${username}`;
+      await loadGameSettings();
+    } catch (error) {
+      $('javaAccountStatus').textContent = error.message;
+    }
+  });
+
+  bind('linkBedrockAccount', 'onclick', async () => {
+    const username = $('mcBedrockName').value.trim();
+    try {
+      await api('/api/games/accounts/bedrock', {
+        method: 'POST',
+        body: JSON.stringify({ username, xuid: $('mcBedrockXuid').value.trim() })
+      });
+      $('bedrockAccountStatus').textContent = `Linked as ${username}`;
+      await loadGameSettings();
+    } catch (error) {
+      $('bedrockAccountStatus').textContent = error.message;
+    }
+  });
+
+  bind('addJavaServer', 'onclick', () => addGameServer('java'));
+  bind('addBedrockServer', 'onclick', () => addGameServer('bedrock'));
+
+  bind('addEaglerLink', 'onclick', async () => {
+    const url = await showPrompt('Eaglercraft URL (HTTPS only)', 'Add Eaglercraft link', { placeholder: 'https://example.com/client/', required: true });
+    if (!url) return;
+    try {
+      await api('/api/games/eaglercraft/links', { method: 'POST', body: JSON.stringify({ url }) });
+      $('eaglerStatus').textContent = 'Eaglercraft link saved.';
+      await loadGameSettings();
+    } catch (error) {
+      $('eaglerStatus').textContent = error.message;
+    }
+  });
+
+  bind('saveEaglerUrl', 'onclick', async () => {
+    const url = $('eaglerUrl').value.trim();
+    if (!url) {
+      $('eaglerStatus').textContent = 'Enter an Eaglercraft URL first.';
+      return;
+    }
+    try {
+      await api('/api/games/eaglercraft/links', { method: 'POST', body: JSON.stringify({ url }) });
+      $('eaglerUrl').value = '';
+      $('eaglerStatus').textContent = 'Eaglercraft link saved.';
+      await loadGameSettings();
+    } catch (error) {
+      $('eaglerStatus').textContent = error.message;
+    }
+  });
+
+  bind('minecraftLinkButton', 'onclick', async () => {
+    try {
+      const result = await api('/api/auth/links/microsoft/start', { method: 'POST' });
+      location.href = result.authorizeUrl;
+    } catch (error) {
+      $('minecraftLinkStatus').textContent = error.message;
+    }
+  });
+
+  bind('bedrockLinkButton', 'onclick', async () => {
+    try {
+      const result = await api('/api/auth/links/microsoft/start', { method: 'POST' });
+      location.href = result.authorizeUrl;
+    } catch (error) {
+      $('gameLinkingStatus').textContent = error.message;
+    }
+  });
+
+  bind('minecraftUnlinkButton', 'onclick', () => unlinkProvider('microsoft'));
+  bind('bedrockUnlinkButton', 'onclick', () => unlinkProvider('microsoft'));
+
+  async function unlinkProvider(provider) {
+    const confirmed = await showConfirm(`Unlink the ${provider} sign-in provider?`, 'Unlink provider');
+    if (!confirmed) return;
+    try {
+      await api(`/api/auth/links/${provider}`, { method: 'DELETE' });
+      await loadGameSettings();
+    } catch (error) {
+      $('accountLinkError').textContent = error.message;
+    }
+  }
+
+  const settingsModal = $('settingsModal');
+  if (settingsModal) {
+    settingsModal.addEventListener('click', async event => {
+      const join = event.target.closest('[data-game-join]');
+      const remove = event.target.closest('[data-game-delete]');
+      const eaglerRemove = event.target.closest('[data-eagler-delete]');
+      const unlink = event.target.closest('[data-unlink]');
+      try {
+        if (join) {
+          const result = await api(`/api/games/servers/${encodeURIComponent(join.dataset.gameJoin)}/join`);
+          const info = result.joinInfo || {};
+          showAlert(`${info.instructions || 'Connect to this server.'}\n\n${info.connectString || info.address || ''}`, 'Join server');
+        } else if (remove) {
+          const server = cachedServers.find(entry => entry.id === remove.dataset.gameDelete);
+          if (!server) return;
+          const ok = await showConfirm(`Delete ${server.name}?`, 'Delete saved server');
+          if (!ok) return;
+          await api(`/api/games/servers/${encodeURIComponent(server.id)}`, { method: 'DELETE' });
+          await loadGameSettings();
+        } else if (eaglerRemove) {
+          await api('/api/games/eaglercraft/links', { method: 'DELETE', body: JSON.stringify({ url: eaglerRemove.dataset.eaglerDelete }) });
+          await loadGameSettings();
+        } else if (unlink) {
+          await unlinkProvider(unlink.dataset.unlink);
+        }
+      } catch (error) {
+        $('gameLinkingStatus').textContent = error.message;
+      }
+    });
+  }
+
+  window.loadGameSettings = loadGameSettings;
+  setTimeout(loadGameSettings, 1200);
+})();
+</script>
 </body></html>

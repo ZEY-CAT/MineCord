@@ -1,0 +1,194 @@
+<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MINECORD — Minecraft Chat, Servers & Voice</title><link rel="icon" href="/favicon.ico" sizes="any"><link rel="icon" href="/icons/icon-192.png" sizes="192x192" type="image/png"><link rel="icon" href="/icons/icon-512.png" sizes="512x512" type="image/png"><link rel="apple-touch-icon" href="/icons/icon-192.png"><link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#5865f2"><meta name="description" content="Minecraft-themed private friends chat with accounts, servers, channels, DMs and WebRTC voice."><meta name="viewport" content="width=device-width,initial-scale=1"><title>MINECORD — Minecraft Chat, Servers & Voice</title><style>
+@font-face{font-family:'VT323';src:url('/fonts/vt323.ttf') format('truetype');font-style:normal;font-weight:400;font-display:swap;unicode-range:U+0020-007F,U+00A0-00FF}
+@font-face{font-family:'IBM Plex Sans';src:url('/fonts/ibm-plex-sans-regular.ttf') format('truetype');font-style:normal;font-weight:400;font-display:swap}
+@font-face{font-family:'IBM Plex Sans';src:url('/fonts/ibm-plex-sans-medium.ttf') format('truetype');font-style:normal;font-weight:500;font-display:swap}
+@font-face{font-family:'IBM Plex Sans';src:url('/fonts/ibm-plex-sans-semibold.ttf') format('truetype');font-style:normal;font-weight:600;font-display:swap}
+:root{
+  --font-minecraft:'VT323',ui-monospace,"Cascadia Mono",Consolas,monospace;
+  --font-ui:'IBM Plex Sans',system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --font-mono:ui-monospace,"Cascadia Mono",Consolas,monospace;
+  color:#f2f4f7;background:#313338;font-size:16px;font-family:var(--font-ui);
+  --side:#1e1f22;--rail:#111214;--hover:#35373c;--line:#202225;--muted:#b5bac1;
+  --blue:#5865f2;--green:#23a559;--red:#da373c;--yellow:#faa61a;
+  --panel:#1e1f22;--panel-border:#202225;--input-bg:#2a2c31;--input-border:#3e4147
+}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:#313338;overflow-x:hidden}
+a{color:var(--blue);text-decoration:none}
+a:hover{text-decoration:underline}
+button{font:inherit;font-family:var(--font-ui)}
+img{max-width:100%;height:auto;display:block}
+.container{max-width:1100px;margin:0 auto;padding:0 24px}
+.section{padding:80px 0}
+.section.hero{min-height:90vh;display:flex;align-items:center;justify-content:center;text-align:center;position:relative;overflow:hidden}
+.section.hero::before{content:'';position:absolute;inset:0;background:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400"><rect x="50" y="50" width="300" height="300" fill="none" stroke="%235865f2" stroke-width="1" opacity="0.05"/><rect x="100" y="100" width="200" height="200" fill="none" stroke="%2323a559" stroke-width="1" opacity="0.05"/><rect x="150" y="150" width="100" height="100" fill="none" stroke="%23faa61a" stroke-width="1" opacity="0.05"/></svg>') center/cover;pointer-events:none;z-index:0}
+.section.hero > *{position:relative;z-index:1}
+.section.features{background:linear-gradient(180deg,rgba(24,25,28,0) 0%,#313338 100%)}
+.section.download{background:#1e1f22;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.section.webapp{background:#313338}
+h1,h2,h3{font-family:var(--font-minecraft);margin:0;font-weight:400;letter-spacing:1px}
+h1{font-size:clamp(40px,8vw,80px);line-height:1.1}
+h2{font-size:clamp(28px,5vw,42px);margin-bottom:16px}
+h3{font-size:20px;margin-bottom:12px}
+p.lead{font-size:clamp(18px,2.5vw,22px);color:var(--muted);max-width:700px;margin:0 auto 32px;line-height:1.6}
+p{color:var(--muted);line-height:1.7}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;padding:16px 32px;border-radius:10px;font-weight:600;font-size:16px;cursor:pointer;transition:transform 0.1s ease,background 0.15s ease,box-shadow 0.15s ease;border:0;white-space:nowrap}
+.btn:active{transform:scale(0.98)}
+.btn.primary{background:var(--blue);color:#fff;box-shadow:0 4px 20px rgba(88,101,242,0.3)}
+.btn.primary:hover{background:#4a54e0;box-shadow:0 6px 28px rgba(88,101,242,0.4)}
+.btn.secondary{background:transparent;color:var(--muted);border:2px solid var(--line)}
+.btn.secondary:hover{background:var(--hover);border-color:var(--blue);color:#fff}
+.btn.large{padding:20px 40px;font-size:18px}
+.btn svg{width:24px;height:24px;flex:none}
+.hero-brand{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:16px}
+.hero-brand svg.brand-icon{width:64px;height:64px;color:var(--blue);filter:drop-shadow(0 8px 24px rgba(88,101,242,0.3))}
+.hero-tagline{font-size:14px;color:var(--yellow);text-transform:uppercase;letter-spacing:4px;margin-bottom:8px;font-weight:600;font-family:var(--font-minecraft)}
+.features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px;margin-top:48px}
+.feature-card{background:var(--panel);border:1px solid var(--panel-border);border-radius:16px;padding:32px;transition:transform 0.2s ease,box-shadow 0.2s ease,background 0.2s ease}
+.feature-card:hover{transform:translateY(-4px);box-shadow:0 20px 40px rgba(0,0,0,0.4);border-color:var(--blue)}
+.feature-icon{width:48px;height:48px;background:rgba(88,101,242,0.15);border-radius:12px;display:grid;place-items:center;margin-bottom:16px;color:var(--blue)}
+.feature-icon svg{width:28px;height:28px}
+.feature-card h3{color:#fff}
+.feature-card p{font-size:15px}
+.platforms{display:flex;flex-wrap:wrap;justify-content:center;gap:16px;margin-top:32px}
+.platform-badge{display:inline-flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--panel-border);border-radius:999px;padding:12px 20px;font-weight:500;transition:border-color 0.15s ease}
+.platform-badge:hover{border-color:var(--blue)}
+.platform-badge svg{width:22px;height:22px;color:var(--blue)}
+.download-section{text-align:center}
+.download-links{display:flex;flex-wrap:wrap;justify-content:center;gap:16px;margin-top:24px}
+.download-link{display:inline-flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--panel-border);border-radius:12px;padding:14px 24px;color:#fff;font-weight:500;transition:all 0.15s ease}
+.download-link:hover{background:var(--hover);border-color:var(--blue);color:#fff;text-decoration:none}
+.download-link svg{width:20px;height:20px}
+.webapp-link{display:inline-flex;align-items:center;justify-content:center;gap:12px;margin-top:16px;padding:18px 36px;background:transparent;color:var(--muted);border:2px dashed var(--line);border-radius:12px;font-weight:600;font-size:17px;font-family:var(--font-minecraft);letter-spacing:1px;transition:all 0.15s ease;text-decoration:none}
+.webapp-link:hover{background:rgba(88,101,242,0.1);border-color:var(--blue);border-style:solid;color:var(--blue);text-decoration:none}
+.webapp-link svg{width:24px;height:24px}
+.footer{padding:48px 24px;border-top:1px solid var(--line);text-align:center;color:var(--muted);font-size:14px}
+.footer-links{display:flex;flex-wrap:wrap;justify-content:center;gap:24px;margin-bottom:16px}
+.footer-links a{color:var(--muted);text-decoration:none;font-size:14px}
+.footer-links a:hover{color:var(--blue)}
+@media(max-width:640px){
+  .section{padding:60px 0}
+  .container{padding:0 16px}
+  .btn.large{width:100%}
+  .platform-badge{width:100%;justify-content:center}
+  .download-link{width:100%;justify-content:center}
+  .webapp-link{width:100%}
+  .features-grid{grid-template-columns:1fr}
+}
+</style><svg class="iconSprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+<symbol id="icon-minecraft" viewBox="0 0 24 24"><path d="M3 6 12 2l9 4v12l-9 4-9-4z"/><path d="m3 6 9 4 9-4M12 10v12" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="m6 7 2.5-1.2 2.5 1.1v2l-2.5-1L6 9z" stroke="none"/></symbol>
+<symbol id="icon-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="12" y1="15" x2="12" y2="3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+<symbol id="icon-arrow-right" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><polyline points="12 5 19 12 12 19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="icon-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><line x1="2" y1="12" x2="22" y2="12" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+<symbol id="icon-server" viewBox="0 0 24 24"><path d="M4 4h16v6H4zM4 14h16v6H4z"/><path d="M7 7h.01M7 17h.01M11 7h6M11 17h6" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+<symbol id="icon-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+<symbol id="icon-mic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4m-4 0h8" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+<symbol id="icon-users" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+<symbol id="icon-code" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6" fill="none" stroke="currentColor" stroke-width="2"/><polyline points="8 6 2 12 8 18" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+<symbol id="icon-arrow-up-right" viewBox="0 0 24 24"><line x1="18" y1="5" x2="5" y2="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><polyline points="5 5 18 5 5 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+<symbol id="icon-external-link" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9" fill="none" stroke="currentColor" stroke-width="2"/><line x1="10" y1="14" x2="21" y2="3" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+</svg>
+</head><body>
+<header class="section hero">
+  <div class="container">
+    <span class="hero-tagline">Minecraft-focused social platform</span>
+    <div class="hero-brand">
+      <svg class="brand-icon" aria-hidden="true"><use href="#icon-minecraft"></use></svg>
+      <h1>MINECORD</h1>
+    </div>
+    <p class="lead">Friends, servers, DMs, and voice chat — built for Minecraft players. Lightweight, secure, and open.</p>
+    <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:16px;margin-top:8px">
+      <a class="btn primary large" href="/download">
+        <svg class="uiIcon" aria-hidden="true"><use href="#icon-download"></use></svg>
+        <span>Download Now</span>
+      </a>
+      <a class="btn secondary large" href="/app">
+        <svg class="uiIcon" aria-hidden="true"><use href="#icon-globe"></use></svg>
+        <span>Open Web App</span>
+      </a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="section features">
+    <div class="container">
+      <h2 style="text-align:center">Everything you need</h2>
+      <p style="text-align:center;max-width:600px;margin:0 auto 48px">MINECORD combines the best of Minecraft social features into one platform.</p>
+      <div class="features-grid">
+        <article class="feature-card">
+          <div class="feature-icon"><svg class="uiIcon" aria-hidden="true"><use href="#icon-server"></use></svg></div>
+          <h3>Servers & Channels</h3>
+          <p>Create and join servers with text and voice channels. Invite friends with one-click codes. Full role and permission system.</        </article>
+        <article class="feature-card">
+          <div class="feature-icon"><svg class="uiIcon" aria-hidden="true"><use href="#icon-users"></use></svg></div>
+          <h3>Friends & DMs</h3>
+          <p>Add friends, start direct messages, create group chats. See who's online and what they're playing.</        </article>
+        <article class="feature-card">
+          <div class="feature-icon"><svg class="uiIcon" aria-hidden="true"><use href="#icon-mic"></use></svg></div>
+          <h3>WebRTC Voice Chat</h3>
+          <p>Low-latency voice with TURN relay fallback. Push-to-talk, noise suppression, and per-user volume.</        </article>
+        <article class="feature-card">
+          <div class="feature-icon"><svg class="uiIcon" aria-hidden="true"><use href="#icon-shield"></use></svg></div>
+          <h3>Secure & Private</h3>
+          <p>End-to-end encrypted DMs, minisign-verified updates, no tracking. Your data stays yours.</        </article>
+        <article class="feature-card">
+          <div class="feature-icon"><svg class="uiIcon" aria-hidden="true"><use href="#icon-code"></use></svg></div>
+          <h3>Minecraft Integration</h3>
+          <p>Link your Java/Bedrock account. Show in-game status. Eaglercraft browser connector support.</        </article>
+        <article class="feature-card">
+          <div class="feature-icon"><svg class="uiIcon" aria-hidden="true"><use href="#icon-arrow-up-right"></use></svg></div>
+          <h3>Cross-Platform</h3>
+          <p>Web app, Windows, macOS, Linux, Android. Electron (full) and Tauri (lightweight) desktop builds.</        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section download">
+    <div class="container download-section">
+      <h2 style="text-align:center">Download MINECORD</h2>
+      <p style="text-align:center;max-width:600px;margin:0 auto 16px">Choose your platform. All downloads are minisign-verified for authenticity.</p>
+      <div class="platforms">
+        <span class="platform-badge"><svg class="uiIcon" aria-hidden="true"><use href="#icon-globe"></use></svg> Web App</span>
+        <span class="platform-badge"><svg class="uiIcon" aria-hidden="true"><use href="#icon-minecraft"></use></svg> Windows (Electron)</span>
+        <span class="platform-badge"><svg class="uiIcon" aria-hidden="true"><use href="#icon-minecraft"></use></svg> Windows (Tauri)</span>
+        <span class="platform-badge"><svg class="uiIcon" aria-hidden="true"><use href="#icon-globe"></use></svg> macOS (Intel / Apple Silicon)</span>
+        <span class="platform-badge"><svg class="uiIcon" aria-hidden="true"><use href="#icon-globe"></use></svg> Linux (AppImage / DEB / RPM)</span>
+        <span class="platform-badge"><svg class="uiIcon" aria-hidden="true"><use href="#icon-globe"></use></svg> Android (APK)</span>
+      </div>
+      <div class="download-links">
+        <a class="download-link" href="https://github.com/ZEY-CAT/MineCord/releases" target="_blank" rel="noopener">
+          <svg class="uiIcon" aria-hidden="true"><use href="#icon-download"></use></svg>
+          <span>All Releases on GitHub</span>
+        </a>
+        <a class="download-link" href="https://github.com/ZEY-CAT/MineCord/releases/latest" target="_blank" rel="noopener">
+          <svg class="uiIcon" aria-hidden="true"><use href="#icon-arrow-right"></use></svg>
+          <span>Latest Release</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section class="section webapp">
+    <div class="container" style="text-align:center;max-width:700px">
+      <h2>Already have an account?</h2>
+      <p style="margin-bottom:24px">Jump straight into the browser-based web app. No install required.</p>
+      <a class="webapp-link" href="/app" onclick="event.preventDefault();window.location.href='/app'">
+        <svg class="uiIcon" aria-hidden="true"><use href="#icon-arrow-up-right"></use></svg>
+        <span>Open the Web App</span>
+      </a>
+      <p style="margin-top:16px;font-size:13px;color:var(--muted)">Works in any modern browser. WebRTC voice requires HTTPS.</p>
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <div class="footer-links">
+    <a href="https://github.com/ZEY-CAT/MineCord" target="_blank" rel="noopener">GitHub</a>
+    <a href="https://github.com/ZEY-CAT/MineCord/releases" target="_blank" rel="noopener">Releases</a>
+    <a href="https://github.com/ZEY-CAT/MineCord/issues" target="_blank" rel="noopener">Issues</a>
+    <a href="/app" onclick="event.preventDefault();window.location.href='/app'">Web App</a>
+  </div>
+  <p>MINECORD is open source. Not affiliated with Mojang or Microsoft.</p>
+</footer>
+</body></html>

@@ -2,11 +2,11 @@
   'use strict';
 
   // MineCord Edition Feature Configuration
-  // Generated at build time for edition: tauri-lite
+  // Generated at build time for edition: electron
   // DO NOT EDIT MANUALLY - Run scripts/generate-edition.js instead
 
   window.MineCordEdition = {
-    EDITION: 'tauri-lite',
+    EDITION: 'electron',
     
     features: {
       // Core features (always enabled)
@@ -21,49 +21,52 @@
       minecraftLinking: true,
       
       // Full edition only features
-      voiceCalling: false,
-      voiceControls: false,
-      serverVoiceChannels: false,
-      privateCalls: false,
-      groupCalls: false,
-      voiceActivity: false,
-      turnUsage: false,
+      voiceCalling: true,
+      voiceControls: true,
+      serverVoiceChannels: true,
+      privateCalls: true,
+      groupCalls: true,
+      voiceActivity: true,
+      turnUsage: true,
       
       // Shop & cosmetics
-      shop: false,
-      cosmetics: false,
-      inventory: false,
-      cosmeticsOnboarding: false,
-      demoCredits: false,
-      equipCosmetics: false,
+      shop: true,
+      cosmetics: true,
+      inventory: true,
+      cosmeticsOnboarding: true,
+      demoCredits: true,
+      equipCosmetics: true,
       
       // Account management
-      accountMerge: false,
-      accountMergeArchives: false,
+      accountMerge: true,
+      accountMergeArchives: true,
       
       // Admin/owner tools
-      adminUserManagement: false,
-      roleManagement: false,
-      roleAuditLog: false,
-      appOwnerTools: false,
+      adminUserManagement: true,
+      roleManagement: true,
+      roleAuditLog: true,
+      appOwnerTools: true,
       
       // Eaglercraft
-      eaglercraftPairing: false,
-      eaglercraftActivity: false,
+      eaglercraftPairing: true,
+      eaglercraftActivity: true,
       
       // Minecraft linking (enabled in both)
       minecraftUsername: true,
       minecraftUuid: true,
       minecraftEdition: true,
       
+      // Game worlds
+      gameWorlds: true,
+      
       // Activity/game status
       gameActivity: true,
       activityDisplay: true,
       
       // Advanced settings
-      eaglercraftExtension: false,
-      voiceSettings: false,
-      turnConfiguration: false,
+      eaglercraftExtension: true,
+      voiceSettings: true,
+      turnConfiguration: true,
       
       // Notifications
       desktopNotifications: true,

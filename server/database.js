@@ -99,6 +99,25 @@ db.exec(`
     id TEXT PRIMARY KEY, account_id TEXT NOT NULL, actor_id TEXT NOT NULL,
     previous_role TEXT NOT NULL, new_role TEXT NOT NULL, created_at INTEGER NOT NULL
   );
+  CREATE TABLE IF NOT EXISTS game_servers (
+    id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    edition TEXT NOT NULL CHECK (edition IN ('java', 'bedrock', 'eaglercraft')),
+    name TEXT NOT NULL, address TEXT NOT NULL, port INTEGER,
+    notes TEXT, favorite INTEGER NOT NULL DEFAULT 0,
+    created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS game_accounts (
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    edition TEXT NOT NULL CHECK (edition IN ('java', 'bedrock', 'eaglercraft')),
+    username TEXT NOT NULL, uuid TEXT, xuid TEXT, raw_data TEXT,
+    linked_at INTEGER NOT NULL, PRIMARY KEY (user_id, edition)
+  );
+  CREATE TABLE IF NOT EXISTS eaglercraft_links (
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    url TEXT NOT NULL, validated INTEGER NOT NULL DEFAULT 0,
+    last_checked INTEGER, created_at INTEGER NOT NULL,
+    PRIMARY KEY (user_id, url)
+  );
   CREATE TABLE IF NOT EXISTS shop_wallets (
     user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     balance INTEGER NOT NULL CHECK (balance >= 0)
@@ -137,7 +156,7 @@ function writeState(state, options = {}) {
   db.exec('BEGIN IMMEDIATE');
   try {
     run('INSERT INTO app_state(id, value) VALUES(1, ?) ON CONFLICT(id) DO UPDATE SET value = excluded.value', JSON.stringify(state));
-    for (const table of ['messages', 'conversation_members', 'conversations', 'channels', 'server_members', 'invites', 'friends', 'oauth_identities', 'game_activity', 'role_audit', 'shop_transactions', 'shop_inventory', 'shop_wallets', 'account_merge_audit', 'servers']) {
+    for (const table of ['messages', 'conversation_members', 'conversations', 'channels', 'server_members', 'invites', 'friends', 'oauth_identities', 'game_activity', 'role_audit', 'shop_transactions', 'shop_inventory', 'shop_wallets', 'account_merge_audit', 'game_servers', 'game_accounts', 'eaglercraft_links', 'servers']) {
       db.exec(`DELETE FROM ${table}`);
     }
     const invalidated = [...new Set(options.invalidateSessionUserIds || [])];
@@ -263,6 +282,34 @@ function writeState(state, options = {}) {
         insertMergeAudit.run(entry.id, entry.targetUserId, entry.sourceUserId, entry.createdAt, JSON.stringify(entry.summary || {}));
       }
     }
+
+    // Game servers
+    const insertGameServer = db.prepare('INSERT INTO game_servers(id, user_id, edition, name, address, port, notes, favorite, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    for (const gs of state.gameServers || []) {
+      const userId = userIds.get(gs?.owner);
+      if (userId && gs?.id && ['java', 'bedrock', 'eaglercraft'].includes(gs.edition) && gs?.name && gs?.address) {
+        insertGameServer.run(gs.id, userId, gs.edition, gs.name, gs.address, gs.port || null, gs.notes || null, gs.favorite ? 1 : 0, Number(gs.createdAt) || Date.now(), Number(gs.updatedAt) || Date.now());
+      }
+    }
+
+    // Game accounts
+    const insertGameAccount = db.prepare('INSERT INTO game_accounts(user_id, edition, username, uuid, xuid, raw_data, linked_at) VALUES(?, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_id, edition) DO UPDATE SET username=excluded.username, uuid=excluded.uuid, xuid=excluded.xuid, raw_data=excluded.raw_data, linked_at=excluded.linked_at');
+    for (const ga of state.gameAccounts || []) {
+      const userId = userIds.get(ga?.owner);
+      if (userId && ['java', 'bedrock', 'eaglercraft'].includes(ga?.edition) && ga?.username) {
+        insertGameAccount.run(userId, ga.edition, ga.username, ga.uuid || null, ga.xuid || null, ga.rawData || null, Number(ga.linkedAt) || Date.now());
+      }
+    }
+
+    // Eaglercraft links
+    const insertEaglercraftLink = db.prepare('INSERT INTO eaglercraft_links(user_id, url, validated, last_checked, created_at) VALUES(?, ?, ?, ?, ?) ON CONFLICT(user_id, url) DO UPDATE SET validated=excluded.validated, last_checked=excluded.last_checked');
+    for (const el of state.eaglercraftLinks || []) {
+      const userId = userIds.get(el?.owner);
+      if (userId && el?.url) {
+        insertEaglercraftLink.run(userId, el.url, el.validated ? 1 : 0, el.lastChecked || null, Number(el.createdAt) || Date.now());
+      }
+    }
+
     db.exec('COMMIT');
   } catch (error) {
     db.exec('ROLLBACK');

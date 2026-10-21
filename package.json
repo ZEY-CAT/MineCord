@@ -58,6 +58,10 @@
       {
         "from": "browser-extension",
         "to": "browser-extension"
+      },
+      {
+        "from": "updater/build/Release/MineCordUpdater.dll",
+        "to": "MineCordUpdater.dll"
       }
     ],
     "win": {
@@ -85,7 +89,8 @@
     },
     "nsis": {
       "installerIcon": "assets/minecord.ico",
-      "uninstallerIcon": "assets/minecord.ico"
+      "uninstallerIcon": "assets/minecord.ico",
+      "perMachine": true
     },
     "linux": {
       "target": [

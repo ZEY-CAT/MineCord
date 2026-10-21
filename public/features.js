@@ -45,7 +45,17 @@
   const nav = document.createElement('div');
   nav.className = 'nav';
   nav.innerHTML = '<div class="navItem" id="shopNav" role="button" tabindex="0"><svg class="uiIcon"><use href="#icon-shop"></use></svg> Shop</div>';
-  $('dms').insertAdjacentElement('afterend', nav);
+  const sidePanel = document.querySelector('.side');
+  const sideUserBar = document.querySelector('.side .userBar');
+  if (sidePanel && sideUserBar) {
+    const shopSection = document.createElement('div');
+    shopSection.className = 'section';
+    shopSection.textContent = 'SHOP';
+    sidePanel.insertBefore(shopSection, sideUserBar);
+    sidePanel.insertBefore(nav, sideUserBar);
+  } else {
+    $('dms').insertAdjacentElement('afterend', nav);
+  }
 
   const shopModal = document.createElement('div');
   shopModal.id = 'shopModal';
@@ -215,6 +225,8 @@
       memberProfiles[message.user.username] = message.user;
     } else if (message.type === 'friend_status' && message.status === 'accepted' && message.user) {
       if (!acceptedFriends.includes(message.user)) acceptedFriends = [...acceptedFriends, message.user].sort((a, b) => a.localeCompare(b));
+    } else if (message.type === 'friend_status' && message.status === 'removed' && message.user) {
+      acceptedFriends = acceptedFriends.filter(username => username !== message.user);
     }
     baseHandle(message);
     if (message.type === 'ready' || message.type === 'presence' || message.type === 'friend_status') renderFriends();
@@ -243,6 +255,7 @@
       const isOnline = online.includes(username);
       const row = document.createElement('div');
       row.className = 'friendRow';
+      row.dataset.user = username;
       row.tabIndex = 0;
       row.setAttribute('role', 'button');
       row.setAttribute('aria-label', `Open conversation with ${profile.displayName || username}, ${isOnline ? 'online' : 'offline'}`);
@@ -254,6 +267,19 @@
           openDM(username);
         }
       });
+      const remove = document.createElement('button');
+      remove.className = 'icon friendRemove';
+      remove.type = 'button';
+      remove.title = 'Remove friend';
+      remove.setAttribute('aria-label', `Remove ${profile.displayName || username} from friends`);
+      remove.innerHTML = '&times;';
+      remove.addEventListener('click', event => {
+        event.stopPropagation();
+        showConfirm(`Remove ${profile.displayName || username} from your friends?`, 'Remove Friend').then(ok => {
+          if (ok) send({ type: 'friend_remove', with: username });
+        });
+      });
+      row.appendChild(remove);
       container.appendChild(row);
     }
   };
@@ -264,6 +290,7 @@
       const profile = memberProfiles[username] || { username, role: 'member' };
       const row = document.createElement('div');
       row.className = 'person';
+      row.dataset.user = username;
       if (username !== me?.username) row.onclick = () => openDM(username);
       const activity = activities[username];
       row.innerHTML = `<span class="dot on"></span><span class="personInfo"><span class="row" style="gap:5px">${esc(profile.displayName || username)}${username === me?.username ? ' (you)' : ''}${badge(profile.role)}</span>${activity ? `<span class="activityLine">${activityTitle(activity)}</span>` : ''}</span>`;
@@ -439,4 +466,226 @@
       show('onboardingModal');
     }
   }
+
+  // ===== Worlds Tab =====
+  let currentWorldsTab = 'my';
+  async function switchWorldsTab(tab) {
+    currentWorldsTab = tab;
+    // Update sidebar tabs
+    $('worldsTabMy').classList.toggle('active', tab === 'my');
+    $('worldsTabFriends').classList.toggle('active', tab === 'friends');
+    $('drawerWorldsTabMy').classList.toggle('active', tab === 'my');
+    $('drawerWorldsTabFriends').classList.toggle('active', tab === 'friends');
+    // Update worlds page tabs
+    $('worldsPageTabMy').classList.toggle('active', tab === 'my');
+    $('worldsPageTabFriends').classList.toggle('active', tab === 'friends');
+    // Update worlds page tab styles
+    if (tab === 'my') {
+      $('worldsPageTabMy').style.background = 'var(--hover)';
+      $('worldsPageTabMy').style.color = '#fff';
+      $('worldsPageTabFriends').style.background = '';
+      $('worldsPageTabFriends').style.color = 'var(--muted)';
+    } else {
+      $('worldsPageTabFriends').style.background = 'var(--hover)';
+      $('worldsPageTabFriends').style.color = '#fff';
+      $('worldsPageTabMy').style.background = '';
+      $('worldsPageTabMy').style.color = 'var(--muted)';
+    }
+    await renderWorlds();
+  }
+
+  async function renderWorlds() {
+    const container = $('worldsGrid') || $('worldsList') || $('drawerWorldsList');
+    const emptyContainer = $('worldsEmpty');
+    if (!container) return;
+
+    container.innerHTML = '<div class="muted" style="padding:20px;text-align:center">Loading worlds…</div>';
+    if (emptyContainer) emptyContainer.style.display = 'none';
+
+    try {
+      const res = await fetchJson('/api/games/worlds/discover');
+      const worlds = res.worlds || [];
+
+      // Filter by current tab
+      const filtered = worlds.filter(w => {
+        if (currentWorldsTab === 'my') return w.owner === me.username;
+        return w.owner !== me.username; // Friends' worlds
+      });
+
+      if (!filtered.length) {
+        container.innerHTML = '';
+        if (emptyContainer) {
+          emptyContainer.innerHTML = currentWorldsTab === 'my'
+            ? '<svg class="uiIcon" style="width:48px;height:48px;color:var(--muted);margin-bottom:16px;opacity:0.5"><use href="#icon-server"></use></svg><p>No worlds yet. Add a server in Settings → Games.</p>'
+            : '<svg class="uiIcon" style="width:48px;height:48px;color:var(--muted);margin-bottom:16px;opacity:0.5"><use href="#icon-users"></use></svg><p>No shared worlds from friends yet.</p>';
+          emptyContainer.style.display = 'block';
+        }
+        return;
+      }
+
+      if (emptyContainer) emptyContainer.style.display = 'none';
+
+      container.innerHTML = filtered.map(w => {
+        const isOwner = w.owner === me.username;
+        const isShared = w.sharedFrom && w.sharedBy;
+        const isSharedWithMe = w.sharedFrom && w.sharedBy === me.username;
+        const edition = w.edition;
+        const connectString = w.joinInfo?.connectString || (w.port ? `${w.address}:${w.port}` : w.address);
+        const isEaglercraft = edition === 'eaglercraft';
+
+        return `
+          <article class="worldCard">
+            <div class="worldCardHeader">
+              <div class="worldCardTitle">
+                <h3>${esc(w.name)}</h3>
+                <span class="editionBadge ${edition}">${editionLabel(edition)}</span>
+              </div>
+              <span class="visibilityBadge ${w.visibility || 'private'}">${(w.visibility || 'private').charAt(0).toUpperCase() + (w.visibility || 'private').slice(1)}</span>
+            </div>
+            <div class="worldCardMeta">
+              <div class="worldCardMetaRow">
+                <span class="worldCardMetaLabel">Address:</span>
+                <span class="worldCardMetaValue">${esc(w.address)}</span>
+                <button class="copyBtn" onclick="copyToClipboard('${esc(w.address)}', 'IP address copied')" title="Copy IP"><svg class="uiIcon"><use href="#icon-copy"></use></svg></button>
+              </div>
+              ${w.port ? `
+              <div class="worldCardMetaRow">
+                <span class="worldCardMetaLabel">Port:</span>
+                <span class="worldCardMetaValue">${esc(w.port)}</span>
+                <button class="copyBtn" onclick="copyToClipboard('${esc(w.port)}', 'Port copied')" title="Copy Port"><svg class="uiIcon"><use href="#icon-copy"></use></svg></button>
+              </div>
+              ` : ''}
+              <div class="worldCardMetaRow">
+                <span class="worldCardMetaLabel">Full Address:</span>
+                <span class="worldCardMetaValue">${esc(connectString)}</span>
+                <button class="copyBtn" onclick="copyToClipboard('${esc(connectString)}', 'Full address copied')" title="Copy Full Address"><svg class="uiIcon"><use href="#icon-copy"></use></svg></button>
+              </div>
+            </div>
+            <div class="worldCardOwner">
+              <div class="avatar" style="width:24px;height:24px;font-size:12px">${avatar({username: w.owner, displayName: w.owner})}</div>
+              <span>Owner: ${esc(w.owner)}${isSharedWithMe ? ' <span class="sharedBadge">Shared with you</span>' : ''}${isShared ? ' <span class="sharedBadge">Shared by ' + esc(w.sharedBy) + '</span>' : ''}</span>
+            </div>
+            <div class="worldCardJoinInfo">
+              <div class="joinInstruction">${isEaglercraft ? 'Click to open in browser' : 'Copy the address above and use Direct Connect (Java) or Add Server (Bedrock)'}</div>
+              <div class="connectString">
+                ${esc(connectString)}
+                <button class="copyBtn" onclick="copyToClipboard('${esc(connectString)}', 'Connection address copied')"><svg class="uiIcon"><use href="#icon-copy"></use></svg></button>
+              </div>
+            </div>
+            <div class="worldCardActions">
+              <button class="btn primary" onclick="${isEaglercraft ? `window.open('${esc(w.address)}', '_blank')` : `copyToClipboard('${esc(connectString)}', 'Connection address copied'); showJoinInstructions('${esc(edition)}')`}">${isEaglercraft ? 'Open in Browser' : 'Join'}</button>
+              <button class="btn secondary" onclick="shareWorld('${esc(w.id)}')">Share</button>
+            </div>
+          </article>
+        `;
+      }).join('');
+
+      // Add copy to clipboard functionality
+      window.copyToClipboard = function(text, message) {
+        navigator.clipboard.writeText(text).then(() => {
+          // Show toast notification
+          const toast = document.createElement('div');
+          toast.textContent = message;
+          toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:var(--green);color:#fff;padding:12px 20px;border-radius:8px;z-index:10000;box-shadow:0 4px 20px rgba(0,0,0,0.3);font-weight:500';
+          document.body.appendChild(toast);
+          setTimeout(() => toast.remove(), 2000);
+        }).catch(() => {});
+      };
+
+      window.showJoinInstructions = function(edition) {
+        const instructions = {
+          java: 'Copied! Paste into Minecraft Java Edition → Multiplayer → Direct Connect',
+          bedrock: 'Copied! Paste into Minecraft Bedrock → Play → Servers → Add Server. Works on Nintendo Switch by entering address and port separately.'
+        };
+        alert(instructions[edition] || 'Copied!');
+      };
+
+      window.shareWorld = async function(serverId) {
+        const username = prompt('Friend\'s MINECORD username?');
+        if (!username) return;
+        try {
+          const res = await fetchJson('/api/games/servers/' + serverId + '/share', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username })
+          });
+          alert('World shared with ' + username + '!');
+        } catch (e) {
+          alert(e.message);
+        }
+      };
+    } catch (e) {
+      container.innerHTML = '<div class="muted" style="padding:20px;text-align:center">Failed to load worlds: ' + esc(e.message) + '</div>';
+    }
+  }
+
+  function editionLabel(edition) {
+    const labels = { java: 'Java Edition', bedrock: 'Bedrock Edition', eaglercraft: 'Eaglercraft' };
+    return labels[edition] || edition;
+  }
+
+  function showWorldsPage(on) {
+    const worldsPage = $('worldsPage');
+    const app = document.querySelector('.app');
+    const homePage = $('homePage');
+    if (worldsPage) {
+      worldsPage.style.display = on ? 'flex' : 'none';
+      if (on) {
+        worldsPage.classList.add('visible');
+      } else {
+        worldsPage.classList.remove('visible');
+      }
+    }
+    if (app) app.style.display = on ? 'none' : 'grid';
+    if (homePage && !on) {
+      homePage.style.display = 'none';
+      homePage.classList.remove('visible');
+      homePage.classList.add('hidden');
+    }
+  }
+
+  function switchWorldsTab(tab) {
+    currentWorldsTab = tab;
+    // Update sidebar tabs
+    $('worldsTabMy').classList.toggle('active', tab === 'my');
+    $('worldsTabFriends').classList.toggle('active', tab === 'friends');
+    $('drawerWorldsTabMy').classList.toggle('active', tab === 'my');
+    $('drawerWorldsTabFriends').classList.toggle('active', tab === 'friends');
+    // Update worlds page tabs
+    $('worldsPageTabMy').classList.toggle('active', tab === 'my');
+    $('worldsPageTabFriends').classList.toggle('active', tab === 'friends');
+    // Update worlds page tab styles
+    if (tab === 'my') {
+      $('worldsPageTabMy').style.background = 'var(--hover)';
+      $('worldsPageTabMy').style.color = '#fff';
+      $('worldsPageTabFriends').style.background = '';
+      $('worldsPageTabFriends').style.color = 'var(--muted)';
+    } else {
+      $('worldsPageTabFriends').style.background = 'var(--hover)';
+      $('worldsPageTabFriends').style.color = '#fff';
+      $('worldsPageTabMy').style.background = '';
+      $('worldsPageTabMy').style.color = 'var(--muted)';
+    }
+    showWorldsPage(true);
+    renderWorlds();
+  }
+
+  function showHome(on) {
+    homeVisible = on;
+    $('homePage').classList.toggle('visible', on);
+    $('homePage').classList.toggle('hidden', !on);
+    const app = document.querySelector('.app');
+    if (app) {
+      app.style.display = on ? 'none' : 'grid';
+    }
+    const homePage = $('homePage');
+    if (homePage) {
+      homePage.style.display = on ? 'flex' : 'none';
+    }
+  }
+
+  // Expose navigation helpers used by inline HTML event handlers.
+  window.showWorldsPage = showWorldsPage;
+  window.switchWorldsTab = switchWorldsTab;
+  window.renderWorlds = renderWorlds;
 })();

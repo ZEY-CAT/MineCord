@@ -70,6 +70,9 @@ const template = `(() => {
       minecraftUuid: true,
       minecraftEdition: true,
       
+      // Game worlds
+      gameWorlds: true,
+      
       // Activity/game status
       gameActivity: true,
       activityDisplay: true,
