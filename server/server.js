@@ -4,7 +4,7 @@ const {WebSocketServer}=require('ws');
 const oauthStateCookie=require('./oauth-state');
 const PORT=Number(process.env.PORT||3000),APP_URL=process.env.APP_URL||process.env.RENDER_EXTERNAL_URL||`http://localhost:${PORT}`,DATA=path.join(__dirname,'data.json');
 if(APP_URL.startsWith('https://')){const publicOrigin=APP_URL.replace(/\/+$/,'');process.env.GOOGLE_CALLBACK_URL=`${publicOrigin}/auth/google/callback`;process.env.GITHUB_CALLBACK_URL=`${publicOrigin}/auth/github/callback`}
-const app=express(),server=http.createServer(app),wss=new WebSocketServer({server,verifyClient:({origin},done)=>{if(!origin||origin===new URL(APP_URL).origin)return done(true);done(false,403,'Invalid origin')}});
+const app=express(),server=http.createServer(app),wss=new WebSocketServer({server,verifyClient:({origin,req},done)=>{if(origin&&origin!==new URL(APP_URL).origin)return done(false,403,'Invalid origin');if(!authUser(req))return done(false,401,'Sign in required.');done(true)}});
 const blank={users:{},servers:[],messages:{},friends:{},invites:{},oauthStates:{},gameActivities:{},dmRead:{},gameServers:[],gameAccounts:[],eaglercraftLinks:[]};
 const database=require('./database');
 const {createMeteredTurnService}=require('./metered-turn');
