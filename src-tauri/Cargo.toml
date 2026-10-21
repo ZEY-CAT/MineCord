@@ -31,11 +31,3 @@ tauri-plugin-updater = { version = "2", default-features = false, features = [] 
 # tauri-plugin-updater behind its internal `__tls` feature. Enable rustls so
 # feature unification turns that feature on and the updater compiles.
 reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
-
-# Mobile support (Android) - conditional compilation
-[target.'cfg(target_os = "android")'.dependencies]
-ndk-glue = "0.7"
-jni = { version = "0.22", features = ["invocation"] }
-log = "0.4"
-android-activity = "0.5"
-ndk-context = "0.1"
