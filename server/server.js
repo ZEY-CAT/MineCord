@@ -111,6 +111,9 @@ async function fallbackDownloads(){
     `MINECORD_${version}_x64-setup.exe`,
     `MINECORD.Setup.${version}.exe`,
     `MineCord-Tauri-Lite-v${version}-Windows-x64.zip`,
+    `MINECORD_${version}_amd64.AppImage`,
+    `MINECORD_${version}_amd64.deb`,
+    `MINECORD-${version}-1.x86_64.rpm`,
     `minecord_${version}_amd64.AppImage`,
     `minecord_${version}_amd64.deb`,
     `minecord-${version}-1.x86_64.rpm`

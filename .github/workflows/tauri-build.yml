@@ -250,9 +250,9 @@ jobs:
         run: |
           set -e
           if [[ "${{ matrix.target }}" == aarch64* ]]; then
-            target="MineCord-AppleSilicon"
+            target="MineCord-macOS-AppleSilicon"
           else
-            target="MineCord-Intel"
+            target="MineCord-macOS-Intel"
           fi
           for f in src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg; do
             if [ -f "$f" ]; then
@@ -371,6 +371,11 @@ jobs:
     name: Android (Tauri)
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -426,7 +431,7 @@ jobs:
       - name: Build Android APK
         run: npm run tauri -- android build --apk --ci
 
-      - name: Verify Android APK
+      - name: Sign Android APK
         run: |
           set -e
           APK=$(find src-tauri/gen/android/app/build/outputs/apk -name '*.apk' -type f | head -n 1)
@@ -434,13 +439,52 @@ jobs:
             echo "ERROR: No APK produced"
             exit 1
           fi
-          SIZE=$(stat -c%s "$APK")
-          echo "APK: $APK ($SIZE bytes)"
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)
+          if [ -z "$APKSIGNER" ]; then
+            echo "ERROR: apksigner not found in the Android SDK"
+            exit 1
+          fi
+          KEYSTORE=release.keystore
+          ALIAS="$ANDROID_KEY_ALIAS"
+          STOREPASS="$ANDROID_KEYSTORE_PASSWORD"
+          KEYPASS="$ANDROID_KEY_PASSWORD"
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE"
+            ALIAS="${ALIAS:-minecord}"
+            if [ -z "$STOREPASS" ]; then
+              echo "ERROR: ANDROID_KEYSTORE_PASSWORD is required when ANDROID_KEYSTORE_BASE64 is set"
+              exit 1
+            fi
+            KEYPASS="${KEYPASS:-$STOREPASS}"
+            echo "Using the configured Android signing keystore."
+          else
+            ALIAS=minecord
+            STOREPASS=$(openssl rand -hex 16)
+            KEYPASS="$STOREPASS"
+            keytool -genkeypair -keystore "$KEYSTORE" -alias "$ALIAS" -keyalg RSA -keysize 2048 -validity 10000 -storepass "$STOREPASS" -keypass "$KEYPASS" -dname "CN=MINECORD, OU=Mobile, O=ZEY-CAT, L=Internet, ST=Internet, C=US" >/dev/null 2>&1
+            echo "No signing secrets configured; signed with a generated per-build keystore."
+          fi
+          "$APKSIGNER" sign --ks "$KEYSTORE" --ks-key-alias "$ALIAS" --ks-pass "pass:$STOREPASS" --key-pass "pass:$KEYPASS" --out MineCord-Android.apk "$APK"
+          "$APKSIGNER" verify --verbose MineCord-Android.apk
+          rm -f "$KEYSTORE" "$APK"
+          ls -l MineCord-Android.apk
+
+      - name: Verify Android APK
+        run: |
+          set -e
+          if [ ! -s MineCord-Android.apk ]; then
+            echo "ERROR: signed APK is missing or empty"
+            exit 1
+          fi
+          SIZE=$(stat -c%s MineCord-Android.apk)
+          echo "APK: MineCord-Android.apk ($SIZE bytes)"
           if [ "$SIZE" -lt 1000000 ]; then
             echo "ERROR: APK is unexpectedly small"
             exit 1
           fi
-          cp "$APK" MineCord-Android.apk
+          unzip -l MineCord-Android.apk | grep -q 'lib/arm64-v8a/libminecord_desktop_lib.so'
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)
+          "$APKSIGNER" verify --verbose MineCord-Android.apk
           ls -l MineCord-Android.apk
 
       - name: Upload Android APK
@@ -528,6 +572,7 @@ jobs:
           files: |
             release-assets/**/*.exe
             release-assets/**/*.msi
+            release-assets/**/*.apk
             release-assets/**/*.zip
             release-assets/**/*.dmg
             release-assets/**/*.tar.gz
