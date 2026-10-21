@@ -93,6 +93,40 @@ app.get('/download',(req,res)=>{
 });
 
 let downloadCache={at:0,data:null};
+async function fallbackDownloads(){
+  const packageVersion=require('../package.json').version;
+  let tag=`v${packageVersion}`;
+  try{
+    const latest=await fetch('https://github.com/ZEY-CAT/MineCord/releases/latest',{method:'HEAD',redirect:'follow',headers:{'User-Agent':'MineCord-Downloads'}});
+    const match=String(latest.url||'').match(/\/tag\/([^/?#]+)/);
+    if(match)tag=match[1];
+  }catch{}
+  const version=tag.replace(/^v/,'');
+  const base=`https://github.com/ZEY-CAT/MineCord/releases/download/${encodeURIComponent(tag)}`;
+  const names=[
+    'MineCord-Android.apk',
+    'MineCord-macOS-Intel.dmg',
+    'MineCord-macOS-AppleSilicon.dmg',
+    'MineCord-Web.zip',
+    `MINECORD_${version}_x64-setup.exe`,
+    `MINECORD.Setup.${version}.exe`,
+    `MineCord-Tauri-Lite-v${version}-Windows-x64.zip`,
+    `minecord_${version}_amd64.AppImage`,
+    `minecord_${version}_amd64.deb`,
+    `minecord-${version}-1.x86_64.rpm`
+  ];
+  const assets=[];
+  await Promise.all(names.map(async name=>{
+    const url=`${base}/${encodeURIComponent(name)}`;
+    try{
+      const response=await fetch(url,{method:'HEAD',redirect:'follow',headers:{'User-Agent':'MineCord-Downloads'}});
+      if(!response.ok)return;
+      assets.push({name,url,size:Number(response.headers.get('content-length'))||0,contentType:response.headers.get('content-type')||'',downloads:0});
+    }catch{}
+  }));
+  assets.sort((a,b)=>a.name.localeCompare(b.name));
+  return {release:{tag,name:`MINECORD ${tag}`,url:`https://github.com/ZEY-CAT/MineCord/releases/tag/${encodeURIComponent(tag)}`,publishedAt:null},assets};
+}
 app.get('/api/downloads',async(req,res)=>{
   if(downloadCache.data&&Date.now()-downloadCache.at<10*60*1000)return res.json(downloadCache.data);
   const fallback={release:null,assets:[]};
@@ -107,12 +141,15 @@ app.get('/api/downloads',async(req,res)=>{
       release:{tag:release.tag_name,name:release.name,url:release.html_url,publishedAt:release.published_at},
       assets:(release.assets||[]).filter(asset=>asset.state==='uploaded'&&Number(asset.size)>0).map(asset=>({name:asset.name,url:asset.browser_download_url,size:Number(asset.size),contentType:asset.content_type,downloads:asset.download_count}))
     }:fallback;
+    if(!data.assets.length&&!data.release)throw new Error('No release assets returned.');
     downloadCache={at:Date.now(),data};
     res.set('Cache-Control','public, max-age=600');
     res.json(data);
   }catch(error){
-    res.set('Cache-Control','no-store');
-    res.json(fallback);
+    const data=await fallbackDownloads();
+    downloadCache={at:Date.now(),data};
+    res.set('Cache-Control','public, max-age=300');
+    res.json(data);
   }
 });
 

@@ -235,7 +235,7 @@ jobs:
         if: ${{ always() }}
         run: |
           set -e
-          shopt -s globstar
+          shopt -s globstar nullglob
           for app in src-tauri/target/**/release/bundle/macos/*.app; do
             if [ -d "$app" ]; then
               echo "Packaging $app..."
@@ -249,7 +249,7 @@ jobs:
         if: ${{ always() }}
         run: |
           set -e
-          shopt -s globstar
+          shopt -s globstar nullglob
           for f in src-tauri/target/**/release/bundle/dmg/*.dmg; do
             if [ -f "$f" ]; then
               if [[ "$f" == *"aarch64"* ]] || [[ "$f" == *"arm64"* ]]; then
@@ -389,11 +389,7 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v4
         with:
-          api-level: 34
-          ndk-version: r27c
-          emulator: false
           cmdline-tools-version: latest
-          cache-key: android-sdk-${{ runner.os }}-${{ hashFiles('src-tauri/gen/android/**') }}
 
       - name: Setup JDK
         uses: actions/setup-java@v4
