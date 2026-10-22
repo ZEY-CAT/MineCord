@@ -264,6 +264,132 @@ app.post('/api/auth/logout',(q,r)=>{if(!originAllowed(q))return r.status(403).js
 app.delete('/api/minecraft/link',requireAuth,(q,r)=>{if(!originAllowed(q))return r.status(403).json({error:'Request origin is not allowed.'});q.minecordUser.minecraft=null;save();r.json({ok:true,user:pub(q.minecordUser)})});
 app.get('/api/rtc-config',requireAuth,async(q,r)=>{r.set('Cache-Control','no-store');try{return r.json(await meteredTurn.configForUser(q.minecordUser.id))}catch(error){console.error('TURN configuration request failed:',error.message);return r.status(503).json({error:'Voice relay configuration is temporarily unavailable.'})}});
 app.get('/api/rtc-usage',requireAuth,async(q,r)=>{r.set('Cache-Control','no-store');try{return r.json(await meteredTurn.usageForUser(q.minecordUser.id))}catch(error){if(error.message==='Metered TURN usage monitoring is not configured.')return r.status(503).json({error:'TURN usage monitoring is not configured on this server.'});if(error.message==='No Metered TURN credential exists for this account yet.')return r.status(404).json({error:'Join voice once to provision a TURN credential before checking usage.'});console.error('TURN usage request failed:',error.message);return r.status(502).json({error:'TURN usage could not be retrieved right now.'})}});
+
+// Invite HTTP routes
+app.get('/invite/:code', async (req, res) => {
+  const code = clean(req.params.code, 80);
+  const inv = data.invites[code];
+  if (!inv || inv.expires < Date.now()) {
+    return res.sendFile(path.join(PUBLIC, 'invite-expired.html'));
+  }
+  const server = data.servers.find(s => s.id === inv.serverId);
+  if (!server) {
+    return res.sendFile(path.join(PUBLIC, 'invite-expired.html'));
+  }
+  const inviter = data.users[inv.createdBy];
+  const token = cookieToken(req);
+  const session = token ? database.findSession(crypto.createHash('sha256').update(token).digest('hex')) : null;
+  const user = session ? Object.values(data.users).find(u => u.id === session.user_id) : null;
+  
+  // Store invite code in cookie for post-login redirect
+  res.cookie('mc_invite', code, { httpOnly: true, sameSite: 'lax', secure: APP_URL.startsWith('https://'), path: '/', maxAge: 24 * 60 * 60 * 1000 });
+  
+  if (user) {
+    // User is logged in - check if already a member
+    if (server.members?.includes(user.username)) {
+      return res.redirect('/app?server=' + server.id);
+    }
+    // Show invite acceptance page
+    return res.sendFile(path.join(PUBLIC, 'invite-accept.html'));
+  } else {
+    // Not logged in - show preview page with login prompt
+    return res.sendFile(path.join(PUBLIC, 'invite-preview.html'));
+  }
+});
+
+app.post('/api/invite/accept', requireAuth, async (req, res) => {
+  if (!originAllowed(req)) return res.status(403).json({ error: 'Request origin is not allowed.' });
+  const code = clean(req.body?.code, 80);
+  const inv = data.invites[code];
+  if (!inv || inv.expires < Date.now()) {
+    return res.status(404).json({ error: 'Invite expired or invalid.' });
+  }
+  const server = data.servers.find(s => s.id === inv.serverId);
+  if (!server) {
+    return res.status(404).json({ error: 'Server not found.' });
+  }
+  if (server.members?.includes(req.minecordUser.username)) {
+    return res.json({ ok: true, alreadyMember: true, server: { id: server.id, name: server.name } });
+  }
+  server.members.push(req.minecordUser.username);
+  save();
+  res.json({ ok: true, server: { id: server.id, name: server.name } });
+});
+
+app.get('/api/invite/preview', async (req, res) => {
+  const code = clean(req.query?.code, 80);
+  const inv = data.invites[code];
+  if (!inv || inv.expires < Date.now()) {
+    return res.status(404).json({ error: 'Invite expired or invalid.' });
+  }
+  const server = data.servers.find(s => s.id === inv.serverId);
+  if (!server) {
+    return res.status(404).json({ error: 'Server not found.' });
+  }
+  const inviter = data.users[inv.createdBy];
+  res.json({
+    server: { id: server.id, name: server.name, icon: server.icon, memberCount: server.members?.length || 0 },
+    inviter: inviter ? { username: inviter.username, displayName: inviter.displayName, avatar: inviter.avatar } : null,
+    expiresAt: inv.expires,
+    createdBy: inv.createdBy
+  });
+});
+
+app.post('/api/invite/revoke', requireAuth, async (req, res) => {
+  if (!originAllowed(req)) return res.status(403).json({ error: 'Request origin is not allowed.' });
+  const code = clean(req.body?.code, 80);
+  const inv = data.invites[code];
+  if (!inv) {
+    return res.status(404).json({ error: 'Invite not found.' });
+  }
+  if (inv.createdBy !== req.minecordUser.username && req.minecordUser.id !== APP_OWNER_USER_ID) {
+    return res.status(403).json({ error: 'Only the inviter or app owner can revoke this invite.' });
+  }
+  delete data.invites[code];
+  save();
+  res.json({ ok: true });
+});
+
+app.post('/api/invite/friend', requireAuth, async (req, res) => {
+  if (!originAllowed(req)) return res.status(403).json({ error: 'Request origin is not allowed.' });
+  const target = clean(req.body?.target, 32);
+  const serverId = clean(req.body?.serverId);
+  if (!target || !serverId) {
+    return res.status(400).json({ error: 'Target and server required.' });
+  }
+  if (target === req.minecordUser.username) {
+    return res.status(400).json({ error: 'You cannot invite yourself.' });
+  }
+  if (!data.users[target]) {
+    return res.status(404).json({ error: 'User not found.' });
+  }
+  const k = pair(req.minecordUser.username, target);
+  const friendship = data.friends[k];
+  if (!friendship || friendship.status !== 'accepted') {
+    return res.status(403).json({ error: 'You can only invite accepted friends.' });
+  }
+  const s = data.servers.find(x => x.id === serverId);
+  if (!s || !s.members?.includes(req.minecordUser.username)) {
+    return res.status(403).json({ error: 'You are not a member of this server.' });
+  }
+  if (s.members.includes(target)) {
+    return res.status(400).json({ error: 'User is already a member of this server.' });
+  }
+  const code = crypto.randomBytes(6).toString('base64url');
+  data.invites[code] = { serverId: s.id, createdBy: req.minecordUser.username, target, expires: Date.now() + 604800000 };
+  save();
+  
+  // Send WebSocket notification if target is online
+  for (const [ws, username] of clients) {
+    if (username === target) {
+      send(ws, { type: 'friend_invite', code, serverId: s.id, serverName: s.name, from: req.minecordUser.username });
+      break;
+    }
+  }
+  
+  res.json({ ok: true, code, serverId: s.id, target });
+});
+
 function activityFor(username){const entries=data.gameActivities[username]||{};let latest=null;for(const [game,item] of Object.entries(entries)){const timeout=game==='eaglercraft'?90000:35000;if(Date.now()-item.lastSeenAt>timeout){delete entries[game];continue}if(!latest||item.lastSeenAt>latest.lastSeenAt)latest={game,active:true,startedAt:item.startedAt,lastSeenAt:item.lastSeenAt,playerName:item.playerName||null,serverName:item.serverName||null}}if(!Object.keys(entries).length)delete data.gameActivities[username];if(latest)return latest;const user=data.users[username];return user&&user.showGameActivity!==false&&database.hasActivityConnector(user.id)?{game:'eaglercraft',active:false,startedAt:null,lastSeenAt:null}:null}
 function activityPresenceFor(username){return activityFor(username)}
 function canViewActivity(viewer,subject){return viewer===subject||Object.values(data.friends).some(f=>f.status==='accepted'&&((f.a===viewer&&f.b===subject)||(f.b===viewer&&f.a===subject)))}
