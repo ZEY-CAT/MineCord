@@ -96,6 +96,18 @@ async function createAccount(origin, username) {
   return cookie;
 }
 
+async function loginAccount(origin, username, password = 'A-long-test-passphrase!') {
+  const response = await fetch(`${origin}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Origin: origin },
+    body: JSON.stringify({ username, password })
+  });
+  assert.equal(response.status, 200);
+  const cookie = response.headers.get('set-cookie')?.split(';', 1)[0];
+  assert.ok(cookie);
+  return cookie;
+}
+
 async function openSocket(origin, cookie) {
   const socket = new WebSocket(origin.replace(/^http/, 'ws'), {
     headers: { Cookie: cookie, Origin: origin }
@@ -1292,6 +1304,57 @@ test('expired and exhausted invitations are rejected', { timeout: 60000 }, async
       const accepted = await httpJson(origin, '/api/invite/accept', { cookie: aliceCookie, method: 'POST', body: { code } });
       assert.equal(accepted.response.status, 404, code + ' must not be accepted');
     }
+  } finally {
+    await stopServer(running.child);
+  }
+});
+
+test('admin ban commands enforce authorization, bans, temp bans, and unbans', { timeout: 60000 }, async () => {
+  const port = await availablePort();
+  let running = await startServer(port);
+  const origin = running.origin;
+  try {
+    const aliceCookie = await createAccount(origin, 'AdminAlice');
+    const profile = await httpJson(origin, '/api/auth/me', { cookie: aliceCookie });
+    assert.equal(profile.response.status, 200);
+    const ownerId = profile.json.user.id;
+    await stopServer(running.child);
+
+    running = await startServer(port, ownerId);
+    let bobCookie = await createAccount(origin, 'AdminBob');
+
+    const denied = await httpJson(origin, '/api/admin/command', { cookie: bobCookie, method: 'POST', body: { command: '/appban AdminAlice nope' } });
+    assert.equal(denied.response.status, 403, 'non-admins must not run admin commands');
+
+    const banned = await httpJson(origin, '/api/admin/command', { cookie: aliceCookie, method: 'POST', body: { command: '/appban AdminBob testing the ban command' } });
+    assert.equal(banned.response.status, 200);
+    const blocked = await httpJson(origin, '/api/auth/me', { cookie: bobCookie });
+    assert.equal(blocked.response.status, 401, 'banning must invalidate existing sessions');
+
+    const list = await httpJson(origin, '/api/admin/bans', { cookie: aliceCookie });
+    assert.equal(list.response.status, 200);
+    assert.ok(list.json.active.some(entry => entry.username === 'AdminBob'));
+
+    const unbanned = await httpJson(origin, '/api/admin/command', { cookie: aliceCookie, method: 'POST', body: { command: '/appunban AdminBob' } });
+    assert.equal(unbanned.response.status, 200);
+    bobCookie = await loginAccount(origin, 'AdminBob');
+    const restored = await httpJson(origin, '/api/auth/me', { cookie: bobCookie });
+    assert.equal(restored.response.status, 200);
+
+    const tempBanned = await httpJson(origin, '/api/admin/command', { cookie: aliceCookie, method: 'POST', body: { command: '/apptempban AdminBob 30m temporary test ban' } });
+    assert.equal(tempBanned.response.status, 200);
+    const tempBlocked = await httpJson(origin, '/api/auth/me', { cookie: bobCookie });
+    assert.equal(tempBlocked.response.status, 401, 'a temp ban must invalidate existing sessions');
+    const tempUnbanned = await httpJson(origin, '/api/admin/command', { cookie: aliceCookie, method: 'POST', body: { command: '/appunban AdminBob' } });
+    assert.equal(tempUnbanned.response.status, 200);
+    bobCookie = await loginAccount(origin, 'AdminBob');
+    const tempRestored = await httpJson(origin, '/api/auth/me', { cookie: bobCookie });
+    assert.equal(tempRestored.response.status, 200);
+
+    const tooShort = await httpJson(origin, '/api/admin/command', { cookie: aliceCookie, method: 'POST', body: { command: '/apptempban AdminBob 10s too short' } });
+    assert.equal(tooShort.response.status, 400);
+    const selfBan = await httpJson(origin, '/api/admin/command', { cookie: aliceCookie, method: 'POST', body: { command: '/appban AdminAlice nope' } });
+    assert.equal(selfBan.response.status, 400);
   } finally {
     await stopServer(running.child);
   }
