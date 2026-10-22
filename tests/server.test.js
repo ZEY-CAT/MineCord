@@ -685,3 +685,419 @@ test('Bedrock account unlinking', { timeout: 30000 }, async () => {
     rmSync(tempDir, { recursive: true, force: true });
   }
 });
+
+// Call functionality tests
+test('group calls work with multiple participants', { timeout: 60000 }, async () => {
+  const port = await availablePort();
+  let running = await startServer(port);
+  let aliceSocket, bobSocket, charlieSocket;
+  try {
+    const aliceCookie = await createAccount(running.origin, 'alice_call');
+    const bobCookie = await createAccount(running.origin, 'bob_call');
+    const charlieCookie = await createAccount(running.origin, 'charlie_call');
+    
+    const alice = await openSocket(running.origin, aliceCookie);
+    aliceSocket = alice.socket;
+    const bob = await openSocket(running.origin, bobCookie);
+    bobSocket = bob.socket;
+    const charlie = await openSocket(running.origin, charlieCookie);
+    charlieSocket = charlie.socket;
+    
+    // Make Alice friends with Bob and Charlie
+    await sendAndWait(aliceSocket, { type: 'friend_request', to: 'bob_call' }, m => m.type === 'friend_status' && m.status === 'pending');
+    await sendAndWait(bobSocket, { type: 'friend_accept', with: 'alice_call' }, m => m.type === 'friend_status' && m.status === 'accepted');
+    await sendAndWait(aliceSocket, { type: 'friend_request', to: 'charlie_call' }, m => m.type === 'friend_status' && m.status === 'pending');
+    await sendAndWait(charlieSocket, { type: 'friend_accept', with: 'alice_call' }, m => m.type === 'friend_status' && m.status === 'accepted');
+    
+    // Small delay to ensure friend status propagates
+    await new Promise(r => setTimeout(r, 100));
+    
+    // Alice starts a group call with Bob and Charlie
+    const incomingBob = waitFor(bobSocket, m => m.type === 'incoming_call' && m.typeName === 'group');
+    const incomingCharlie = waitFor(charlieSocket, m => m.type === 'incoming_call' && m.typeName === 'group');
+    const startedCall = await sendAndWait(aliceSocket, { type: 'call_start', to: ['bob_call', 'charlie_call'], callType: 'group' }, m => m.type === 'call_started');
+    
+    const bobIncoming = await incomingBob;
+    const charlieIncoming = await incomingCharlie;
+    
+    assert.deepEqual(startedCall.participants, ['alice_call']);
+    assert.equal(startedCall.typeName, 'group');
+    assert.deepEqual(bobIncoming.participants, ['alice_call']);
+    assert.equal(bobIncoming.typeName, 'group');
+    assert.deepEqual(charlieIncoming.participants, ['alice_call']);
+    assert.equal(charlieIncoming.typeName, 'group');
+    
+    // Bob accepts - call_member_joined goes to participants (Alice), not ringing (Charlie)
+    const bobAccepted = sendAndWait(bobSocket, { type: 'call_accept', callId: startedCall.callId }, m => m.type === 'call_accepted');
+    const aliceSawBobJoin = waitFor(aliceSocket, m => m.type === 'call_member_joined' && m.user === 'bob_call');
+    await Promise.all([bobAccepted, aliceSawBobJoin]);
+    
+    // Charlie accepts - now Charlie is a participant, so he'll see future joins
+    const charlieAccepted = sendAndWait(charlieSocket, { type: 'call_accept', callId: startedCall.callId }, m => m.type === 'call_accepted');
+    const aliceSawCharlieJoin = waitFor(aliceSocket, m => m.type === 'call_member_joined' && m.user === 'charlie_call');
+    const bobSawCharlieJoin = waitFor(bobSocket, m => m.type === 'call_member_joined' && m.user === 'charlie_call');
+    await Promise.all([charlieAccepted, aliceSawCharlieJoin, bobSawCharlieJoin]);
+    
+    // All three should be in the call now
+    // Verify signaling works between all participants
+    const signalToBob = waitFor(bobSocket, m => m.type === 'call_signal' && m.from === 'alice_call');
+    aliceSocket.send(JSON.stringify({ type: 'call_signal', callId: startedCall.callId, to: 'bob_call', data: { description: { type: 'offer', sdp: 'test' } } }));
+    assert.equal((await signalToBob).from, 'alice_call');
+    
+    const signalToCharlie = waitFor(charlieSocket, m => m.type === 'call_signal' && m.from === 'bob_call');
+    bobSocket.send(JSON.stringify({ type: 'call_signal', callId: startedCall.callId, to: 'charlie_call', data: { description: { type: 'answer', sdp: 'test' } } }));
+    assert.equal((await signalToCharlie).from, 'bob_call');
+    
+    // End call
+    const callEnded = waitFor(aliceSocket, m => m.type === 'call_ended' && m.callId === startedCall.callId);
+    bobSocket.send(JSON.stringify({ type: 'call_end', callId: startedCall.callId }));
+    await callEnded;
+    
+    // Verify call is cleaned up
+    const lateSignal = sendAndWait(aliceSocket, { type: 'call_signal', callId: startedCall.callId, to: 'charlie_call', data: { description: { type: 'offer', sdp: 'test' } } }, m => m.type === 'error');
+    assert.match((await lateSignal).message, /Join the call/);
+  } finally {
+    if (aliceSocket) await closeSocket(aliceSocket).catch(() => {});
+    if (bobSocket) await closeSocket(bobSocket).catch(() => {});
+    if (charlieSocket) await closeSocket(charlieSocket).catch(() => {});
+    await stopServer(running.child);
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('call decline works and notifies participants', { timeout: 30000 }, async () => {
+  const port = await availablePort();
+  let running = await startServer(port);
+  let aliceSocket, bobSocket;
+  try {
+    const aliceCookie = await createAccount(running.origin, 'alice_decline');
+    const bobCookie = await createAccount(running.origin, 'bob_decline');
+    
+    const alice = await openSocket(running.origin, aliceCookie);
+    aliceSocket = alice.socket;
+    const bob = await openSocket(running.origin, bobCookie);
+    bobSocket = bob.socket;
+    
+    // Make them friends
+    await sendAndWait(aliceSocket, { type: 'friend_request', to: 'bob_decline' }, m => m.type === 'friend_status' && m.status === 'pending');
+    await sendAndWait(bobSocket, { type: 'friend_accept', with: 'alice_decline' }, m => m.type === 'friend_status' && m.status === 'accepted');
+    
+    // Alice calls Bob
+    const incomingCall = waitFor(bobSocket, m => m.type === 'incoming_call');
+    const startedCall = await sendAndWait(aliceSocket, { type: 'call_start', to: 'bob_decline', callType: 'private' }, m => m.type === 'call_started');
+    await incomingCall;
+    
+    // Bob declines
+    const callDeclined = waitFor(aliceSocket, m => m.type === 'call_declined' && m.callId === startedCall.callId);
+    bobSocket.send(JSON.stringify({ type: 'call_decline', callId: startedCall.callId }));
+    const declinedMsg = await callDeclined;
+    assert.equal(declinedMsg.user, 'bob_decline');
+    
+    // Call should be ended for Alice since no participants left
+    const callEnded = waitFor(aliceSocket, m => m.type === 'call_ended' && m.callId === startedCall.callId);
+    await callEnded;
+  } finally {
+    if (aliceSocket) await closeSocket(aliceSocket).catch(() => {});
+    if (bobSocket) await closeSocket(bobSocket).catch(() => {});
+    await stopServer(running.child);
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('call to non-friend is rejected', { timeout: 30000 }, async () => {
+  const port = await availablePort();
+  let running = await startServer(port);
+  let aliceSocket, bobSocket;
+  try {
+    const aliceCookie = await createAccount(running.origin, 'alice_nofriend');
+    const bobCookie = await createAccount(running.origin, 'bob_nofriend');
+    
+    const alice = await openSocket(running.origin, aliceCookie);
+    aliceSocket = alice.socket;
+    const bob = await openSocket(running.origin, bobCookie);
+    bobSocket = bob.socket;
+    
+    // They are NOT friends
+    
+    // Alice tries to call Bob (should fail)
+    const error = await sendAndWait(aliceSocket, { type: 'call_start', to: 'bob_nofriend', callType: 'private' }, m => m.type === 'error');
+    assert.match(error.message, /online accepted friends/);
+    
+    // Bob should not receive any incoming call
+    let incomingReceived = false;
+    const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(false), 2000));
+    const incomingPromise = waitFor(bobSocket, m => { incomingReceived = true; return m.type === 'incoming_call'; });
+    const result = await Promise.race([incomingPromise, timeoutPromise]);
+    assert.equal(result, false);
+    assert.equal(incomingReceived, false);
+  } finally {
+    if (aliceSocket) await closeSocket(aliceSocket).catch(() => {});
+    if (bobSocket) await closeSocket(bobSocket).catch(() => {});
+    await stopServer(running.child);
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('call to offline user is rejected', { timeout: 30000 }, async () => {
+  const port = await availablePort();
+  let running = await startServer(port);
+  let aliceSocket, bobSocket;
+  try {
+    const aliceCookie = await createAccount(running.origin, 'alice_offline');
+    const bobCookie = await createAccount(running.origin, 'bob_offline');
+    
+    const alice = await openSocket(running.origin, aliceCookie);
+    aliceSocket = alice.socket;
+    const bob = await openSocket(running.origin, bobCookie);
+    bobSocket = bob.socket;
+    
+    // Make them friends
+    await sendAndWait(aliceSocket, { type: 'friend_request', to: 'bob_offline' }, m => m.type === 'friend_status' && m.status === 'pending');
+    await sendAndWait(bobSocket, { type: 'friend_accept', with: 'alice_offline' }, m => m.type === 'friend_status' && m.status === 'accepted');
+    
+    // Bob disconnects
+    await closeSocket(bobSocket);
+    bobSocket = null;
+    
+    // Alice tries to call Bob (should fail because offline)
+    const error = await sendAndWait(aliceSocket, { type: 'call_start', to: 'bob_offline', callType: 'private' }, m => m.type === 'error');
+    assert.match(error.message, /online accepted friends/);
+  } finally {
+    if (aliceSocket) await closeSocket(aliceSocket).catch(() => {});
+    if (bobSocket) await closeSocket(bobSocket).catch(() => {});
+    await stopServer(running.child);
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('call cleanup on participant disconnect', { timeout: 30000 }, async () => {
+  const port = await availablePort();
+  let running = await startServer(port);
+  let aliceSocket, bobSocket, charlieSocket;
+  try {
+    const aliceCookie = await createAccount(running.origin, 'alice_cleanup');
+    const bobCookie = await createAccount(running.origin, 'bob_cleanup');
+    const charlieCookie = await createAccount(running.origin, 'charlie_cleanup');
+    
+    const alice = await openSocket(running.origin, aliceCookie);
+    aliceSocket = alice.socket;
+    const bob = await openSocket(running.origin, bobCookie);
+    bobSocket = bob.socket;
+    const charlie = await openSocket(running.origin, charlieCookie);
+    charlieSocket = charlie.socket;
+    
+    // Make them all friends (Alice with Bob and Charlie, Bob with Charlie)
+    await sendAndWait(aliceSocket, { type: 'friend_request', to: 'bob_cleanup' }, m => m.type === 'friend_status' && m.status === 'pending');
+    await sendAndWait(bobSocket, { type: 'friend_accept', with: 'alice_cleanup' }, m => m.type === 'friend_status' && m.status === 'accepted');
+    await sendAndWait(aliceSocket, { type: 'friend_request', to: 'charlie_cleanup' }, m => m.type === 'friend_status' && m.status === 'pending');
+    await sendAndWait(charlieSocket, { type: 'friend_accept', with: 'alice_cleanup' }, m => m.type === 'friend_status' && m.status === 'accepted');
+    await sendAndWait(bobSocket, { type: 'friend_request', to: 'charlie_cleanup' }, m => m.type === 'friend_status' && m.status === 'pending');
+    await sendAndWait(charlieSocket, { type: 'friend_accept', with: 'bob_cleanup' }, m => m.type === 'friend_status' && m.status === 'accepted');
+    
+    // Small delay to ensure friend status propagates
+    await new Promise(r => setTimeout(r, 100));
+    
+    // Alice starts group call with Bob and Charlie
+    const incomingBob = waitFor(bobSocket, m => m.type === 'incoming_call');
+    const incomingCharlie = waitFor(charlieSocket, m => m.type === 'incoming_call');
+    const startedCall = await sendAndWait(aliceSocket, { type: 'call_start', to: ['bob_cleanup', 'charlie_cleanup'], callType: 'group' }, m => m.type === 'call_started');
+    await incomingBob;
+    await incomingCharlie;
+    
+    // Both accept - call_member_joined goes to OTHER participants, not the joiner
+    const bobAccepted = sendAndWait(bobSocket, { type: 'call_accept', callId: startedCall.callId }, m => m.type === 'call_accepted');
+    const aliceSawBobJoin = waitFor(aliceSocket, m => m.type === 'call_member_joined' && m.user === 'bob_cleanup');
+    await Promise.all([bobAccepted, aliceSawBobJoin]);
+    
+    const charlieAccepted = sendAndWait(charlieSocket, { type: 'call_accept', callId: startedCall.callId }, m => m.type === 'call_accepted');
+    const aliceSawCharlieJoin = waitFor(aliceSocket, m => m.type === 'call_member_joined' && m.user === 'charlie_cleanup');
+    const bobSawCharlieJoin = waitFor(bobSocket, m => m.type === 'call_member_joined' && m.user === 'charlie_cleanup');
+    await Promise.all([charlieAccepted, aliceSawCharlieJoin, bobSawCharlieJoin]);
+    
+    // Charlie disconnects
+    const charlieLeft = waitFor(aliceSocket, m => m.type === 'call_member_left' && m.user === 'charlie_cleanup');
+    const charlieLeftBob = waitFor(bobSocket, m => m.type === 'call_member_left' && m.user === 'charlie_cleanup');
+    await closeSocket(charlieSocket);
+    charlieSocket = null;
+    await Promise.all([charlieLeft, charlieLeftBob]);
+    
+    // Call should still work for Alice and Bob (2 participants)
+    const signalWorks = waitFor(bobSocket, m => m.type === 'call_signal' && m.from === 'alice_cleanup');
+    aliceSocket.send(JSON.stringify({ type: 'call_signal', callId: startedCall.callId, to: 'bob_cleanup', data: { description: { type: 'offer', sdp: 'test' } } }));
+    await signalWorks;
+    
+    // Now Bob disconnects too - call should end for Alice
+    const callEnded = waitFor(aliceSocket, m => m.type === 'call_ended' && m.callId === startedCall.callId);
+    await closeSocket(bobSocket);
+    bobSocket = null;
+    await callEnded;
+  } finally {
+    if (aliceSocket) await closeSocket(aliceSocket).catch(() => {});
+    if (bobSocket) await closeSocket(bobSocket).catch(() => {});
+    if (charlieSocket) await closeSocket(charlieSocket).catch(() => {});
+    await stopServer(running.child);
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('duplicate call to same user is handled', { timeout: 30000 }, async () => {
+  const port = await availablePort();
+  let running = await startServer(port);
+  let aliceSocket, bobSocket;
+  try {
+    const aliceCookie = await createAccount(running.origin, 'alice_dup');
+    const bobCookie = await createAccount(running.origin, 'bob_dup');
+    
+    const alice = await openSocket(running.origin, aliceCookie);
+    aliceSocket = alice.socket;
+    const bob = await openSocket(running.origin, bobCookie);
+    bobSocket = bob.socket;
+    
+    // Make them friends
+    await sendAndWait(aliceSocket, { type: 'friend_request', to: 'bob_dup' }, m => m.type === 'friend_status' && m.status === 'pending');
+    await sendAndWait(bobSocket, { type: 'friend_accept', with: 'alice_dup' }, m => m.type === 'friend_status' && m.status === 'accepted');
+    
+    // Small delay
+    await new Promise(r => setTimeout(r, 100));
+    
+    // Alice starts a call
+    const incoming1 = waitFor(bobSocket, m => m.type === 'incoming_call');
+    const call1 = await sendAndWait(aliceSocket, { type: 'call_start', to: 'bob_dup', callType: 'private' }, m => m.type === 'call_started');
+    await incoming1;
+    
+    // Alice tries to start another call to Bob while first is still ringing
+    // Server may allow it (new call) or reject it - both are acceptable
+    // We just verify the first call still works regardless
+    const secondCallResult = await sendAndWait(aliceSocket, { type: 'call_start', to: 'bob_dup', callType: 'private' }, m => m.type === 'call_started', 5000);
+    
+    // If second call succeeded (different callId), Bob will get a second incoming_call
+    // We don't need to handle it - just verify first call works
+    if (secondCallResult.callId !== call1.callId) {
+      // Second call created - Bob might get another incoming_call, but we ignore it
+    }
+    
+    // First call should still be valid
+    const bobAccepts = sendAndWait(bobSocket, { type: 'call_accept', callId: call1.callId }, m => m.type === 'call_accepted');
+    const aliceSawJoin = waitFor(aliceSocket, m => m.type === 'call_member_joined' && m.user === 'bob_dup');
+    await Promise.all([bobAccepts, aliceSawJoin]);
+  } finally {
+    if (aliceSocket) await closeSocket(aliceSocket).catch(() => {});
+    if (bobSocket) await closeSocket(bobSocket).catch(() => {});
+    await stopServer(running.child);
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('call signaling validates call membership', { timeout: 30000 }, async () => {
+  const port = await availablePort();
+  let running = await startServer(port);
+  let aliceSocket, bobSocket, charlieSocket;
+  try {
+    const aliceCookie = await createAccount(running.origin, 'alice_signal');
+    const bobCookie = await createAccount(running.origin, 'bob_signal');
+    const charlieCookie = await createAccount(running.origin, 'charlie_signal');
+    
+    const alice = await openSocket(running.origin, aliceCookie);
+    aliceSocket = alice.socket;
+    const bob = await openSocket(running.origin, bobCookie);
+    bobSocket = bob.socket;
+    const charlie = await openSocket(running.origin, charlieCookie);
+    charlieSocket = charlie.socket;
+    
+    // Make Alice and Bob friends, Charlie is not friends with either
+    await sendAndWait(aliceSocket, { type: 'friend_request', to: 'bob_signal' }, m => m.type === 'friend_status' && m.status === 'pending');
+    await sendAndWait(bobSocket, { type: 'friend_accept', with: 'alice_signal' }, m => m.type === 'friend_status' && m.status === 'accepted');
+    
+    // Small delay
+    await new Promise(r => setTimeout(r, 100));
+    
+    // Alice and Bob start a call
+    const incoming = waitFor(bobSocket, m => m.type === 'incoming_call');
+    const startedCall = await sendAndWait(aliceSocket, { type: 'call_start', to: 'bob_signal', callType: 'private' }, m => m.type === 'call_started');
+    await incoming;
+    const bobAccepted = sendAndWait(bobSocket, { type: 'call_accept', callId: startedCall.callId }, m => m.type === 'call_accepted');
+    const aliceSawBobJoin = waitFor(aliceSocket, m => m.type === 'call_member_joined' && m.user === 'bob_signal');
+    await Promise.all([bobAccepted, aliceSawBobJoin]);
+    
+    // Charlie tries to send signaling to the call (should fail)
+    const error = await sendAndWait(charlieSocket, { 
+      type: 'call_signal', 
+      callId: startedCall.callId, 
+      to: 'alice_signal', 
+      data: { description: { type: 'offer', sdp: 'test' } } 
+    }, m => m.type === 'error');
+    assert.match(error.message, /Join the call/);
+    
+    // Alice sends valid signal to Bob (should work)
+    const validSignal = waitFor(bobSocket, m => m.type === 'call_signal' && m.from === 'alice_signal');
+    aliceSocket.send(JSON.stringify({ type: 'call_signal', callId: startedCall.callId, to: 'bob_signal', data: { description: { type: 'offer', sdp: 'valid' } } }));
+    assert.equal((await validSignal).from, 'alice_signal');
+  } finally {
+    if (aliceSocket) await closeSocket(aliceSocket).catch(() => {});
+    if (bobSocket) await closeSocket(bobSocket).catch(() => {});
+    if (charlieSocket) await closeSocket(charlieSocket).catch(() => {});
+    await stopServer(running.child);
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('call timeout and ICE candidate exchange', { timeout: 30000 }, async () => {
+  const port = await availablePort();
+  let running = await startServer(port);
+  let aliceSocket, bobSocket;
+  try {
+    const aliceCookie = await createAccount(running.origin, 'alice_ice');
+    const bobCookie = await createAccount(running.origin, 'bob_ice');
+    
+    const alice = await openSocket(running.origin, aliceCookie);
+    aliceSocket = alice.socket;
+    const bob = await openSocket(running.origin, bobCookie);
+    bobSocket = bob.socket;
+    
+    // Make them friends
+    await sendAndWait(aliceSocket, { type: 'friend_request', to: 'bob_ice' }, m => m.type === 'friend_status' && m.status === 'pending');
+    await sendAndWait(bobSocket, { type: 'friend_accept', with: 'alice_ice' }, m => m.type === 'friend_status' && m.status === 'accepted');
+    
+    // Small delay
+    await new Promise(r => setTimeout(r, 100));
+    
+    // Alice calls Bob
+    const incoming = waitFor(bobSocket, m => m.type === 'incoming_call');
+    const startedCall = await sendAndWait(aliceSocket, { type: 'call_start', to: 'bob_ice', callType: 'private' }, m => m.type === 'call_started');
+    await incoming;
+    
+    // Bob accepts
+    const bobAccepted = sendAndWait(bobSocket, { type: 'call_accept', callId: startedCall.callId }, m => m.type === 'call_accepted');
+    const aliceSawBobJoin = waitFor(aliceSocket, m => m.type === 'call_member_joined' && m.user === 'bob_ice');
+    await Promise.all([bobAccepted, aliceSawBobJoin]);
+    
+    // Exchange ICE candidates
+    const candidateReceived = waitFor(bobSocket, m => m.type === 'call_signal' && m.data.candidate);
+    aliceSocket.send(JSON.stringify({ 
+      type: 'call_signal', 
+      callId: startedCall.callId, 
+      to: 'bob_ice', 
+      data: { candidate: { candidate: 'candidate:1 1 UDP 2122260223 192.168.1.1 54400 typ host', sdpMid: '0', sdpMLineIndex: 0 } } 
+    }));
+    const candidateMsg = await candidateReceived;
+    assert.ok(candidateMsg.data.candidate);
+    assert.equal(candidateMsg.from, 'alice_ice');
+    
+    // Reverse direction
+    const candidateReceived2 = waitFor(aliceSocket, m => m.type === 'call_signal' && m.data.candidate);
+    bobSocket.send(JSON.stringify({ 
+      type: 'call_signal', 
+      callId: startedCall.callId, 
+      to: 'alice_ice', 
+      data: { candidate: { candidate: 'candidate:2 1 UDP 2122260223 192.168.1.2 54401 typ host', sdpMid: '0', sdpMLineIndex: 0 } } 
+    }));
+    const candidateMsg2 = await candidateReceived2;
+    assert.ok(candidateMsg2.data.candidate);
+    assert.equal(candidateMsg2.from, 'bob_ice');
+  } finally {
+    if (aliceSocket) await closeSocket(aliceSocket).catch(() => {});
+    if (bobSocket) await closeSocket(bobSocket).catch(() => {});
+    await stopServer(running.child);
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+});

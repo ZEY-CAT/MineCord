@@ -440,6 +440,7 @@ label{display:block;margin:12px 0 4px;font-size:13px;font-weight:500;color:var(-
 <div id="tipsModal" class="modal hidden"><div class="card" role="dialog" aria-modal="true" aria-labelledby="tipsTitle" style="max-width:560px;max-height:86vh;overflow:auto"><div class="row" style="justify-content:space-between;align-items:center"><h2 id="tipsTitle" style="margin:0"><svg class="uiIcon"><use href="#icon-help"></use></svg> Tips &amp; Guide</h2><button onclick="show('tipsModal',false)" style="background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;padding:0;line-height:1" aria-label="Close tips">&times;</button></div><p class="muted">Use this guide any time without leaving your current conversation.</p><ul style="line-height:1.65;padding-left:20px;margin:12px 0"><li><b>Home dashboard:</b> use the Home button in the top bar or sidebar to see your servers, friends, voice shortcuts, and featured Minecraft content.</li><li><b>Return to chat:</b> from Home, choose <b>Return to conversation</b> or pick a server/channel. Your current channel and messages are kept while Home is open.</li><li><b>Chat and DMs:</b> select a channel in the sidebar, or open a friend/DM. Messages are stored by the server and reappear after refresh.</li><li><b>Friends:</b> use <b>Add Friend</b>, accept requests, then start a DM from the Friends list or Members panel.</li><li><b>Voice:</b> open a DM for a private call, or join a voice channel. Allow microphone access when your browser asks; mute, deafen, and leave from the call bar.</li><li><b>Minecraft:</b> open Settings to link a Java or Bedrock profile, manage game activity, or review linked sign-in accounts.</li><li><b>Onboarding:</b> new members can reopen the welcome steps here. Completing onboarding changes the account to Member.</li></ul><div class="row" style="flex-wrap:wrap;gap:8px"><button id="tipsOnboardingBtn" class="secondary" onclick="openOnboardingFromTips()">Open onboarding</button><button class="primary" onclick="show('tipsModal',false);showHome(true)"><svg class="uiIcon"><use href="#icon-home"></use></svg> Open Home</button><button class="secondary" onclick="show('tipsModal',false)">Close</button></div></div></div>
 <div id="callBar" class="callBar hidden"><b id="callTitle"><svg class="uiIcon"><use href="#icon-call"></use></svg> Call</b><div id="callPeople" class="callPeople"></div><div id="voiceStatus" class="callStatus" role="status"></div><span id="voiceUsageStatus" class="callStatus" role="status"></span><button id="voiceUsageButton" title="Check this account's TURN usage">TURN usage</button><button id="muteBtn"><svg class="uiIcon"><use href="#icon-mic"></use></svg><span>Mute</span></button><button id="deafenBtn"><svg class="uiIcon"><use href="#icon-deafen"></use></svg><span>Deafen</span></button><button id="endCall" class="danger"><svg class="uiIcon"><use href="#icon-hangup"></use></svg><span>End</span></button></div>
 <div id="incoming" class="incoming hidden"><b><svg class="uiIcon"><use href="#icon-call"></use></svg> Incoming call</b><div id="incomingText" style="margin:10px 0"></div><div class="row"><button id="acceptCall" class="primary" style="flex:1">Accept</button><button id="declineCall" class="danger" style="flex:1">Decline</button></div></div>
+<div id="audioBin" style="display:none"></div>
 <div id="settingsModal" class="modal hidden"><div class="card"><div class="row" style="justify-content:space-between"><h2><svg class="uiIcon"><use href="#icon-settings"></use></svg> Settings</h2><button onclick="show('settingsModal',false)" style="background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer;padding:0;line-height:1">&times;</button></div><div style="text-align:center;margin:15px"><div id="settingsAvatar" class="avatar" style="width:96px;height:96px;margin:auto;font-size:32px"><svg class="uiIcon"><use href="#icon-user"></use></svg></div></div><label>Display name</label><input id="settingsDisplayName" maxlength="32"><label>Avatar image URL (HTTPS only)</label><input id="settingsAvatarUrl" maxlength="500" placeholder="https://example.com/avatar.png"><p class="muted">The image host may receive your request when your profile is shown.</p><label>Username</label><input id="settingsUsername" disabled><label>Sign-in provider</label><input id="settingsProvider" disabled><label class="row" style="margin:14px 0"><input id="showGameActivity" type="checkbox" style="width:auto;margin:0"> Show game activity</label><div id="currentActivity" class="muted"></div><h3>Eaglercraft browser integration</h3><p class="muted">Pair the MINECORD Activity extension for Chrome using this one-time code. The extension only reports whether the configured Eaglercraft page is open.</p><button id="pairEaglercraft">Generate pairing code</button><button id="revokeEaglercraft">Unpair extension</button><div id="pairingCode" class="muted" style="word-break:break-all"></div><h3><svg class="uiIcon" style="margin-right:8px"><use href="#icon-minecraft"></use></svg> Minecraft</h3><input id="mcName" maxlength="32" placeholder="Minecraft username"><input id="mcUuid" maxlength="80" placeholder="Minecraft UUID (optional)"><select id="mcEdition"><option>Java</option><option>Bedrock</option></select><div class="row" style="margin-top:12px"><button id="saveProfile" class="primary" style="flex:1">Save</button><button id="signOut" class="danger">Sign Out</button></div></div><div id="gamesSection" style="margin-top:24px;padding-top:24px;border-top:1px solid var(--line)"><h3><svg class="uiIcon" style="margin-right:8px"><use href="#icon-activity"></use></svg> Games</h3><p class="muted" style="margin:0 0 16px">Link your Minecraft accounts and manage saved servers for each edition.</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-top:16px"><div class="card" style="padding:16px;border:1px solid var(--line);background:var(--panel)"><div class="row" style="align-items:center;margin-bottom:12px"><svg class="uiIcon" style="width:28px;height:28px;color:var(--green)"><use href="#icon-minecraft"></use></svg><h4 style="margin:0;margin-left:12px">Minecraft Java Edition</h4></div><p class="muted" style="margin:0 0 16px;font-size:14px">Link your official Minecraft Java account via Microsoft authentication. View your profile and skin.</p><div style="display:flex;flex-direction:column;gap:8px"><input id="mcJavaName" maxlength="32" placeholder="Minecraft username"><input id="mcJavaUuid" maxlength="80" placeholder="Minecraft UUID (optional)"><button id="linkJavaAccount" class="primary" style="width:100%">Link Java Account</button></div><div id="javaAccountStatus" class="muted" style="margin-top:8px;min-height:20px"></div><div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--line)"><h5 style="margin:0 0 8px">Saved Java Servers</h5><div id="javaServerList" class="muted" style="font-size:13px">No saved servers</div><button id="addJavaServer" class="secondary" style="width:100%;margin-top:8px"><svg class="uiIcon"><use href="#icon-add"></use></svg> Add Server</button></div></div><div class="card" style="padding:16px;border:1px solid var(--line);background:var(--panel)"><div class="row" style="align-items:center;margin-bottom:12px"><svg class="uiIcon" style="width:28px;height:28px;color:#0078d4"><use href="#icon-minecraft-bedrock"></use></svg><h4 style="margin:0;margin-left:12px">Minecraft Bedrock Edition</h4></div><p class="muted" style="margin:0 0 16px;font-size:14px">Link your Bedrock account. Save and share server addresses and ports for Windows 10/11, consoles, and mobile.</p><div style="display:flex;flex-direction:column;gap:8px"><input id="mcBedrockName" maxlength="32" placeholder="Bedrock username (Xbox Gamertag)"><input id="mcBedrockXuid" maxlength="80" placeholder="Xbox User ID (XUID)"><button id="linkBedrockAccount" class="primary" style="width:100%">Link Bedrock Account</button></div><div id="bedrockAccountStatus" class="muted" style="margin-top:8px;min-height:20px"></div><div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--line)"><h5 style="margin:0 0 8px">Saved Bedrock Servers</h5><div id="bedrockServerList" class="muted" style="font-size:13px">No saved servers</div><button id="addBedrockServer" class="secondary" style="width:100%;margin-top:8px"><svg class="uiIcon"><use href="#icon-add"></use></svg> Add Server</button></div></div><div class="card" style="padding:16px;border:1px solid var(--line);background:var(--panel)"><div class="row" style="align-items:center;margin-bottom:12px"><svg class="uiIcon" style="width:28px;height:28px;color:#ff6b00"><use href="#icon-eaglercraft"></use></svg><h4 style="margin:0;margin-left:12px">Eaglercraft</h4></div><p class="muted" style="margin:0 0 16px;font-size:14px">Configure Eaglercraft browser integration. Save and share supported server links.</p><div style="display:flex;flex-direction:column;gap:8px"><input id="eaglerUrl" maxlength="200" placeholder="Eaglercraft server URL (e.g., https://eaglercraft.com/mc/)"><button id="saveEaglerUrl" class="primary" style="width:100%">Save URL</button></div><div id="eaglerStatus" class="muted" style="margin-top:8px;min-height:20px"></div><div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--line)"><h5 style="margin:0 0 8px">Saved Eaglercraft Links</h5><div id="eaglerLinkList" class="muted" style="font-size:13px">No saved links</div><button id="addEaglerLink" class="secondary" style="width:100%;margin-top:8px"><svg class="uiIcon"><use href="#icon-add"></use></svg> Add Link</button></div></div></div><div id="audioBin"></div>
 <script>
 let ws=null,me=null,servers=[],currentServer=null,currentChannel=null,currentDM=null,online=[],activities={},rtcConfig={iceServers:[{urls:'stun:stun.l.google.com:19302'}]},rtcWarnings=[],voiceFailure='';let serverPeers=new Map(),callPeers=new Map(),voiceMembers=new Set(),voiceRoom=null,connectionStates=new Map(),relayStates=new Map(),speakingPeers=new Set(),peerMonitorTimers=new Map(),localStream=null,muted=false,deafened=false,activeCall=null,incomingCall=null,unread={};
@@ -447,6 +448,169 @@ const $=id=>document.getElementById(id),show=(id,on=true)=>$(id)?.classList.togg
 function activityTitle(a){if(!a)return'';if(a.active===false)return a.game==='eaglercraft'?'Eaglercraft offline':'Offline';return`Playing ${a.game==='bedrock'?'Minecraft Bedrock':a.game==='java'?'Minecraft Java':'Eaglercraft'}`}
 function activityDetails(a){if(!a||a.active===false)return'';const details=[];if(a.playerName)details.push(esc(a.playerName));if(a.serverName)details.push(esc(a.serverName));const minutes=Math.max(0,Math.floor((Date.now()-(a.startedAt||Date.now()))/60000));if(minutes>0)details.push(`${minutes} min`);return details.join(' · ')}
 function renderActivities(){const cards=[];for(const [name,a] of Object.entries(activities)){if(!a)continue;cards.push(`<div class="activityCard"><b>${esc(name)} — ${activityTitle(a)}</b><span>${a.active===false?'Offline':activityDetails(a)||'Active now'}</span></div>`)}$('activityList').innerHTML=cards.join('')||'<div class="muted" style="padding:8px">No active games. Eaglercraft status is unavailable until its browser connector is paired.</div>';const own=activities[me?.username];$('currentActivity').textContent=own?`${activityTitle(own)}${activityDetails(own)?' · '+activityDetails(own):''}`:'No active game detected.'}
+
+// ===== Custom Modal System (moved here for early availability) =====
+let activeModal = null;
+function showModal(contentHtml, options = {}) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modalOverlay';
+  overlay.innerHTML = `
+    <div class="modalCard" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modalHeader">
+        <h3 id="modalTitle">${esc(options.title || '')}</h3>
+        <button class="modalClose" aria-label="Close">&times;</button>
+      </div>
+      <div class="modalBody">${contentHtml}</div>
+      <div class="modalFooter">${options.footerHtml || ''}</div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  activeModal = overlay;
+  
+  // Force reflow before opening
+  overlay.offsetHeight;
+  overlay.classList.add('open');
+  
+  // Focus trap
+  const closeBtn = overlay.querySelector('.modalClose');
+  const card = overlay.querySelector('.modalCard');
+  
+  const closeNow = () => {
+    overlay.classList.remove('open');
+    overlay.addEventListener('transitionend', () => {
+      if (overlay.parentNode) overlay.remove();
+      if (activeModal === overlay) activeModal = null;
+    }, { once: true });
+  };
+  const close = () => {
+    closeNow();
+    if (options.onClose) options.onClose(false);
+  };
+  
+  closeBtn.onclick = close;
+  overlay.onclick = (e) => { if (e.target === overlay) close(); };
+  
+  // Handle escape key
+  const onKeyDown = (e) => {
+    if (e.key === 'Escape' && activeModal === overlay) close();
+  };
+  document.addEventListener('keydown', onKeyDown);
+  overlay.addEventListener('transitionend', () => {
+    if (!overlay.classList.contains('open')) {
+      document.removeEventListener('keydown', onKeyDown);
+    }
+  });
+  
+  return {
+    close,
+    closeNow,
+    card,
+    overlay,
+    promise: new Promise((resolve) => {
+      overlay._resolve = resolve;
+    })
+  };
+}
+
+function showConfirm(message, title = 'Confirm', options = {}) {
+  const confirmHtml = `
+    <p style="margin:0 0 16px;font-size:14px;line-height:1.5">${esc(message)}</p>
+  `;
+  const footerHtml = `
+    <button class="secondary" data-action="cancel">${esc(options.cancelText || 'Cancel')}</button>
+    <button class="primary" data-action="confirm">${esc(options.confirmText || 'Confirm')}</button>
+  `;
+  
+  return new Promise((resolve) => {
+    const modal = showModal(confirmHtml, {
+      title,
+      footerHtml,
+      onClose: (result) => resolve(result)
+    });
+    
+    modal.card.querySelector('[data-action="confirm"]').onclick = () => {
+      modal.closeNow();
+      resolve(true);
+    };
+    modal.card.querySelector('[data-action="cancel"]').onclick = () => {
+      modal.closeNow();
+      resolve(false);
+    };
+  });
+}
+
+function showPrompt(message, title = 'Enter value', options = {}) {
+  const inputId = 'modalPromptInput';
+  const promptHtml = `
+    <p style="margin:0 0 16px;font-size:14px;line-height:1.5">${esc(message)}</p>
+    <label class="modalLabel" for="${inputId}">${esc(options.label || 'Value')}</label>
+    <input type="${options.type || 'text'}" id="${inputId}" class="modalInput" placeholder="${esc(options.placeholder || '')}" value="${esc(options.value || '')}" autocomplete="${options.autocomplete || 'off'}">
+  `;
+  const footerHtml = `
+    <button class="secondary" data-action="cancel">${esc(options.cancelText || 'Cancel')}</button>
+    <button class="primary" data-action="confirm">${esc(options.confirmText || 'OK')}</button>
+  `;
+  
+  return new Promise((resolve) => {
+    const modal = showModal(promptHtml, {
+      title,
+      footerHtml,
+      onClose: (result) => resolve(result)
+    });
+    
+    const input = modal.card.querySelector(`#${inputId}`);
+    setTimeout(() => input.focus(), 100);
+    
+    const handleConfirm = () => {
+      const value = input.value.trim();
+      if (options.required && !value) {
+        input.style.borderColor = 'var(--red)';
+        return;
+      }
+      modal.closeNow();
+      resolve(value);
+    };
+    
+    modal.card.querySelector('[data-action="confirm"]').onclick = handleConfirm;
+    modal.card.querySelector('[data-action="cancel"]').onclick = () => {
+      modal.closeNow();
+      resolve(null);
+    };
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleConfirm();
+      else if (e.key === 'Escape') { modal.closeNow(); resolve(null); }
+    });
+  });
+}
+
+function showAlert(message, title = 'Notice') {
+  const alertHtml = `<p style="margin:0;font-size:14px;line-height:1.5">${esc(message)}</p>`;
+  const footerHtml = `<button class="primary" data-action="ok">${esc('OK')}</button>`;
+  
+  return new Promise((resolve) => {
+    const modal = showModal(alertHtml, {
+      title,
+      footerHtml,
+      onClose: () => resolve()
+    });
+    modal.card.querySelector('[data-action="ok"]').onclick = () => {
+      modal.closeNow();
+      resolve();
+    };
+  });
+}
+
+function showError(message, title = 'Error') {
+  return showAlert(message, title);
+}
+
+// Override window.alert, window.confirm, window.prompt for backward compatibility
+window.showConfirm = showConfirm;
+window.showPrompt = showPrompt;
+window.showAlert = showAlert;
+window.modalPrompt = showPrompt;
+window.modalConfirm = showConfirm;
+
 async function connect(){try{const response=await fetch('/api/rtc-config');if(response.ok){const config=await response.json();rtcConfig={iceServers:config.iceServers};rtcWarnings=config.warnings||[]}else throw new Error(`Voice configuration request failed (${response.status}).`)}catch(error){console.warn('Voice configuration unavailable:',error.message);rtcWarnings=['Voice network configuration is unavailable. Voice may not connect.']}ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host);ws.onopen=()=>$('meStatus').textContent='online';ws.onmessage=e=>{try{handle(JSON.parse(e.data))}catch(err){console.error(err)}};ws.onclose=()=>{$('meStatus').textContent='offline';leaveServerVoice(false);finishCall(false);for(const peer of callPeers.keys())closeCallPeer(peer);setTimeout(()=>{if(me&&document.visibilityState!=='unloaded')connect()},3000)}}
 function promptFriendRequests(list){const from=list.shift();if(!from)return;showConfirm('Accept friend request from '+from+'?','Friend Request').then(ok=>{send(ok?{type:'friend_accept',with:from}:{type:'friend_reject',with:from});promptFriendRequests(list)})}
 
@@ -3364,171 +3528,6 @@ function closeGamePage() {
   }
   homeVisible = false;
 }
-
-// ===== NEW: Custom Modal System =====
-let activeModal = null;
-
-function showModal(contentHtml, options = {}) {
-  const overlay = document.createElement('div');
-  overlay.className = 'modalOverlay';
-  overlay.innerHTML = `
-    <div class="modalCard" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-      <div class="modalHeader">
-        <h3 id="modalTitle">${esc(options.title || '')}</h3>
-        <button class="modalClose" aria-label="Close">&times;</button>
-      </div>
-      <div class="modalBody">${contentHtml}</div>
-      <div class="modalFooter">${options.footerHtml || ''}</div>
-    </div>
-  `;
-  document.body.appendChild(overlay);
-  activeModal = overlay;
-  
-  // Force reflow before opening
-  overlay.offsetHeight;
-  overlay.classList.add('open');
-  
-  // Focus trap
-  const closeBtn = overlay.querySelector('.modalClose');
-  const card = overlay.querySelector('.modalCard');
-  
-  const closeNow = () => {
-    overlay.classList.remove('open');
-    overlay.addEventListener('transitionend', () => {
-      if (overlay.parentNode) overlay.remove();
-      if (activeModal === overlay) activeModal = null;
-    }, { once: true });
-  };
-  const close = () => {
-    closeNow();
-    if (options.onClose) options.onClose(false);
-  };
-  
-  closeBtn.onclick = close;
-  overlay.onclick = (e) => { if (e.target === overlay) close(); };
-  
-  // Handle escape key
-  const onKeyDown = (e) => {
-    if (e.key === 'Escape' && activeModal === overlay) close();
-  };
-  document.addEventListener('keydown', onKeyDown);
-  overlay.addEventListener('transitionend', () => {
-    if (!overlay.classList.contains('open')) {
-      document.removeEventListener('keydown', onKeyDown);
-    }
-  });
-  
-  return {
-    close,
-    closeNow,
-    card,
-    overlay,
-    promise: new Promise((resolve) => {
-      overlay._resolve = resolve;
-    })
-  };
-}
-
-function showConfirm(message, title = 'Confirm', options = {}) {
-  const confirmHtml = `
-    <p style="margin:0 0 16px;font-size:14px;line-height:1.5">${esc(message)}</p>
-  `;
-  const footerHtml = `
-    <button class="secondary" data-action="cancel">${esc(options.cancelText || 'Cancel')}</button>
-    <button class="primary" data-action="confirm">${esc(options.confirmText || 'Confirm')}</button>
-  `;
-  
-  return new Promise((resolve) => {
-    const modal = showModal(confirmHtml, {
-      title,
-      footerHtml,
-      onClose: (result) => resolve(result)
-    });
-    
-    modal.card.querySelector('[data-action="confirm"]').onclick = () => {
-      modal.closeNow();
-      resolve(true);
-    };
-    modal.card.querySelector('[data-action="cancel"]').onclick = () => {
-      modal.closeNow();
-      resolve(false);
-    };
-  });
-}
-
-function showPrompt(message, title = 'Enter value', options = {}) {
-  const inputId = 'modalPromptInput';
-  const promptHtml = `
-    <p style="margin:0 0 16px;font-size:14px;line-height:1.5">${esc(message)}</p>
-    <label class="modalLabel" for="${inputId}">${esc(options.label || 'Value')}</label>
-    <input type="${options.type || 'text'}" id="${inputId}" class="modalInput" placeholder="${esc(options.placeholder || '')}" value="${esc(options.value || '')}" autocomplete="${options.autocomplete || 'off'}">
-  `;
-  const footerHtml = `
-    <button class="secondary" data-action="cancel">${esc(options.cancelText || 'Cancel')}</button>
-    <button class="primary" data-action="confirm">${esc(options.confirmText || 'OK')}</button>
-  `;
-  
-  return new Promise((resolve) => {
-    const modal = showModal(promptHtml, {
-      title,
-      footerHtml,
-      onClose: (result) => resolve(result)
-    });
-    
-    const input = modal.card.querySelector(`#${inputId}`);
-    setTimeout(() => input.focus(), 100);
-    
-    const handleConfirm = () => {
-      const value = input.value.trim();
-      if (options.required && !value) {
-        input.style.borderColor = 'var(--red)';
-        return;
-      }
-      modal.closeNow();
-      resolve(value);
-    };
-    
-    modal.card.querySelector('[data-action="confirm"]').onclick = handleConfirm;
-    modal.card.querySelector('[data-action="cancel"]').onclick = () => {
-      modal.closeNow();
-      resolve(null);
-    };
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') handleConfirm();
-      else if (e.key === 'Escape') { modal.closeNow(); resolve(null); }
-    });
-  });
-}
-
-function showAlert(message, title = 'Notice') {
-  const alertHtml = `<p style="margin:0;font-size:14px;line-height:1.5">${esc(message)}</p>`;
-  const footerHtml = `<button class="primary" data-action="ok">${esc('OK')}</button>`;
-  
-  return new Promise((resolve) => {
-    const modal = showModal(alertHtml, {
-      title,
-      footerHtml,
-      onClose: () => resolve()
-    });
-    modal.card.querySelector('[data-action="ok"]').onclick = () => {
-      modal.closeNow();
-      resolve();
-    };
-  });
-}
-
-function showError(message, title = 'Error') {
-  return showAlert(message, title);
-}
-
-// Override window.alert, window.confirm, window.prompt for backward compatibility
-// Note: These are async so they can't fully replace sync versions
-// but we can provide async versions
-window.showConfirm = showConfirm;
-window.showPrompt = showPrompt;
-window.showAlert = showAlert;
-window.modalPrompt = showPrompt;
-window.modalConfirm = showConfirm;
 
 // Wrap the final renderer implementations (some are redefined by later scripts)
 // so the mobile drawers always mirror the desktop sidebars.
