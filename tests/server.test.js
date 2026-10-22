@@ -1101,3 +1101,198 @@ test('call timeout and ICE candidate exchange', { timeout: 30000 }, async () => 
     rmSync(tempDir, { recursive: true, force: true });
   }
 });
+
+
+async function httpJson(origin, pathname, options = {}) {
+  const headers = { Origin: origin };
+  if (options.cookie) headers.Cookie = options.cookie;
+  if (options.body !== undefined) headers['Content-Type'] = 'application/json';
+  const response = await fetch(origin + pathname, {
+    method: options.method || 'GET',
+    headers,
+    body: options.body === undefined ? undefined : JSON.stringify(options.body),
+    redirect: 'manual'
+  });
+  const text = await response.text();
+  let json = null;
+  try { json = JSON.parse(text); } catch {}
+  return { response, json, text };
+}
+
+test('HTTP invitations: create, preview, accept, list, revoke, and authorization', { timeout: 60000 }, async () => {
+  const port = await availablePort();
+  const running = await startServer(port);
+  const origin = running.origin;
+  try {
+    const aliceCookie = await createAccount(origin, 'InviteAlice');
+    const bobCookie = await createAccount(origin, 'InviteBob');
+    const carolCookie = await createAccount(origin, 'InviteCarol');
+    const alice = await openSocket(origin, aliceCookie);
+    const bob = await openSocket(origin, bobCookie);
+    const carol = await openSocket(origin, carolCookie);
+
+    const created = await sendAndWait(alice.socket, { type: 'create_server', name: 'Invite Test Server' }, message => message.type === 'server_created');
+    const serverId = created.server.id;
+
+    const denied = await httpJson(origin, '/api/invite/create', { cookie: bobCookie, method: 'POST', body: { serverId } });
+    assert.equal(denied.response.status, 403, 'non-members must not create invitations');
+
+    const createdInvite = await httpJson(origin, '/api/invite/create', { cookie: aliceCookie, method: 'POST', body: { serverId } });
+    assert.equal(createdInvite.response.status, 200);
+    assert.ok(createdInvite.json.code);
+    assert.equal(createdInvite.json.url, origin + '/invite/' + createdInvite.json.code);
+    const code = createdInvite.json.code;
+
+    const preview = await httpJson(origin, '/api/invite/preview?code=' + encodeURIComponent(code));
+    assert.equal(preview.response.status, 200);
+    assert.equal(preview.json.server.id, serverId);
+    assert.equal(preview.json.targeted, false);
+    assert.ok(!('target' in preview.json));
+
+    const page = await httpJson(origin, '/invite/' + code);
+    assert.equal(page.response.status, 200);
+    assert.match(page.text, /Server Invitation/);
+
+    const deniedList = await httpJson(origin, '/api/invite/list?serverId=' + encodeURIComponent(serverId), { cookie: carolCookie });
+    assert.equal(deniedList.response.status, 403, 'non-members must not list invitations');
+
+    const accepted = await httpJson(origin, '/api/invite/accept', { cookie: bobCookie, method: 'POST', body: { code } });
+    assert.equal(accepted.response.status, 200);
+    assert.equal(accepted.json.server.id, serverId);
+
+    const again = await httpJson(origin, '/api/invite/accept', { cookie: bobCookie, method: 'POST', body: { code } });
+    assert.equal(again.response.status, 200);
+    assert.equal(again.json.alreadyMember, true, 'repeated acceptance must be idempotent');
+
+    await closeSocket(bob.socket);
+    const bobReconnected = await openSocket(origin, bobCookie);
+    assert.ok(bobReconnected.ready.servers.some(server => server.id === serverId), 'membership must persist across reconnect');
+    bob.socket = bobReconnected.socket;
+
+    const listed = await httpJson(origin, '/api/invite/list?serverId=' + encodeURIComponent(serverId), { cookie: aliceCookie });
+    assert.equal(listed.response.status, 200);
+    assert.ok(listed.json.invites.some(invite => invite.code === code));
+
+    const deniedRevoke = await httpJson(origin, '/api/invite/revoke', { cookie: bobCookie, method: 'POST', body: { code } });
+    assert.equal(deniedRevoke.response.status, 403, 'non-creators must not revoke invitations');
+
+    const revoked = await httpJson(origin, '/api/invite/revoke', { cookie: aliceCookie, method: 'POST', body: { code } });
+    assert.equal(revoked.response.status, 200);
+
+    const gone = await httpJson(origin, '/api/invite/preview?code=' + encodeURIComponent(code));
+    assert.equal(gone.response.status, 404);
+    const deniedAccept = await httpJson(origin, '/api/invite/accept', { cookie: carolCookie, method: 'POST', body: { code } });
+    assert.equal(deniedAccept.response.status, 404);
+
+    const invalid = await httpJson(origin, '/api/invite/accept', { cookie: carolCookie, method: 'POST', body: { code: 'not-a-real-code' } });
+    assert.equal(invalid.response.status, 404);
+
+    await Promise.all([closeSocket(alice.socket), closeSocket(bob.socket), closeSocket(carol.socket)]);
+  } finally {
+    await stopServer(running.child);
+  }
+});
+
+test('friend invitations target the right account and enforce friendship', { timeout: 60000 }, async () => {
+  const port = await availablePort();
+  const running = await startServer(port);
+  const origin = running.origin;
+  try {
+    const aliceCookie = await createAccount(origin, 'FriendInviteAlice');
+    const bobCookie = await createAccount(origin, 'FriendInviteBob');
+    const carolCookie = await createAccount(origin, 'FriendInviteCarol');
+    const alice = await openSocket(origin, aliceCookie);
+    const bob = await openSocket(origin, bobCookie);
+    const carol = await openSocket(origin, carolCookie);
+
+    const incoming = waitFor(bob.socket, message => message.type === 'friend_request' && message.from === 'FriendInviteAlice');
+    alice.socket.send(JSON.stringify({ type: 'friend_request', to: 'FriendInviteBob' }));
+    await incoming;
+    const friendAccepted = waitFor(alice.socket, message => message.type === 'friend_status' && message.status === 'accepted');
+    bob.socket.send(JSON.stringify({ type: 'friend_accept', with: 'FriendInviteAlice' }));
+    await friendAccepted;
+
+    const created = await sendAndWait(alice.socket, { type: 'create_server', name: 'Friend Invite Server' }, message => message.type === 'server_created');
+    const serverId = created.server.id;
+
+    const denied = await httpJson(origin, '/api/invite/friend', { cookie: aliceCookie, method: 'POST', body: { target: 'FriendInviteCarol', serverId } });
+    assert.equal(denied.response.status, 403, 'only accepted friends can be invited');
+
+    const invite = await httpJson(origin, '/api/invite/friend', { cookie: aliceCookie, method: 'POST', body: { target: 'FriendInviteBob', serverId } });
+    assert.equal(invite.response.status, 200);
+    assert.equal(invite.json.target, 'FriendInviteBob');
+    assert.ok(invite.json.url.endsWith('/invite/' + invite.json.code));
+
+    const duplicate = await httpJson(origin, '/api/invite/friend', { cookie: aliceCookie, method: 'POST', body: { target: 'FriendInviteBob', serverId } });
+    assert.equal(duplicate.response.status, 409, 'duplicate pending invitations must be rejected');
+
+    const wrongPreview = await httpJson(origin, '/api/invite/preview?code=' + encodeURIComponent(invite.json.code), { cookie: carolCookie });
+    assert.equal(wrongPreview.response.status, 200);
+    assert.equal(wrongPreview.json.targetMismatch, true, 'the wrong account must be told the invite is not for them');
+    assert.ok(!('target' in wrongPreview.json), 'the targeted account name must not be exposed');
+    const rightPreview = await httpJson(origin, '/api/invite/preview?code=' + encodeURIComponent(invite.json.code), { cookie: bobCookie });
+    assert.equal(rightPreview.response.status, 200);
+    assert.equal(rightPreview.json.targetMismatch, false);
+
+    const wrongAccount = await httpJson(origin, '/api/invite/accept', { cookie: carolCookie, method: 'POST', body: { code: invite.json.code } });
+    assert.equal(wrongAccount.response.status, 403, 'a targeted invitation must not be usable by another account');
+
+    const accepted = await httpJson(origin, '/api/invite/accept', { cookie: bobCookie, method: 'POST', body: { code: invite.json.code } });
+    assert.equal(accepted.response.status, 200);
+
+    const reuse = await httpJson(origin, '/api/invite/accept', { cookie: bobCookie, method: 'POST', body: { code: invite.json.code } });
+    assert.equal(reuse.response.status, 404, 'a single-use targeted invitation must be consumed');
+
+    const already = await httpJson(origin, '/api/invite/friend', { cookie: aliceCookie, method: 'POST', body: { target: 'FriendInviteBob', serverId } });
+    assert.equal(already.response.status, 400, 'existing members cannot be invited again');
+
+    const secondServer = await sendAndWait(alice.socket, { type: 'create_server', name: 'Decline Test Server' }, message => message.type === 'server_created');
+    const declineInvite = await httpJson(origin, '/api/invite/friend', { cookie: aliceCookie, method: 'POST', body: { target: 'FriendInviteBob', serverId: secondServer.server.id } });
+    assert.equal(declineInvite.response.status, 200);
+    const declined = await httpJson(origin, '/api/invite/decline', { cookie: bobCookie, method: 'POST', body: { code: declineInvite.json.code } });
+    assert.equal(declined.response.status, 200);
+    const afterDecline = await httpJson(origin, '/api/invite/preview?code=' + encodeURIComponent(declineInvite.json.code));
+    assert.equal(afterDecline.response.status, 404);
+
+    await Promise.all([closeSocket(alice.socket), closeSocket(bob.socket), closeSocket(carol.socket)]);
+  } finally {
+    await stopServer(running.child);
+  }
+});
+
+test('expired and exhausted invitations are rejected', { timeout: 60000 }, async () => {
+  const { DatabaseSync } = require('node:sqlite');
+  const port = await availablePort();
+  let running = await startServer(port);
+  const origin = running.origin;
+  let serverId = '';
+  try {
+    const aliceCookie = await createAccount(origin, 'ExpiryAlice');
+    const alice = await openSocket(origin, aliceCookie);
+    const created = await sendAndWait(alice.socket, { type: 'create_server', name: 'Expiry Server' }, message => message.type === 'server_created');
+    serverId = created.server.id;
+    await closeSocket(alice.socket);
+    await stopServer(running.child);
+
+    const db = new DatabaseSync(databaseFile);
+    const row = db.prepare('SELECT value FROM app_state WHERE id = 1').get();
+    const state = JSON.parse(row.value);
+    state.invites = state.invites || {};
+    state.invites['expired-test-code'] = { serverId, createdBy: 'ExpiryAlice', expires: Date.now() - 1000, createdAt: Date.now() - 100000, uses: 0, maxUses: null };
+    state.invites['exhausted-test-code'] = { serverId, createdBy: 'ExpiryAlice', target: 'ExpiryAlice', expires: Date.now() + 100000, createdAt: Date.now(), uses: 1, maxUses: 1 };
+    db.prepare('UPDATE app_state SET value = ? WHERE id = 1').run(JSON.stringify(state));
+    db.close();
+
+    running = await startServer(port);
+    for (const code of ['expired-test-code', 'exhausted-test-code']) {
+      const preview = await httpJson(origin, '/api/invite/preview?code=' + encodeURIComponent(code));
+      assert.equal(preview.response.status, 404, code + ' must not preview');
+      const page = await httpJson(origin, '/invite/' + code);
+      assert.equal(page.response.status, 410, code + ' must show the expired page');
+      const accepted = await httpJson(origin, '/api/invite/accept', { cookie: aliceCookie, method: 'POST', body: { code } });
+      assert.equal(accepted.response.status, 404, code + ' must not be accepted');
+    }
+  } finally {
+    await stopServer(running.child);
+  }
+});

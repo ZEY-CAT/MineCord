@@ -1,8 +1,113 @@
-<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Server Invitation — MINECORD</title><link rel="icon" href="/favicon.ico" sizes="any"><link rel="icon" href="/icons/icon-192.png" sizes="192x192" type="image/png"><link rel="icon" href="/icons/icon-512.png" sizes="512x512" type="image/png"><link rel="apple-touch-icon" href="/icons/icon-192.png"><link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#5865f2"><style>
-@font-face{font-family:'VT323';src:url('/fonts/vt323.ttf') format('truetype');font-style:normal;font-weight:400;font-display:swap;unicode-range:U+0020-007F,U+00A0-00FF}
-@font-face{font-family:'IBM Plex Sans';src:url('/fonts/ibm-plex-sans-regular.ttf') format('truetype');font-style:normal;font-weight:400;font-display:swap}
-@font-face{font-family:'IBM Plex Sans';src:url('/fonts/ibm-plex-sans-medium.ttf') format('truetype');font-style:normal;font-weight:500;font-display:swap}
-@font-face{font-family:'IBM Plex Sans';src:url('/fonts/ibm-plex-sans-semibold.ttf') format('truetype');font-style:normal;font-weight:600;font-display:swap}
-:root{--font-minecraft:'VT323',ui-monospace,"Cascadia Mono",Consolas,monospace;--font-ui:'IBM Plex Sans',system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;color:#f2f4f7;background:#313338;font-size:16px;font-family:var(--font-ui);--side:#1e1f22;--rail:#111214;--hover:#35373c;--line:#202225;--muted:#b5bac1;--blue:#5865f2;--green:#23a559;--red:#da373c;--yellow:#faa61a;--panel:#1e1f22;--panel-border:#202225;--input-bg:#2a2c31;--input-border:#3e4147}
-*{box-sizing:border-box}body{margin:0;min-height:100vh;background:#313338;display:flex;align-items:center;justify-content:center;padding:24px}a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}button{font:inherit;font-family:var(--font-ui)}.container{max-width:480px;width:100%}.card{background:var(--panel);border:1px solid var(--panel-border);border-radius:16px;padding:32px;box-shadow:0 20px 60px rgba(0,0,0,0.4)}.icon{width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,rgba(88,101,242,0.2),rgba(35,165,89,0.15));display:grid;place-items:center;margin:0 auto 24px;color:var(--blue)}.icon svg{width:36px;height:36px}h1{font-family:var(--font-minecraft);font-size:28px;text-align:center;margin:0 0 8px;letter-spacing:1px}.server-name{text-align:center;font-size:18px;font-weight:600;margin-bottom:8px}.inviter{text-align:center;color:var(--muted);font-size:14px;margin-bottom:24px}.meta{display:flex;justify-content:center;gap:24px;margin-bottom:24px;padding:16px;background:var(--input-bg);border:1px solid var(--panel-border);border-radius:10px}.meta-item{display:flex;flex-direction:column;align-items:center;gap:4px}.meta-label{font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted)}.meta-value{font-size:14px;font-weight:500}.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;padding:14px 28px;border-radius:10px;font-weight:600;font-size:15px;cursor:pointer;transition:transform 0.1s ease,background 0.15s ease,box-shadow 0.15s ease;border:0;white-space:nowrap;width:100%}.btn:active{transform:scale(0.98)}.btn.primary{background:var(--blue);color:#fff;box-shadow:0 4px 20px rgba(88,101,242,0.3)}.btn.primary:hover{background:#4a54e0;box-shadow:0 6px 28px rgba(88,101,242,0.4)}.btn.secondary{background:transparent;color:var(--muted);border:2px solid var(--line)}.btn.secondary:hover{background:var(--hover);border-color:var(--blue);color:#fff}.btn:disabled{opacity:0.5;cursor:not-allowed}.btn-group{display:flex;flex-direction:column;gap:12px;margin-top:24px}.divider{display:flex;align-items:center;gap:12px;margin:20px 0;color:var(--muted);font-size:13px}.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--line)}.status{padding:12px;border-radius:8px;font-size:13px;text-align:center;margin-bottom:16px}.status.info{background:rgba(88,101,242,0.1);border:1px solid rgba(88,101,242,0.3);color:var(--blue)}.status.warning{background:rgba(250,166,26,0.1);border:1px solid rgba(250,166,26,0.3);color:var(--yellow)}.error{color:var(--red);text-align:center;font-size:13px;margin-top:16px;min-height:20px}@media(max-width:640px){.card{padding:24px}}
-</style></head><body><div class="container"><div class="card"><div class="icon"><svg class="uiIcon" aria-hidden="true"><use href="#icon-server"></use></svg></div><h1>Server Invitation</h1><div class="server-name" id="serverName">Loading…</div><div class="inviter" id="inviterText">Invited by <span id="inviterName">someone</span></div><div class="meta"><div class="meta-item"><span class="meta-label">Members</span><span class="meta-value" id="memberCount">—</span></div><div class="meta-item"><span class="meta-label">Expires</span><span class="meta-value" id="expiresAt">—</span></div></div><div class="status info" id="statusMsg">You need to sign in to accept this invitation.</div><div class="btn-group"><a class="btn primary" id="signInBtn" href="/app?oauth=google">Continue with Google</a><a class="btn secondary" id="signInBtn2" href="/app?oauth=microsoft">Continue with Microsoft</a><a class="btn secondary" id="signInBtn3" href="/app?oauth=github">Continue with GitHub</a></div><div class="divider"><span>Or</span></div><a class="btn secondary" id="openAppBtn" href="/app">Open Web App</a><div class="error" id="errorMsg"></div></div></div><script>async function loadInvite(){try{const url=new URL(window.location.href);const code=url.searchParams.get('code')||url.pathname.split('/').pop();const res=await fetch('/api/invite/preview?code='+encodeURIComponent(code));if(!res.ok){const err=await res.json();throw new Error(err.error||'Failed to load invite')}}catch(e){document.getElementById('statusMsg').textContent='Failed to load invitation.';document.getElementById('statusMsg').className='status warning';document.getElementById('errorMsg').textContent=e.message;document.querySelectorAll('.btn').forEach(b=>b.style.display='none');return}const data=await res.json();document.getElementById('serverName').textContent=data.server.name;document.getElementById('memberCount').textContent=data.server.memberCount;document.getElementById('inviterName').textContent=data.inviter?.displayName||data.inviter?.username||'someone';const exp=new Date(data.expiresAt);document.getElementById('expiresAt').textContent=exp.toLocaleDateString()+' '+exp.toLocaleTimeString();const signInUrl='/app?invite='+encodeURIComponent(code);document.getElementById('signInBtn').href=signInUrl;document.getElementById('signInBtn2').href=signInUrl;document.getElementById('signInBtn3').href=signInUrl;document.getElementById('openAppBtn').href=signInUrl;}loadInvite();</script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Server Invitation — MINECORD</title>
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" href="/icons/icon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<meta name="theme-color" content="#5865f2">
+<style>
+@font-face{font-family:'VT323';src:url('/fonts/vt323.ttf') format('truetype');font-weight:400;font-display:swap}
+@font-face{font-family:'IBM Plex Sans';src:url('/fonts/ibm-plex-sans-regular.ttf') format('truetype');font-weight:400;font-display:swap}
+@font-face{font-family:'IBM Plex Sans';src:url('/fonts/ibm-plex-sans-semibold.ttf') format('truetype');font-weight:600;font-display:swap}
+:root{--font-minecraft:'VT323',ui-monospace,Consolas,monospace;--font-ui:'IBM Plex Sans',system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;--blue:#5865f2;--green:#23a559;--red:#da373c;--muted:#b5bac1;--panel:#1e1f22;--line:#2b2d31;--input:#2a2c31;--border:#3e4147}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:#313338;color:#f2f4f7;font-family:var(--font-ui);display:flex;align-items:center;justify-content:center;padding:24px}
+a{color:var(--blue);text-decoration:none}
+a:hover{text-decoration:underline}
+.container{width:100%;max-width:480px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:32px;box-shadow:0 20px 60px rgba(0,0,0,.45)}
+.badge{width:64px;height:64px;border-radius:16px;background:rgba(88,101,242,.16);display:grid;place-items:center;margin:0 auto 18px;color:var(--blue)}
+.badge svg{width:34px;height:34px}
+h1{font-family:var(--font-minecraft);font-size:28px;letter-spacing:1px;text-align:center;margin:0 0 6px}
+.server{text-align:center;font-size:20px;font-weight:600;margin-bottom:4px;word-break:break-word}
+.inviter{text-align:center;color:var(--muted);font-size:14px;margin-bottom:20px}
+.meta{display:flex;justify-content:center;gap:28px;padding:14px;background:var(--input);border:1px solid var(--border);border-radius:10px;margin-bottom:20px}
+.meta div{text-align:center}
+.meta span{display:block}
+.meta .label{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:3px}
+.meta .value{font-size:14px;font-weight:600}
+.status{padding:12px;border-radius:8px;font-size:13px;text-align:center;margin-bottom:16px;line-height:1.5}
+.status.info{background:rgba(88,101,242,.1);border:1px solid rgba(88,101,242,.35);color:#aab3ff}
+.status.error{background:rgba(218,55,60,.1);border:1px solid rgba(218,55,60,.35);color:#ff9a9d}
+.btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:13px 20px;border-radius:10px;border:0;font:inherit;font-weight:600;font-size:15px;cursor:pointer;text-decoration:none;margin-top:10px}
+.btn.primary{background:var(--blue);color:#fff}
+.btn.primary:hover{background:#4a54e0;text-decoration:none}
+.btn.secondary{background:transparent;color:#fff;border:2px solid var(--border)}
+.btn.secondary:hover{background:#35373c;text-decoration:none}
+.divider{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:12px;margin:18px 0 6px}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--line)}
+.hint{color:var(--muted);font-size:13px;line-height:1.6;text-align:center;margin:14px 0 0}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="card">
+    <div class="badge" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/></svg>
+    </div>
+    <h1>Server Invitation</h1>
+    <div class="server" id="serverName">Loading invitation…</div>
+    <div class="inviter" id="inviterText"></div>
+    <div class="meta">
+      <div><span class="label">Members</span><span class="value" id="memberCount">—</span></div>
+      <div><span class="label">Expires</span><span class="value" id="expiresAt">—</span></div>
+    </div>
+    <div class="status info" id="statusMsg">Sign in to accept this invitation.</div>
+    <div id="actions">
+      <a class="btn primary" id="googleBtn" href="/app">Continue with Google</a>
+      <a class="btn secondary" id="microsoftBtn" href="/app">Continue with Microsoft</a>
+      <a class="btn secondary" id="githubBtn" href="/app">Continue with GitHub</a>
+      <div class="divider">or</div>
+      <a class="btn secondary" id="passwordBtn" href="/app">Sign in with a username</a>
+    </div>
+    <p class="hint">New to MINECORD? You can create an account from the sign-in screen, then return to this invitation automatically.</p>
+  </div>
+</div>
+<script>
+(function () {
+  const code = new URL(location.href).searchParams.get('code') || location.pathname.split('/').filter(Boolean).pop() || '';
+  const appReturn = '/app?invite=' + encodeURIComponent(code);
+  const oauthReturn = encodeURIComponent(appReturn);
+  document.getElementById('googleBtn').href = '/auth/google?returnTo=' + oauthReturn;
+  document.getElementById('microsoftBtn').href = '/auth/microsoft?returnTo=' + oauthReturn;
+  document.getElementById('githubBtn').href = '/auth/github?returnTo=' + oauthReturn;
+  document.getElementById('passwordBtn').href = appReturn;
+
+  function fail(message) {
+    document.getElementById('serverName').textContent = 'Invitation unavailable';
+    document.getElementById('statusMsg').className = 'status error';
+    document.getElementById('statusMsg').textContent = message;
+    document.getElementById('actions').classList.add('hidden');
+    document.querySelector('.meta').classList.add('hidden');
+    document.getElementById('inviterText').textContent = '';
+  }
+
+  fetch('/api/invite/preview?code=' + encodeURIComponent(code), { credentials: 'same-origin' })
+    .then(async response => {
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || 'This invitation is no longer valid.');
+      return body;
+    })
+    .then(data => {
+      document.getElementById('serverName').textContent = data.server.name;
+      document.getElementById('memberCount').textContent = data.server.memberCount;
+      document.getElementById('inviterText').textContent = data.inviter ? 'Invited by ' + (data.inviter.displayName || data.inviter.username) : '';
+      document.getElementById('expiresAt').textContent = new Date(data.expiresAt).toLocaleDateString();
+      document.getElementById('statusMsg').textContent = data.targeted
+        ? 'This invitation was sent to a specific MINECORD account. Sign in with that account to accept.'
+        : 'Sign in to accept this invitation.';
+      fetch('/api/config').then(r => r.json()).then(config => {
+        if (!config.google) document.getElementById('googleBtn').classList.add('hidden');
+        if (!config.microsoft) document.getElementById('microsoftBtn').classList.add('hidden');
+        if (!config.github) document.getElementById('githubBtn').classList.add('hidden');
+      }).catch(() => {});
+    })
+    .catch(error => fail(error.message));
+})();
+</script>
+</body>
+</html>

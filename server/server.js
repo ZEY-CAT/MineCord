@@ -266,128 +266,182 @@ app.get('/api/rtc-config',requireAuth,async(q,r)=>{r.set('Cache-Control','no-sto
 app.get('/api/rtc-usage',requireAuth,async(q,r)=>{r.set('Cache-Control','no-store');try{return r.json(await meteredTurn.usageForUser(q.minecordUser.id))}catch(error){if(error.message==='Metered TURN usage monitoring is not configured.')return r.status(503).json({error:'TURN usage monitoring is not configured on this server.'});if(error.message==='No Metered TURN credential exists for this account yet.')return r.status(404).json({error:'Join voice once to provision a TURN credential before checking usage.'});console.error('TURN usage request failed:',error.message);return r.status(502).json({error:'TURN usage could not be retrieved right now.'})}});
 
 // Invite HTTP routes
-app.get('/invite/:code', async (req, res) => {
+const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const inviteCreateAttempts = new Map();
+function inviteCreateRateLimited(username) {
+  const now = Date.now();
+  const entry = inviteCreateAttempts.get(username);
+  if (!entry || entry.resetAt <= now) {
+    inviteCreateAttempts.set(username, { count: 1, resetAt: now + 10 * 60 * 1000 });
+    return false;
+  }
+  if (entry.count >= 20) return true;
+  entry.count += 1;
+  return false;
+}
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of inviteCreateAttempts) if (entry.resetAt <= now) inviteCreateAttempts.delete(key);
+}, 60 * 1000).unref();
+
+function inviteIsUsable(inv) {
+  if (!inv || !Number.isFinite(Number(inv.expires)) || Number(inv.expires) < Date.now()) return false;
+  if (Number(inv.maxUses) > 0 && Number(inv.uses || 0) >= Number(inv.maxUses)) return false;
+  return true;
+}
+function inviteUrl(code) {
+  return APP_URL.replace(/\/+$/, '') + '/invite/' + encodeURIComponent(code);
+}
+function publicInvite(code, inv) {
+  return {
+    code,
+    serverId: inv.serverId,
+    target: inv.target || null,
+    createdBy: inv.createdBy,
+    createdAt: inv.createdAt || null,
+    expires: inv.expires,
+    uses: Number(inv.uses || 0),
+    maxUses: inv.maxUses == null ? null : Number(inv.maxUses),
+    url: inviteUrl(code)
+  };
+}
+function notifyServerMembers(server, payload) {
+  for (const member of server.members || []) toUser(member, payload);
+}
+
+app.get('/invite/:code', (req, res) => {
+  res.set('Cache-Control', 'no-store');
   const code = clean(req.params.code, 80);
   const inv = data.invites[code];
-  if (!inv || inv.expires < Date.now()) {
-    return res.sendFile(path.join(PUBLIC, 'invite-expired.html'));
-  }
+  if (!inviteIsUsable(inv)) return res.status(410).sendFile(path.join(PUBLIC, 'invite-expired.html'));
   const server = data.servers.find(s => s.id === inv.serverId);
-  if (!server) {
-    return res.sendFile(path.join(PUBLIC, 'invite-expired.html'));
-  }
-  const inviter = data.users[inv.createdBy];
+  if (!server) return res.status(410).sendFile(path.join(PUBLIC, 'invite-expired.html'));
   const token = cookieToken(req);
   const session = token ? database.findSession(crypto.createHash('sha256').update(token).digest('hex')) : null;
   const user = session ? Object.values(data.users).find(u => u.id === session.user_id) : null;
-  
-  // Store invite code in cookie for post-login redirect
-  res.cookie('mc_invite', code, { httpOnly: true, sameSite: 'lax', secure: APP_URL.startsWith('https://'), path: '/', maxAge: 24 * 60 * 60 * 1000 });
-  
   if (user) {
-    // User is logged in - check if already a member
-    if (server.members?.includes(user.username)) {
-      return res.redirect('/app?server=' + server.id);
-    }
-    // Show invite acceptance page
+    if (server.members?.includes(user.username)) return res.redirect('/app?server=' + encodeURIComponent(server.id));
     return res.sendFile(path.join(PUBLIC, 'invite-accept.html'));
-  } else {
-    // Not logged in - show preview page with login prompt
-    return res.sendFile(path.join(PUBLIC, 'invite-preview.html'));
   }
+  return res.sendFile(path.join(PUBLIC, 'invite-preview.html'));
 });
 
-app.post('/api/invite/accept', requireAuth, async (req, res) => {
-  if (!originAllowed(req)) return res.status(403).json({ error: 'Request origin is not allowed.' });
-  const code = clean(req.body?.code, 80);
-  const inv = data.invites[code];
-  if (!inv || inv.expires < Date.now()) {
-    return res.status(404).json({ error: 'Invite expired or invalid.' });
-  }
-  const server = data.servers.find(s => s.id === inv.serverId);
-  if (!server) {
-    return res.status(404).json({ error: 'Server not found.' });
-  }
-  if (server.members?.includes(req.minecordUser.username)) {
-    return res.json({ ok: true, alreadyMember: true, server: { id: server.id, name: server.name } });
-  }
-  server.members.push(req.minecordUser.username);
-  save();
-  res.json({ ok: true, server: { id: server.id, name: server.name } });
-});
-
-app.get('/api/invite/preview', async (req, res) => {
+app.get('/api/invite/preview', (req, res) => {
+  res.set('Cache-Control', 'no-store');
   const code = clean(req.query?.code, 80);
   const inv = data.invites[code];
-  if (!inv || inv.expires < Date.now()) {
-    return res.status(404).json({ error: 'Invite expired or invalid.' });
-  }
+  if (!inviteIsUsable(inv)) return res.status(404).json({ error: 'This invitation has expired, been revoked, or already been used.' });
   const server = data.servers.find(s => s.id === inv.serverId);
-  if (!server) {
-    return res.status(404).json({ error: 'Server not found.' });
-  }
+  if (!server) return res.status(404).json({ error: 'The server for this invitation no longer exists.' });
   const inviter = data.users[inv.createdBy];
+  const viewer = authUser(req);
   res.json({
-    server: { id: server.id, name: server.name, icon: server.icon, memberCount: server.members?.length || 0 },
-    inviter: inviter ? { username: inviter.username, displayName: inviter.displayName, avatar: inviter.avatar } : null,
+    server: {
+      id: server.id,
+      name: server.name,
+      icon: server.icon || '',
+      memberCount: server.members?.length || 0,
+      description: typeof server.description === 'string' ? server.description.slice(0, 300) : ''
+    },
+    inviter: inviter ? { username: inviter.username, displayName: inviter.displayName || inviter.username, avatar: inviter.avatar || '' } : null,
     expiresAt: inv.expires,
-    createdBy: inv.createdBy
+    targeted: Boolean(inv.target),
+    targetMismatch: Boolean(inv.target && viewer && inv.target !== viewer.username),
+    alreadyMember: Boolean(viewer && server.members?.includes(viewer.username))
   });
 });
 
-app.post('/api/invite/revoke', requireAuth, async (req, res) => {
+app.post('/api/invite/create', requireAuth, (req, res) => {
+  if (!originAllowed(req)) return res.status(403).json({ error: 'Request origin is not allowed.' });
+  if (inviteCreateRateLimited(req.minecordUser.username)) return res.status(429).json({ error: 'Too many invitations created. Wait a few minutes and try again.' });
+  const serverId = clean(req.body?.serverId);
+  const server = data.servers.find(s => s.id === serverId);
+  if (!server || !server.members?.includes(req.minecordUser.username)) return res.status(403).json({ error: 'You must be a member of this server to create an invitation.' });
+  const code = crypto.randomBytes(18).toString('base64url');
+  data.invites[code] = { serverId: server.id, createdBy: req.minecordUser.username, expires: Date.now() + INVITE_TTL_MS, createdAt: Date.now(), uses: 0, maxUses: null };
+  save();
+  res.json({ ok: true, code, url: inviteUrl(code), expiresAt: data.invites[code].expires });
+});
+
+app.get('/api/invite/list', requireAuth, (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const serverId = clean(req.query?.serverId);
+  const server = data.servers.find(s => s.id === serverId);
+  if (!server || !server.members?.includes(req.minecordUser.username)) return res.status(403).json({ error: 'You must be a member of this server to view invitations.' });
+  const canSeeAll = server.owner === req.minecordUser.username || req.minecordUser.id === APP_OWNER_USER_ID;
+  const invites = Object.entries(data.invites)
+    .filter(([, inv]) => inv.serverId === server.id && inviteIsUsable(inv) && (canSeeAll || inv.createdBy === req.minecordUser.username))
+    .sort((a, b) => (b[1].createdAt || 0) - (a[1].createdAt || 0))
+    .map(([code, inv]) => publicInvite(code, inv));
+  res.json({ invites });
+});
+
+app.post('/api/invite/accept', requireAuth, (req, res) => {
   if (!originAllowed(req)) return res.status(403).json({ error: 'Request origin is not allowed.' });
   const code = clean(req.body?.code, 80);
   const inv = data.invites[code];
-  if (!inv) {
-    return res.status(404).json({ error: 'Invite not found.' });
+  if (!inviteIsUsable(inv)) return res.status(404).json({ error: 'This invitation has expired, been revoked, or already been used.' });
+  const server = data.servers.find(s => s.id === inv.serverId);
+  if (!server) return res.status(404).json({ error: 'The server for this invitation no longer exists.' });
+  if (inv.target && inv.target !== req.minecordUser.username) return res.status(403).json({ error: 'This invitation was sent to a different MINECORD account.' });
+  if (server.members?.includes(req.minecordUser.username)) return res.json({ ok: true, alreadyMember: true, server: { id: server.id, name: server.name } });
+  server.members ??= [];
+  server.members.push(req.minecordUser.username);
+  inv.uses = Number(inv.uses || 0) + 1;
+  if (Number(inv.maxUses) > 0 && inv.uses >= Number(inv.maxUses)) delete data.invites[code];
+  save();
+  notifyServerMembers(server, { type: 'server_member_joined', serverId: server.id, username: req.minecordUser.username });
+  res.json({ ok: true, server: { id: server.id, name: server.name } });
+});
+
+app.post('/api/invite/decline', requireAuth, (req, res) => {
+  if (!originAllowed(req)) return res.status(403).json({ error: 'Request origin is not allowed.' });
+  const code = clean(req.body?.code, 80);
+  const inv = data.invites[code];
+  if (!inv) return res.json({ ok: true });
+  if (inv.target && inv.target !== req.minecordUser.username && inv.createdBy !== req.minecordUser.username && req.minecordUser.id !== APP_OWNER_USER_ID) {
+    return res.status(403).json({ error: 'You cannot decline this invitation.' });
   }
-  if (inv.createdBy !== req.minecordUser.username && req.minecordUser.id !== APP_OWNER_USER_ID) {
-    return res.status(403).json({ error: 'Only the inviter or app owner can revoke this invite.' });
-  }
+  const createdBy = inv.createdBy;
+  delete data.invites[code];
+  save();
+  if (createdBy && createdBy !== req.minecordUser.username) toUser(createdBy, { type: 'friend_invite_declined', code, by: req.minecordUser.username });
+  res.json({ ok: true });
+});
+
+app.post('/api/invite/revoke', requireAuth, (req, res) => {
+  if (!originAllowed(req)) return res.status(403).json({ error: 'Request origin is not allowed.' });
+  const code = clean(req.body?.code, 80);
+  const inv = data.invites[code];
+  if (!inv) return res.json({ ok: true, alreadyRevoked: true });
+  const server = data.servers.find(s => s.id === inv.serverId);
+  const canRevoke = inv.createdBy === req.minecordUser.username || req.minecordUser.id === APP_OWNER_USER_ID || (server && server.owner === req.minecordUser.username);
+  if (!canRevoke) return res.status(403).json({ error: 'Only the person who created this invitation, the server owner, or the app owner can revoke it.' });
   delete data.invites[code];
   save();
   res.json({ ok: true });
 });
 
-app.post('/api/invite/friend', requireAuth, async (req, res) => {
+app.post('/api/invite/friend', requireAuth, (req, res) => {
   if (!originAllowed(req)) return res.status(403).json({ error: 'Request origin is not allowed.' });
-  const target = clean(req.body?.target, 32);
+  if (inviteCreateRateLimited(req.minecordUser.username)) return res.status(429).json({ error: 'Too many invitations created. Wait a few minutes and try again.' });
+  const targetRaw = clean(req.body?.target, 32);
+  const target = Object.keys(data.users).find(name => name.toLowerCase() === targetRaw.toLowerCase());
   const serverId = clean(req.body?.serverId);
-  if (!target || !serverId) {
-    return res.status(400).json({ error: 'Target and server required.' });
-  }
-  if (target === req.minecordUser.username) {
-    return res.status(400).json({ error: 'You cannot invite yourself.' });
-  }
-  if (!data.users[target]) {
-    return res.status(404).json({ error: 'User not found.' });
-  }
-  const k = pair(req.minecordUser.username, target);
-  const friendship = data.friends[k];
-  if (!friendship || friendship.status !== 'accepted') {
-    return res.status(403).json({ error: 'You can only invite accepted friends.' });
-  }
-  const s = data.servers.find(x => x.id === serverId);
-  if (!s || !s.members?.includes(req.minecordUser.username)) {
-    return res.status(403).json({ error: 'You are not a member of this server.' });
-  }
-  if (s.members.includes(target)) {
-    return res.status(400).json({ error: 'User is already a member of this server.' });
-  }
-  const code = crypto.randomBytes(6).toString('base64url');
-  data.invites[code] = { serverId: s.id, createdBy: req.minecordUser.username, target, expires: Date.now() + 604800000 };
+  if (!targetRaw || !serverId) return res.status(400).json({ error: 'Choose a friend and a server.' });
+  if (!target) return res.status(404).json({ error: 'That MINECORD user does not exist.' });
+  if (target === req.minecordUser.username) return res.status(400).json({ error: 'You cannot invite yourself.' });
+  if (!isAcceptedFriend(req.minecordUser.username, target)) return res.status(403).json({ error: 'You can only invite accepted friends.' });
+  const server = data.servers.find(s => s.id === serverId);
+  if (!server || !server.members?.includes(req.minecordUser.username)) return res.status(403).json({ error: 'You must be a member of this server to invite people.' });
+  if (server.members.includes(target)) return res.status(400).json({ error: target + ' is already a member of this server.' });
+  const duplicate = Object.values(data.invites).find(inv => inviteIsUsable(inv) && inv.serverId === server.id && inv.target === target && inv.createdBy === req.minecordUser.username);
+  if (duplicate) return res.status(409).json({ error: 'You already have a pending invitation for ' + target + '.' });
+  const code = crypto.randomBytes(18).toString('base64url');
+  data.invites[code] = { serverId: server.id, createdBy: req.minecordUser.username, target, expires: Date.now() + INVITE_TTL_MS, createdAt: Date.now(), uses: 0, maxUses: 1 };
   save();
-  
-  // Send WebSocket notification if target is online
-  for (const [ws, username] of clients) {
-    if (username === target) {
-      send(ws, { type: 'friend_invite', code, serverId: s.id, serverName: s.name, from: req.minecordUser.username });
-      break;
-    }
-  }
-  
-  res.json({ ok: true, code, serverId: s.id, target });
+  toUser(target, { type: 'friend_invite', code, serverId: server.id, serverName: server.name, from: req.minecordUser.username, url: inviteUrl(code) });
+  res.json({ ok: true, code, url: inviteUrl(code), serverId: server.id, target, expiresAt: data.invites[code].expires });
 });
 
 function activityFor(username){const entries=data.gameActivities[username]||{};let latest=null;for(const [game,item] of Object.entries(entries)){const timeout=game==='eaglercraft'?90000:35000;if(Date.now()-item.lastSeenAt>timeout){delete entries[game];continue}if(!latest||item.lastSeenAt>latest.lastSeenAt)latest={game,active:true,startedAt:item.startedAt,lastSeenAt:item.lastSeenAt,playerName:item.playerName||null,serverName:item.serverName||null}}if(!Object.keys(entries).length)delete data.gameActivities[username];if(latest)return latest;const user=data.users[username];return user&&user.showGameActivity!==false&&database.hasActivityConnector(user.id)?{game:'eaglercraft',active:false,startedAt:null,lastSeenAt:null}:null}
@@ -397,7 +451,7 @@ function dmPeersFor(username){const peers=new Set();for(const friendship of Obje
 function dmUnreadCount(username,peer){const conversation=`dm:${pair(username,peer)}`,messages=data.messages[conversation]||[],cursor=data.dmRead?.[username]?.[conversation];let start=0;if(cursor){const index=messages.findIndex(message=>message.id===cursor);if(index>=0)start=index+1}return messages.slice(start).filter(message=>message.from!==username).length}
 function dmUnreadSummary(username){return Object.fromEntries(dmPeersFor(username).map(peer=>[peer,dmUnreadCount(username,peer)]).filter(([,count])=>count>0))}
 function decorateMessages(messages){return messages.map(message=>({...message,role:data.users[message.from]?.role||roles.ROLES.MEMBER}))}
-function sendReady(ws,username){const dmPeers=dmPeersFor(username),friends=Object.values(data.friends).filter(friend=>friend.status==='accepted'&&(friend.a===username||friend.b===username)).map(friend=>friend.a===username?friend.b:friend.a).filter(name=>data.users[name]).sort((a,b)=>a.localeCompare(b)),visibleUsers=[...new Set([...clients.values(),...friends])].filter(name=>name===username||isAcceptedFriend(username,name));send(ws,{type:'ready',me:pub(data.users[username]),servers:data.servers.filter(server=>server.members?.includes(username)),online:onlineFor(username),members:Object.fromEntries(visibleUsers.map(name=>[name,pub(data.users[name])])),friends,activities:Object.fromEntries([...new Set(clients.values())].filter(name=>canViewActivity(username,name)).map(name=>[name,activityFor(name)]).filter(([,activity])=>activity)),dmPeers,dmUnread:dmUnreadSummary(username),pendingFriendRequests:Object.values(data.friends).filter(friend=>friend.status==='pending'&&friend.b===username).map(friend=>friend.a),dmLastMessages:Object.fromEntries(dmPeers.map(peer=>{const messages=data.messages[`dm:${pair(username,peer)}`]||[];return[peer,messages[messages.length-1]||null]}))})}
+function sendReady(ws,username){const dmPeers=dmPeersFor(username),friends=Object.values(data.friends).filter(friend=>friend.status==='accepted'&&(friend.a===username||friend.b===username)).map(friend=>friend.a===username?friend.b:friend.a).filter(name=>data.users[name]).sort((a,b)=>a.localeCompare(b)),visibleUsers=[...new Set([...clients.values(),...friends])].filter(name=>name===username||isAcceptedFriend(username,name));send(ws,{type:'ready',me:pub(data.users[username]),servers:data.servers.filter(server=>server.members?.includes(username)),online:onlineFor(username),members:Object.fromEntries(visibleUsers.map(name=>[name,pub(data.users[name])])),friends,activities:Object.fromEntries([...new Set(clients.values())].filter(name=>canViewActivity(username,name)).map(name=>[name,activityFor(name)]).filter(([,activity])=>activity)),pendingInvites:Object.entries(data.invites).filter(([,inv])=>inviteIsUsable(inv)&&inv.target===username).map(([code,inv])=>{const s=data.servers.find(x=>x.id===inv.serverId);return{code,serverId:inv.serverId,serverName:s?.name||'Server',from:inv.createdBy,expires:inv.expires}}),dmPeers,dmUnread:dmUnreadSummary(username),pendingFriendRequests:Object.values(data.friends).filter(friend=>friend.status==='pending'&&friend.b===username).map(friend=>friend.a),dmLastMessages:Object.fromEntries(dmPeers.map(peer=>{const messages=data.messages[`dm:${pair(username,peer)}`]||[];return[peer,messages[messages.length-1]||null]}))})}
 function broadcastActivity(username){const activity=activityPresenceFor(username);for(const [client,viewer] of clients)if(canViewActivity(viewer,username))send(client,{type:'activity_update',username,activity})}
 function updateActivity(username,game,active,details={}){if(!data.gameActivities[username])data.gameActivities[username]={};if(!active){delete data.gameActivities[username][game];if(!Object.keys(data.gameActivities[username]).length)delete data.gameActivities[username]}else{const previous=data.gameActivities[username][game],now=Date.now();data.gameActivities[username][game]={startedAt:previous?.startedAt||now,lastSeenAt:now,source:game,playerName:details.playerName||null,serverName:details.serverName||null}}save();broadcastActivity(username)}
 const GAME_NAMES={java:'Minecraft Java',bedrock:'Minecraft Bedrock',eaglercraft:'Eaglercraft'};
@@ -526,11 +580,11 @@ if(m.type==='friend_request'){const toRaw=clean(m.to,32);if(toRaw===username)ret
 if(m.type==='friend_accept'){const other=clean(m.with,32),k=pair(username,other),friendship=data.friends[k];if(friendship?.status==='pending'&&friendship.by!==username){friendship.status='accepted';save();toUser(other,{type:'friend_status',user:username,status:'accepted'});send(ws,{type:'friend_status',user:other,status:'accepted'});broadcastActivity(username);broadcastActivity(other);broadcastPresence()}return}
 if(m.type==='friend_reject'){const other=clean(m.with,32),k=pair(username,other),friendship=data.friends[k];if(friendship?.status==='pending'&&friendship.b===username){delete data.friends[k];save();toUser(friendship.a,{type:'friend_status',user:username,status:'rejected'});send(ws,{type:'friend_status',user:friendship.a,status:'rejected'})}return}
 if(m.type==='friend_remove'){const other=clean(m.with,32),k=pair(username,other),friendship=data.friends[k];if(friendship?.status==='accepted'&&(friendship.a===username||friendship.b===username)){delete data.friends[k];save();toUser(other,{type:'friend_status',user:username,status:'removed'});send(ws,{type:'friend_status',user:other,status:'removed'});broadcastPresence()}return}
-if(m.type==='friend_invite'){const target=clean(m.to,32),serverId=clean(m.serverId);if(!target||!serverId)return send(ws,{type:'error',message:'Target and server required.'});if(target===username)return send(ws,{type:'error',message:'You cannot invite yourself.'});if(!data.users[target])return send(ws,{type:'error',message:'User not found.'});const k=pair(username,target),friendship=data.friends[k];if(!friendship||friendship.status!=='accepted')return send(ws,{type:'error',message:'You can only invite accepted friends.'});const s=data.servers.find(x=>x.id===serverId);if(!s||!s.members.includes(username))return send(ws,{type:'error',message:'You are not a member of this server.'});if(s.members.includes(target))return send(ws,{type:'error',message:'User is already a member of this server.'});const code=crypto.randomBytes(6).toString('base64url');data.invites[code]={serverId:s.id,createdBy:username,expires:Date.now()+604800000};save();toUser(target,{type:'friend_invite',code,serverId:s.id,serverName:s.name,from:username});return send(ws,{type:'friend_invite_sent',code,serverId:s.id,target})}
-if(m.type==='friend_invite_accept'){const code=clean(m.code);const inv=data.invites[code];if(!inv||inv.expires<Date.now())return send(ws,{type:'error',message:'Invite expired or invalid.'});const s=data.servers.find(x=>x.id===inv.serverId);if(!s)return;if(!s.members.includes(username))s.members.push(username);save();return send(ws,{type:'server_joined',server:s})}
-if(m.type==='friend_invite_decline'){const code=clean(m.code);const inv=data.invites[code];if(inv)delete data.invites[code];save();toUser(inv.createdBy,{type:'friend_invite_declined',code,by:username});return send(ws,{type:'friend_invite_declined',code})}
-if(m.type==='invite_create'){const s=data.servers.find(x=>x.id===m.serverId);if(!s||!s.members.includes(username))return;const code=crypto.randomBytes(6).toString('base64url');data.invites[code]={serverId:s.id,createdBy:username,expires:Date.now()+604800000};save();return send(ws,{type:'invite',code,serverId:s.id})}
-if(m.type==='invite_join'){const inv=data.invites[clean(m.code,80)];if(!inv||inv.expires<Date.now())return send(ws,{type:'error',message:'Invite expired or invalid.'});const s=data.servers.find(x=>x.id===inv.serverId);if(!s)return;if(!s.members.includes(username))s.members.push(username);save();return send(ws,{type:'server_joined',server:s})}
+if(m.type==='friend_invite'){const targetRaw=clean(m.to,32),target=Object.keys(data.users).find(name=>name.toLowerCase()===targetRaw.toLowerCase()),serverId=clean(m.serverId);if(!targetRaw||!serverId)return send(ws,{type:'error',message:'Target and server required.'});if(!target)return send(ws,{type:'error',message:'User not found.'});if(target===username)return send(ws,{type:'error',message:'You cannot invite yourself.'});const k=pair(username,target),friendship=data.friends[k];if(!friendship||friendship.status!=='accepted')return send(ws,{type:'error',message:'You can only invite accepted friends.'});const s=data.servers.find(x=>x.id===serverId);if(!s||!s.members.includes(username))return send(ws,{type:'error',message:'You are not a member of this server.'});if(s.members.includes(target))return send(ws,{type:'error',message:'User is already a member of this server.'});const existing=Object.entries(data.invites).find(([,inv])=>inviteIsUsable(inv)&&inv.serverId===s.id&&inv.target===target&&inv.createdBy===username);if(existing)return send(ws,{type:'friend_invite_sent',code:existing[0],serverId:s.id,target,existing:true});const code=crypto.randomBytes(18).toString('base64url');data.invites[code]={serverId:s.id,createdBy:username,target,expires:Date.now()+INVITE_TTL_MS,createdAt:Date.now(),uses:0,maxUses:1};save();toUser(target,{type:'friend_invite',code,serverId:s.id,serverName:s.name,from:username,url:inviteUrl(code)});return send(ws,{type:'friend_invite_sent',code,serverId:s.id,target,url:inviteUrl(code)})}
+if(m.type==='friend_invite_accept'){const code=clean(m.code,80);const inv=data.invites[code];if(!inviteIsUsable(inv))return send(ws,{type:'error',message:'Invite expired or invalid.'});if(inv.target&&inv.target!==username)return send(ws,{type:'error',message:'This invitation was sent to a different account.'});const s=data.servers.find(x=>x.id===inv.serverId);if(!s)return send(ws,{type:'error',message:'The server for this invitation no longer exists.'});if(!s.members.includes(username))s.members.push(username);inv.uses=Number(inv.uses||0)+1;if(Number(inv.maxUses)>0&&inv.uses>=Number(inv.maxUses))delete data.invites[code];save();notifyServerMembers(s,{type:'server_member_joined',serverId:s.id,username});return send(ws,{type:'server_joined',server:s})}
+if(m.type==='friend_invite_decline'){const code=clean(m.code,80);const inv=data.invites[code];if(!inv)return send(ws,{type:'friend_invite_declined',code});if(inv.target&&inv.target!==username&&inv.createdBy!==username)return send(ws,{type:'error',message:'You cannot decline this invitation.'});const createdBy=inv.createdBy;delete data.invites[code];save();if(createdBy!==username)toUser(createdBy,{type:'friend_invite_declined',code,by:username});return send(ws,{type:'friend_invite_declined',code})}
+if(m.type==='invite_create'){const s=data.servers.find(x=>x.id===clean(m.serverId));if(!s||!s.members.includes(username))return send(ws,{type:'error',message:'You must be a member of this server to create an invitation.'});const code=crypto.randomBytes(18).toString('base64url');data.invites[code]={serverId:s.id,createdBy:username,expires:Date.now()+INVITE_TTL_MS,createdAt:Date.now(),uses:0,maxUses:null};save();return send(ws,{type:'invite',code,serverId:s.id,url:inviteUrl(code)})}
+if(m.type==='invite_join'){const code=clean(m.code,80),inv=data.invites[code];if(!inviteIsUsable(inv))return send(ws,{type:'error',message:'Invite expired or invalid.'});if(inv.target&&inv.target!==username)return send(ws,{type:'error',message:'This invitation was sent to a different account.'});const s=data.servers.find(x=>x.id===inv.serverId);if(!s)return send(ws,{type:'error',message:'The server for this invitation no longer exists.'});if(!s.members.includes(username))s.members.push(username);inv.uses=Number(inv.uses||0)+1;if(Number(inv.maxUses)>0&&inv.uses>=Number(inv.maxUses))delete data.invites[code];save();notifyServerMembers(s,{type:'server_member_joined',serverId:s.id,username});return send(ws,{type:'server_joined',server:s})}
 if(m.type==='voice_join'){const room=clean(m.room,120);if(!channelForUser(username,room,'voice'))return send(ws,{type:'error',message:'You do not have access to that voice channel.'});if(!rooms.has(room))rooms.set(room,new Set());const set=rooms.get(room);if(set.has(username)){for(const [c,u] of clients)if(u!==username&&set.has(u))send(c,{type:'voice_peer_rejoined',room,peer:username});return send(ws,{type:'voice_members',room,members:[...set]})}set.add(username);for(const [c,u] of clients)if(u!==username&&set.has(u))send(c,{type:'voice_peer_joined',room,peer:username});return send(ws,{type:'voice_members',room,members:[...set]})}
 if(m.type==='voice_leave'){const room=clean(m.room,120),set=rooms.get(room);if(set?.delete(username)){for(const [c,u] of clients)if(set.has(u))send(c,{type:'voice_peer_left',room,peer:username});if(!set.size)rooms.delete(room)}return}
 if(m.type==='voice_signal'){const room=clean(m.room,120),targetName=clean(m.to,32),set=rooms.get(room);if(!set?.has(username)||!set.has(targetName)||targetName===username||!channelForUser(username,room,'voice')||!channelForUser(targetName,room,'voice'))return send(ws,{type:'error',message:'Join the same voice channel before sending voice data.'});if(!validRtcSignal(m.data))return send(ws,{type:'error',message:'Invalid voice signaling data.'});const target=[...clients.entries()].find(([,u])=>u===targetName)?.[0];if(target)send(target,{type:'voice_signal',from:username,room,data:m.data});return}

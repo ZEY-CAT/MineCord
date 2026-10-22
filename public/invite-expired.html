@@ -1,8 +1,44 @@
-<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Invalid Invitation — MINECORD</title><link rel="icon" href="/favicon.ico" sizes="any"><link rel="icon" href="/icons/icon-192.png" sizes="192x192" type="image/png"><link rel="icon" href="/icons/icon-512.png" sizes="512x512" type="image/png"><link rel="apple-touch-icon" href="/icons/icon-192.png"><link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#5865f2"><style>
-@font-face{font-family:'VT323';src:url('/fonts/vt323.ttf') format('truetype');font-style:normal;font-weight:400;font-display:swap;unicode-range:U+0020-007F,U+00A0-00FF}
-@font-face{font-family:'IBM Plex Sans';src:url('/fonts/ibm-plex-sans-regular.ttf') format('truetype');font-style:normal;font-weight:400;font-display:swap}
-@font-face{font-family:'IBM Plex Sans';src:url('/fonts/ibm-plex-sans-medium.ttf') format('truetype');font-style:normal;font-weight:500;font-display:swap}
-@font-face{font-family:'IBM Plex Sans';src:url('/fonts/ibm-plex-sans-semibold.ttf') format('truetype');font-style:normal;font-weight:600;font-display:swap}
-:root{--font-minecraft:'VT323',ui-monospace,"Cascadia Mono",Consolas,monospace;--font-ui:'IBM Plex Sans',system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;color:#f2f4f7;background:#313338;font-size:16px;font-family:var(--font-ui);--side:#1e1f22;--rail:#111214;--hover:#35373c;--line:#202225;--muted:#b5bac1;--blue:#5865f2;--green:#23a559;--red:#da373c;--yellow:#faa61a;--panel:#1e1f22;--panel-border:#202225;--input-bg:#2a2c31;--input-border:#3e4147}
-*{box-sizing:border-box}body{margin:0;min-height:100vh;background:#313338;display:flex;align-items:center;justify-content:center;padding:24px}a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}button{font:inherit;font-family:var(--font-ui)}.container{max-width:480px;width:100%}.card{background:var(--panel);border:1px solid var(--panel-border);border-radius:16px;padding:32px;box-shadow:0 20px 60px rgba(0,0,0,0.4);text-align:center}.icon{width:64px;height:64px;border-radius:16px;background:rgba(218,55,60,0.15);display:grid;place-items:center;margin:0 auto 24px;color:var(--red)}.icon svg{width:36px;height:36px}h1{font-family:var(--font-minecraft);font-size:28px;margin:0 0 8px;letter-spacing:1px}p{color:var(--muted);line-height:1.6;margin-bottom:24px}.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;padding:14px 28px;border-radius:10px;font-weight:600;font-size:15px;cursor:pointer;transition:transform 0.1s ease,background 0.15s ease,box-shadow 0.15s ease;border:0;white-space:nowrap}.btn:active{transform:scale(0.98)}.btn.primary{background:var(--blue);color:#fff;box-shadow:0 4px 20px rgba(88,101,242,0.3)}.btn.primary:hover{background:#4a54e0;box-shadow:0 6px 28px rgba(88,101,242,0.4)}.btn.secondary{background:transparent;color:var(--muted);border:2px solid var(--line)}.btn.secondary:hover{background:var(--hover);border-color:var(--blue);color:#fff}.btn-group{display:flex;flex-direction:column;gap:12px;margin-top:24px}@media(max-width:640px){.card{padding:24px}}
-</style></head><body><div class="container"><div class="card"><div class="icon"><svg class="uiIcon" aria-hidden="true"><use href="#icon-close"></use></svg></div><h1>Invitation Invalid</h1><p>This invitation link has expired, been revoked, or never existed.</p><p>Invitations are valid for 7 days and can only be used once.</p><div class="btn-group"><a class="btn primary" href="/app">Open MINECORD</a><a class="btn secondary" href="/download">Download MINECORD</a></div></div></div></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Invitation Unavailable — MINECORD</title>
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" href="/icons/icon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<meta name="theme-color" content="#5865f2">
+<style>
+@font-face{font-family:'VT323';src:url('/fonts/vt323.ttf') format('truetype');font-weight:400;font-display:swap}
+@font-face{font-family:'IBM Plex Sans';src:url('/fonts/ibm-plex-sans-regular.ttf') format('truetype');font-weight:400;font-display:swap}
+@font-face{font-family:'IBM Plex Sans';src:url('/fonts/ibm-plex-sans-semibold.ttf') format('truetype');font-weight:600;font-display:swap}
+:root{--font-minecraft:'VT323',ui-monospace,Consolas,monospace;--font-ui:'IBM Plex Sans',system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;--blue:#5865f2;--red:#da373c;--muted:#b5bac1;--panel:#1e1f22;--line:#2b2d31;--border:#3e4147}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:#313338;color:#f2f4f7;font-family:var(--font-ui);display:flex;align-items:center;justify-content:center;padding:24px}
+.container{width:100%;max-width:480px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:32px;box-shadow:0 20px 60px rgba(0,0,0,.45);text-align:center}
+.badge{width:64px;height:64px;border-radius:16px;background:rgba(218,55,60,.14);display:grid;place-items:center;margin:0 auto 18px;color:var(--red)}
+.badge svg{width:32px;height:32px}
+h1{font-family:var(--font-minecraft);font-size:28px;letter-spacing:1px;margin:0 0 10px}
+p{color:var(--muted);line-height:1.65;margin:0 0 22px;font-size:14px}
+.btn{display:flex;align-items:center;justify-content:center;width:100%;padding:13px 20px;border-radius:10px;border:0;font:inherit;font-weight:600;font-size:15px;cursor:pointer;text-decoration:none;margin-top:10px}
+.btn.primary{background:var(--blue);color:#fff}
+.btn.primary:hover{background:#4a54e0;text-decoration:none}
+.btn.secondary{background:transparent;color:#fff;border:2px solid var(--border)}
+.btn.secondary:hover{background:#35373c;text-decoration:none}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="card">
+    <div class="badge" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg>
+    </div>
+    <h1>Invitation Unavailable</h1>
+    <p>This invitation has expired, was revoked by the person who created it, has already been used, or never existed.</p>
+    <a class="btn primary" href="/app">Open MINECORD</a>
+    <a class="btn secondary" href="/">Go to the home page</a>
+  </div>
+</div>
+</body>
+</html>
