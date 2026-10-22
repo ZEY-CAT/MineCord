@@ -81,6 +81,14 @@ function broadcastPresence(){for(const [client,username] of clients){const onlin
 const BUILT_PUBLIC=path.join(__dirname,'../dist/web');
 const PUBLIC=fs.existsSync(path.join(BUILT_PUBLIC,'index.html'))?BUILT_PUBLIC:path.join(__dirname,'../public');
 app.use(express.json({limit:'256kb'}));
+app.use((req,res,next)=>{
+  res.setHeader('X-Content-Type-Options','nosniff');
+  res.setHeader('X-Frame-Options','DENY');
+  res.setHeader('Referrer-Policy','strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy','camera=(), geolocation=(), microphone=(self)');
+  if(APP_URL.startsWith('https://'))res.setHeader('Strict-Transport-Security','max-age=31536000');
+  next();
+});
 
 // Landing page at root. Auth results from older links are sent to the app screen.
 app.get('/',(req,res)=>{

@@ -1359,3 +1359,20 @@ test('admin ban commands enforce authorization, bans, temp bans, and unbans', { 
     await stopServer(running.child);
   }
 });
+
+test('security headers are set on app and API responses', { timeout: 30000 }, async () => {
+  const port = await availablePort();
+  const running = await startServer(port);
+  try {
+    for (const path of ['/api/config', '/app']) {
+      const res = await fetch(running.origin + path);
+      assert.equal(res.status, 200);
+      assert.equal(res.headers.get('x-content-type-options'), 'nosniff');
+      assert.equal(res.headers.get('x-frame-options'), 'DENY');
+      assert.equal(res.headers.get('referrer-policy'), 'strict-origin-when-cross-origin');
+      assert.match(res.headers.get('permissions-policy') || '', /microphone=\(self\)/);
+    }
+  } finally {
+    await stopServer(running.child);
+  }
+});
