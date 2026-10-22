@@ -7,7 +7,7 @@ const METERED_HOST = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i;
 
 function safeAppName(value) {
   const appName = String(value || DEFAULT_APP_NAME).trim();
-  if (!METERED_HOST.test(appName)) throw new Error('METERED_APP_NAME must be a valid Metered app host name.');
+  if (!METERED_HOST.test(appName)) return null;
   return appName;
 }
 
@@ -46,12 +46,18 @@ function createMeteredTurnService({ env = process.env, database, fetchImpl = fet
   const ttlSeconds = CREDENTIAL_TTL_SECONDS;
   const pendingCredentials = new Map();
 
+  // Check if Metered credentials are properly configured
+  const isMeteredConfigured = Boolean(appName && secretKey);
+
   function fallbackConfig(userId) {
     const { createRtcConfig } = require('./turn-config');
     return createRtcConfig(userId, env, now());
   }
 
   async function requestJson(url, options) {
+    if (!isMeteredConfigured) {
+      throw new Error('Metered TURN service is not configured');
+    }
     let response;
     try {
       response = await fetchImpl(url, { ...options, redirect: 'error', signal: AbortSignal.timeout(15000) });
@@ -69,12 +75,18 @@ function createMeteredTurnService({ env = process.env, database, fetchImpl = fet
   }
 
   async function fetchIceServers(apiKey) {
+    if (!isMeteredConfigured) {
+      throw new Error('Metered TURN service is not configured');
+    }
     const url = new URL(`https://${appName}.metered.live/api/v1/turn/credentials`);
     url.searchParams.set('apiKey', apiKey);
     return validateIceServers(await requestJson(url, { method: 'GET' }));
   }
 
   async function createCredential(userId) {
+    if (!isMeteredConfigured) {
+      throw new Error('Metered TURN service is not configured');
+    }
     const label = `minecord-${crypto.createHash('sha256').update(String(userId)).digest('hex').slice(0, 24)}`;
     const url = new URL(`https://${appName}.metered.live/api/v1/turn/credential`);
     url.searchParams.set('secretKey', secretKey);
@@ -103,6 +115,9 @@ function createMeteredTurnService({ env = process.env, database, fetchImpl = fet
   }
 
   async function ensureCredential(userId) {
+    if (!isMeteredConfigured) {
+      throw new Error('Metered TURN service is not configured');
+    }
     const saved = database.findMeteredTurnCredential(userId);
     if (saved && saved.expires_at > now() + 30_000) {
       return {
@@ -120,7 +135,7 @@ function createMeteredTurnService({ env = process.env, database, fetchImpl = fet
   }
 
   async function configForUser(userId) {
-    if (!secretKey) return fallbackConfig(userId);
+    if (!isMeteredConfigured) return fallbackConfig(userId);
     let credential = await ensureCredential(userId);
     if (!credential.iceServers) {
       credential.iceServers = await fetchIceServers(credential.apiKey);
@@ -136,7 +151,7 @@ function createMeteredTurnService({ env = process.env, database, fetchImpl = fet
   }
 
   async function usageForUser(userId) {
-    if (!secretKey) throw new Error('Metered TURN usage monitoring is not configured.');
+    if (!isMeteredConfigured) throw new Error('Metered TURN usage monitoring is not configured.');
     const credential = database.findMeteredTurnCredential(userId);
     if (!credential) throw new Error('No Metered TURN credential exists for this account yet.');
     const url = new URL(`https://${appName}.metered.live/api/v1/turn/current_usage_for_user`);
@@ -150,7 +165,7 @@ function createMeteredTurnService({ env = process.env, database, fetchImpl = fet
   }
 
   return {
-    configured: Boolean(secretKey),
+    configured: isMeteredConfigured,
     configForUser,
     usageForUser
   };
