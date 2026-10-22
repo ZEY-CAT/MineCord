@@ -1139,6 +1139,7 @@ test('HTTP invitations: create, preview, accept, list, revoke, and authorization
     const aliceCookie = await createAccount(origin, 'InviteAlice');
     const bobCookie = await createAccount(origin, 'InviteBob');
     const carolCookie = await createAccount(origin, 'InviteCarol');
+    const daveCookie = await createAccount(origin, 'InviteDave');
     const alice = await openSocket(origin, aliceCookie);
     const bob = await openSocket(origin, bobCookie);
     const carol = await openSocket(origin, carolCookie);
@@ -1153,12 +1154,14 @@ test('HTTP invitations: create, preview, accept, list, revoke, and authorization
     assert.equal(createdInvite.response.status, 200);
     assert.ok(createdInvite.json.code);
     assert.equal(createdInvite.json.url, origin + '/invite/' + createdInvite.json.code);
+    assert.equal(createdInvite.json.expiresAt, null, 'shareable links must never expire');
     const code = createdInvite.json.code;
 
     const preview = await httpJson(origin, '/api/invite/preview?code=' + encodeURIComponent(code));
     assert.equal(preview.response.status, 200);
     assert.equal(preview.json.server.id, serverId);
     assert.equal(preview.json.targeted, false);
+    assert.equal(preview.json.expiresAt, null, 'shareable links must never expire');
     assert.ok(!('target' in preview.json));
 
     const page = await httpJson(origin, '/invite/' + code);
@@ -1176,6 +1179,9 @@ test('HTTP invitations: create, preview, accept, list, revoke, and authorization
     assert.equal(again.response.status, 200);
     assert.equal(again.json.alreadyMember, true, 'repeated acceptance must be idempotent');
 
+    const carolAccepted = await httpJson(origin, '/api/invite/accept', { cookie: carolCookie, method: 'POST', body: { code } });
+    assert.equal(carolAccepted.response.status, 200, 'shareable links must support unlimited uses');
+
     await closeSocket(bob.socket);
     const bobReconnected = await openSocket(origin, bobCookie);
     assert.ok(bobReconnected.ready.servers.some(server => server.id === serverId), 'membership must persist across reconnect');
@@ -1183,7 +1189,10 @@ test('HTTP invitations: create, preview, accept, list, revoke, and authorization
 
     const listed = await httpJson(origin, '/api/invite/list?serverId=' + encodeURIComponent(serverId), { cookie: aliceCookie });
     assert.equal(listed.response.status, 200);
-    assert.ok(listed.json.invites.some(invite => invite.code === code));
+    const listedInvite = listed.json.invites.find(invite => invite.code === code);
+    assert.ok(listedInvite);
+    assert.equal(listedInvite.expires, null, 'shareable links must never expire');
+    assert.equal(listedInvite.maxUses, null, 'shareable links must have unlimited uses');
 
     const deniedRevoke = await httpJson(origin, '/api/invite/revoke', { cookie: bobCookie, method: 'POST', body: { code } });
     assert.equal(deniedRevoke.response.status, 403, 'non-creators must not revoke invitations');
@@ -1193,8 +1202,8 @@ test('HTTP invitations: create, preview, accept, list, revoke, and authorization
 
     const gone = await httpJson(origin, '/api/invite/preview?code=' + encodeURIComponent(code));
     assert.equal(gone.response.status, 404);
-    const deniedAccept = await httpJson(origin, '/api/invite/accept', { cookie: carolCookie, method: 'POST', body: { code } });
-    assert.equal(deniedAccept.response.status, 404);
+    const deniedAccept = await httpJson(origin, '/api/invite/accept', { cookie: daveCookie, method: 'POST', body: { code } });
+    assert.equal(deniedAccept.response.status, 404, 'revoked links must stop working');
 
     const invalid = await httpJson(origin, '/api/invite/accept', { cookie: carolCookie, method: 'POST', body: { code: 'not-a-real-code' } });
     assert.equal(invalid.response.status, 404);
@@ -1233,7 +1242,13 @@ test('friend invitations target the right account and enforce friendship', { tim
     const invite = await httpJson(origin, '/api/invite/friend', { cookie: aliceCookie, method: 'POST', body: { target: 'FriendInviteBob', serverId } });
     assert.equal(invite.response.status, 200);
     assert.equal(invite.json.target, 'FriendInviteBob');
+    assert.equal(invite.json.expiresAt, null, 'targeted invites must never expire');
     assert.ok(invite.json.url.endsWith('/invite/' + invite.json.code));
+    const friendListed = await httpJson(origin, '/api/invite/list?serverId=' + encodeURIComponent(serverId), { cookie: aliceCookie });
+    const targeted = friendListed.json.invites.find(entry => entry.code === invite.json.code);
+    assert.ok(targeted);
+    assert.equal(targeted.maxUses, 1, 'targeted invites must stay single-use');
+    assert.equal(targeted.expires, null);
 
     const duplicate = await httpJson(origin, '/api/invite/friend', { cookie: aliceCookie, method: 'POST', body: { target: 'FriendInviteBob', serverId } });
     assert.equal(duplicate.response.status, 409, 'duplicate pending invitations must be rejected');

@@ -96,7 +96,7 @@ h1{font-family:var(--font-minecraft);font-size:28px;letter-spacing:1px;text-alig
       document.getElementById('serverName').textContent = data.server.name;
       document.getElementById('memberCount').textContent = data.server.memberCount;
       document.getElementById('inviterText').textContent = data.inviter ? 'Invited by ' + (data.inviter.displayName || data.inviter.username) : '';
-      document.getElementById('expiresAt').textContent = new Date(data.expiresAt).toLocaleDateString();
+      document.getElementById('expiresAt').textContent = data.expiresAt ? new Date(data.expiresAt).toLocaleDateString() : 'Never expires';
       document.getElementById('statusMsg').textContent = data.targeted
         ? 'This invitation was sent to a specific MINECORD account. Sign in with that account to accept.'
         : 'Sign in to accept this invitation.';
