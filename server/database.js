@@ -337,20 +337,37 @@ function loadState(legacyFile, fallback) {
     return state;
   }
 
-  // Ensure friends are loaded from the database if not present in app_state
+  // Ensure friends are loaded from the database if not present in app_state.
+  // The friends table stores user IDs, so map them back to usernames before
+  // rebuilding the denormalized friendship map. Treating IDs as usernames here
+  // silently breaks every accepted-friend lookup (including DMs).
   if (!state.friends || Object.keys(state.friends).length === 0) {
     const friendRows = db.prepare('SELECT user_a, user_b, status, requested_by FROM friends').all();
     if (friendRows.length > 0) {
-      state.friends = {};
+      const usernameById = new Map();
+      for (const row of db.prepare('SELECT id, username FROM users').all()) {
+        usernameById.set(row.id, row.username);
+      }
+      for (const user of Object.values(state.users || {})) {
+        if (user && typeof user.id === 'string' && typeof user.username === 'string') {
+          usernameById.set(user.id, user.username);
+        }
+      }
+      const friends = {};
       for (const row of friendRows) {
-        const key = `${row.user_a}::${row.user_b}`;
-        state.friends[key] = {
-          a: row.user_a,
-          b: row.user_b,
-          status: row.status,
-          by: row.requested_by
+        const a = usernameById.get(row.user_a);
+        const b = usernameById.get(row.user_b);
+        const by = usernameById.get(row.requested_by);
+        if (!a || !b || a === b) continue;
+        const [left, right] = a < b ? [a, b] : [b, a];
+        friends[`${left}::${right}`] = {
+          a: left,
+          b: right,
+          status: row.status === 'accepted' ? 'accepted' : 'pending',
+          by: by || left
         };
       }
+      state.friends = friends;
     }
   }
 
@@ -401,23 +418,6 @@ function loadState(legacyFile, fallback) {
       // Sort by timestamp ascending
       messages.sort((a, b) => a.at - b.at);
       state.messages[scope] = messages;
-    }
-  }
-
-  // Ensure friends are loaded from the database if not present in app_state
-  if (!state.friends || Object.keys(state.friends).length === 0) {
-    const friendRows = db.prepare('SELECT user_a, user_b, status, requested_by FROM friends').all();
-    if (friendRows.length > 0) {
-      state.friends = {};
-      for (const row of friendRows) {
-        const key = `${row.user_a}::${row.user_b}`;
-        state.friends[key] = {
-          a: row.user_a,
-          b: row.user_b,
-          status: row.status,
-          by: row.requested_by
-        };
-      }
     }
   }
 

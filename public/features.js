@@ -15,6 +15,50 @@
   };
   const roleClass = role => `role-${labels[role] ? role : 'member'}`;
   const badge = role => `<span class="roleBadge ${roleClass(role)}">${esc(labels[role] || labels.member)}</span>`;
+  const presenceLabels = { online: 'Online', away: 'Away', dnd: 'Do Not Disturb', in_call: 'In Call', offline: 'Offline' };
+  const presenceDotClass = status => presenceLabels[status] ? status : 'offline';
+  const presenceLabel = status => presenceLabels[status] || presenceLabels.offline;
+  const statusFor = username => {
+    const profile = memberProfiles?.[username];
+    if (profile?.presence) return profile.presence;
+    return Array.isArray(online) && online.includes(username) ? 'online' : 'offline';
+  };
+  const presenceDot = status => `<span class="dot ${presenceDotClass(status)}" title="${presenceLabel(status)}" aria-label="Status: ${presenceLabel(status)}"></span>`;
+  function renderOwnPresence() {
+    const status = me?.presence || statusFor(me?.username);
+    const dot = $('mePresenceDot');
+    if (dot) {
+      dot.className = `presenceDot ${presenceDotClass(status)}`;
+      dot.title = presenceLabel(status);
+      dot.setAttribute('aria-label', `Status: ${presenceLabel(status)}`);
+    }
+    const label = $('meStatus');
+    if (label) {
+      label.textContent = presenceLabel(status);
+      label.title = `${presenceLabel(status)} - click to change`;
+    }
+    const select = $('settingsPresence');
+    if (select) select.value = status === 'in_call' ? 'in_call' : (me?.manualPresence || 'online');
+    document.body.classList.toggle('presence-dnd', me?.manualPresence === 'dnd');
+  }
+  if ($('meStatus')) {
+    $('meStatus').addEventListener('click', () => {
+      renderUser();
+      show('settingsModal');
+      setTimeout(() => $('settingsPresence')?.focus(), 0);
+    });
+  }
+  $('profileBtn')?.addEventListener('click', () => renderOwnPresence());
+  if ($('settingsPresence')) {
+    $('settingsPresence').addEventListener('change', event => {
+      const status = event.target.value;
+      if (status === 'in_call') {
+        event.target.value = me?.manualPresence || 'online';
+        return;
+      }
+      send({ type: 'presence_update', status });
+    });
+  }
   const style = document.createElement('style');
   style.textContent = `
     .roleBadge{display:inline-flex;align-items:center;border:1px solid #5865f2;border-radius:999px;padding:1px 7px;color:#cdd0ff;background:#292b48;font-size:10px;font-weight:700;line-height:1.5;white-space:nowrap}
@@ -239,6 +283,10 @@
       acceptedFriends = Array.isArray(message.friends) ? message.friends : [];
     } else if (message.type === 'presence' && message.members) {
       memberProfiles = { ...memberProfiles, ...message.members };
+      if (me?.username && message.members[me.username]) me = { ...me, ...message.members[me.username] };
+    } else if (message.type === 'presence_updated' && message.user?.username) {
+      memberProfiles[message.user.username] = message.user;
+      if (me?.username === message.user.username) me = { ...me, ...message.user };
     } else if (message.type === 'profile' && message.me) {
       memberProfiles[message.me.username] = message.me;
     } else if (message.type === 'friend_profile' && message.user?.username) {
@@ -249,7 +297,13 @@
       acceptedFriends = acceptedFriends.filter(username => username !== message.user);
     }
     baseHandle(message);
-    if (message.type === 'ready' || message.type === 'presence' || message.type === 'friend_status') renderFriends();
+    if (message.type === 'ready' || message.type === 'presence' || message.type === 'presence_updated' || message.type === 'friend_status') renderFriends();
+    if (message.type === 'presence' || message.type === 'presence_updated') {
+      renderPeople();
+      renderDMs();
+      if (currentDM) renderDMHeader(currentDM);
+    }
+    if (message.type === 'ready' || message.type === 'presence' || message.type === 'presence_updated' || message.type === 'profile') renderOwnPresence();
     if (message.type === 'friend_profile') {
       renderFriends();
       renderPeople();
@@ -275,14 +329,14 @@
     }
     for (const username of acceptedFriends) {
       const profile = memberProfiles[username] || { username, displayName: username };
-      const isOnline = online.includes(username);
+      const status = statusFor(username);
       const row = document.createElement('div');
       row.className = 'friendRow';
       row.dataset.user = username;
       row.tabIndex = 0;
       row.setAttribute('role', 'button');
-      row.setAttribute('aria-label', `Open conversation with ${profile.displayName || username}, ${isOnline ? 'online' : 'offline'}`);
-      row.innerHTML = `<span class="dot ${isOnline ? 'on' : ''}"></span><span class="friendName">${esc(profile.displayName || username)}</span><span class="friendState">${isOnline ? 'Online' : 'Offline'}</span>`;
+      row.setAttribute('aria-label', `Open conversation with ${profile.displayName || username}, ${presenceLabel(status)}`);
+      row.innerHTML = `${presenceDot(status)}<span class="friendName">${esc(profile.displayName || username)}</span><span class="friendState status-${presenceDotClass(status)}">${presenceLabel(status)}</span>`;
       row.addEventListener('click', () => openDM(username));
       row.addEventListener('keydown', event => {
         if (event.key === 'Enter' || event.key === ' ') {
@@ -316,7 +370,9 @@
       row.dataset.user = username;
       if (username !== me?.username) row.onclick = () => openDM(username);
       const activity = activities[username];
-      row.innerHTML = `<span class="dot on"></span><span class="personInfo"><span class="row" style="gap:5px">${esc(profile.displayName || username)}${username === me?.username ? ' (you)' : ''}${badge(profile.role)}</span>${activity ? `<span class="activityLine">${activityTitle(activity)}</span>` : ''}</span>`;
+      const status = statusFor(username);
+      row.title = presenceLabel(status);
+      row.innerHTML = `${presenceDot(status)}<span class="personInfo"><span class="row" style="gap:5px">${esc(profile.displayName || username)}${username === me?.username ? ' (you)' : ''}${badge(profile.role)}</span>${activity ? `<span class="activityLine">${activityTitle(activity)}</span>` : ''}</span>`;
       $('people').appendChild(row);
     }
     if (!online.length) $('people').innerHTML = '<div class="muted" style="padding:10px">Nobody online.</div>';
@@ -358,6 +414,7 @@
     }
     roleBadge.innerHTML = badge(me?.role);
     if ($('onboardingDisplayName')) $('onboardingDisplayName').value = me?.displayName || me?.username || '';
+    renderOwnPresence();
     applyEquippedCosmetics();
   };
 
