@@ -799,14 +799,13 @@ test('call decline works and notifies participants', { timeout: 30000 }, async (
     const startedCall = await sendAndWait(aliceSocket, { type: 'call_start', to: 'bob_decline', callType: 'private' }, m => m.type === 'call_started');
     await incomingCall;
     
-    // Bob declines
+    // Bob declines. Register both waiters before sending so the immediate
+    // call_ended notification cannot race past the test listener.
     const callDeclined = waitFor(aliceSocket, m => m.type === 'call_declined' && m.callId === startedCall.callId);
+    const callEnded = waitFor(aliceSocket, m => m.type === 'call_ended' && m.callId === startedCall.callId);
     bobSocket.send(JSON.stringify({ type: 'call_decline', callId: startedCall.callId }));
     const declinedMsg = await callDeclined;
     assert.equal(declinedMsg.user, 'bob_decline');
-    
-    // Call should be ended for Alice since no participants left
-    const callEnded = waitFor(aliceSocket, m => m.type === 'call_ended' && m.callId === startedCall.callId);
     await callEnded;
   } finally {
     if (aliceSocket) await closeSocket(aliceSocket).catch(() => {});
@@ -1388,6 +1387,450 @@ test('security headers are set on app and API responses', { timeout: 30000 }, as
       assert.match(res.headers.get('permissions-policy') || '', /microphone=\(self\)/);
     }
   } finally {
+    await stopServer(running.child);
+  }
+});
+
+async function befriend(sender, receiver, senderName, receiverName) {
+  const request = waitFor(receiver.socket, message => message.type === 'friend_request' && message.from === senderName);
+  sender.socket.send(JSON.stringify({ type: 'friend_request', to: receiverName }));
+  await request;
+  const acceptedAtSender = waitFor(sender.socket, message => message.type === 'friend_status' && message.status === 'accepted' && message.user === receiverName);
+  const acceptedAtReceiver = sendAndWait(receiver.socket, { type: 'friend_accept', with: senderName }, message => message.type === 'friend_status' && message.status === 'accepted');
+  await Promise.all([acceptedAtSender, acceptedAtReceiver]);
+}
+
+test('group DM creation, membership, realtime messages, unread state, and persistence', { timeout: 60000 }, async () => {
+  const port = await availablePort();
+  const running = await startServer(port);
+  const sockets = [];
+  try {
+    const aliceCookie = await createAccount(running.origin, 'GroupAlice');
+    const bobCookie = await createAccount(running.origin, 'GroupBob');
+    const carolCookie = await createAccount(running.origin, 'GroupCarol');
+    const daveCookie = await createAccount(running.origin, 'GroupDave');
+    const alice = await openSocket(running.origin, aliceCookie);
+    const bob = await openSocket(running.origin, bobCookie);
+    const carol = await openSocket(running.origin, carolCookie);
+    const dave = await openSocket(running.origin, daveCookie);
+    sockets.push(alice.socket, bob.socket, carol.socket, dave.socket);
+    await befriend(alice, bob, 'GroupAlice', 'GroupBob');
+    await befriend(alice, carol, 'GroupAlice', 'GroupCarol');
+    await befriend(alice, dave, 'GroupAlice', 'GroupDave');
+
+    const bobCreated = waitFor(bob.socket, message => message.type === 'group_dm_created');
+    const carolCreated = waitFor(carol.socket, message => message.type === 'group_dm_created');
+    const created = await sendAndWait(alice.socket, { type: 'group_dm_create', members: ['GroupBob', 'GroupCarol'], name: 'Build Crew' }, message => message.type === 'group_dm_created');
+    const group = created.group;
+    assert.equal(group.name, 'Build Crew');
+    assert.deepEqual([...group.members].sort(), ['GroupAlice', 'GroupBob', 'GroupCarol']);
+    assert.equal((await bobCreated).group.id, group.id);
+    assert.equal((await carolCreated).group.id, group.id);
+
+    const bobMessage = waitFor(bob.socket, message => message.type === 'group_dm_message' && message.groupId === group.id);
+    const carolMessage = waitFor(carol.socket, message => message.type === 'group_dm_message' && message.groupId === group.id);
+    const sent = await sendAndWait(alice.socket, { type: 'group_dm_message', groupId: group.id, text: 'hello group' }, message => message.type === 'group_dm_message' && message.groupId === group.id);
+    assert.equal(sent.message.text, 'hello group');
+    assert.equal((await bobMessage).message.text, 'hello group');
+    assert.equal((await carolMessage).message.text, 'hello group');
+
+    const read = await sendAndWait(bob.socket, { type: 'group_dm_read', groupId: group.id }, message => message.type === 'group_dm_unread' && message.groupId === group.id);
+    assert.equal(read.count, 0);
+
+    const deniedHistory = await sendAndWait(dave.socket, { type: 'group_dm_history', groupId: group.id }, message => message.type === 'error');
+    assert.match(deniedHistory.message, /not found/i);
+    const deniedMessage = await sendAndWait(dave.socket, { type: 'group_dm_message', groupId: group.id, text: 'nope' }, message => message.type === 'error');
+    assert.match(deniedMessage.message, /not found/i);
+
+    const daveUpdated = waitFor(dave.socket, message => message.type === 'group_dm_updated' && message.group.id === group.id);
+    const aliceAdded = await sendAndWait(alice.socket, { type: 'group_dm_add', groupId: group.id, members: ['GroupDave'] }, message => message.type === 'group_dm_updated' && message.group.id === group.id);
+    assert.ok(aliceAdded.group.members.includes('GroupDave'));
+    assert.ok((await daveUpdated).group.members.includes('GroupDave'));
+
+    const deniedRename = await sendAndWait(bob.socket, { type: 'group_dm_rename', groupId: group.id, name: 'Hijacked' }, message => message.type === 'error');
+    assert.match(deniedRename.message, /owner/i);
+    const renamedAtDave = waitFor(dave.socket, message => message.type === 'group_dm_updated' && message.group.name === 'Build Crew 2');
+    const renamed = await sendAndWait(alice.socket, { type: 'group_dm_rename', groupId: group.id, name: 'Build Crew 2' }, message => message.type === 'group_dm_updated' && message.group.name === 'Build Crew 2');
+    assert.equal(renamed.group.name, 'Build Crew 2');
+    assert.equal((await renamedAtDave).group.name, 'Build Crew 2');
+
+    const aliceSawBobLeave = waitFor(alice.socket, message => message.type === 'group_dm_updated' && message.group.id === group.id && !message.group.members.includes('GroupBob'));
+    const bobLeft = await sendAndWait(bob.socket, { type: 'group_dm_leave', groupId: group.id }, message => message.type === 'group_dm_left' && message.groupId === group.id);
+    assert.equal(bobLeft.groupId, group.id);
+    await aliceSawBobLeave;
+    const bobDeniedHistory = await sendAndWait(bob.socket, { type: 'group_dm_history', groupId: group.id }, message => message.type === 'error');
+    assert.match(bobDeniedHistory.message, /not found/i);
+
+    await closeSocket(alice.socket);
+    const aliceReconnected = await openSocket(running.origin, aliceCookie);
+    sockets.push(aliceReconnected.socket);
+    const persisted = aliceReconnected.ready.groupDms.find(item => item.id === group.id);
+    assert.ok(persisted, 'group conversations must survive reconnects');
+    assert.equal(aliceReconnected.ready.groupLastMessages[group.id]?.text, 'hello group');
+  } finally {
+    for (const socket of sockets) {
+      try { await closeSocket(socket); } catch {}
+    }
+    await stopServer(running.child);
+  }
+});
+
+test('custom server roles enforce permissions, assignment, kicks, channel deletion, and persistence', { timeout: 60000 }, async () => {
+  const port = await availablePort();
+  const running = await startServer(port);
+  const sockets = [];
+  try {
+    const aliceCookie = await createAccount(running.origin, 'RoleAlice');
+    const bobCookie = await createAccount(running.origin, 'RoleBob');
+    const carolCookie = await createAccount(running.origin, 'RoleCarol');
+    const alice = await openSocket(running.origin, aliceCookie);
+    const bob = await openSocket(running.origin, bobCookie);
+    const carol = await openSocket(running.origin, carolCookie);
+    sockets.push(alice.socket, bob.socket, carol.socket);
+
+    const created = await sendAndWait(alice.socket, { type: 'create_server', name: 'Role Server' }, message => message.type === 'server_created');
+    const serverId = created.server.id;
+    assert.deepEqual(created.server.roles, []);
+    const inviteBob = await sendAndWait(alice.socket, { type: 'invite_create', serverId }, message => message.type === 'invite');
+    await sendAndWait(bob.socket, { type: 'invite_join', code: inviteBob.code }, message => message.type === 'server_joined');
+    const inviteCarol = await sendAndWait(alice.socket, { type: 'invite_create', serverId }, message => message.type === 'invite');
+    await sendAndWait(carol.socket, { type: 'invite_join', code: inviteCarol.code }, message => message.type === 'server_joined');
+
+    const bobSawModerator = waitFor(bob.socket, message => message.type === 'server_updated' && message.server.id === serverId && message.server.roles.some(role => role.name === 'Moderator'));
+    const moderator = await sendAndWait(alice.socket, {
+      type: 'role_create', serverId, name: 'Moderator', color: '#2ecc71',
+      permissions: { manageChannels: true }
+    }, message => message.type === 'server_updated' && message.server.roles.some(role => role.name === 'Moderator'));
+    const moderatorRole = moderator.server.roles.find(role => role.name === 'Moderator');
+    assert.equal(moderatorRole.permissions.manageChannels, true);
+    assert.equal(moderatorRole.permissions.manageRoles, false);
+    await bobSawModerator;
+
+    const bobAssigned = waitFor(bob.socket, message => message.type === 'server_updated' && (message.server.memberRoles?.RoleBob || []).includes(moderatorRole.id));
+    await sendAndWait(alice.socket, { type: 'role_assign', serverId, username: 'RoleBob', roleId: moderatorRole.id, enabled: true }, message => message.type === 'server_updated' && (message.server.memberRoles?.RoleBob || []).includes(moderatorRole.id));
+    await bobAssigned;
+
+    const bobChannel = await sendAndWait(bob.socket, { type: 'create_channel', serverId, name: 'mod-room', channelType: 'text' }, message => message.type === 'channel_created' && message.serverId === serverId);
+    assert.equal(bobChannel.channel.name, 'mod-room');
+    const carolDeniedChannel = await sendAndWait(carol.socket, { type: 'create_channel', serverId, name: 'carol-room', channelType: 'text' }, message => message.type === 'error');
+    assert.match(carolDeniedChannel.message, /Manage Channels/);
+    const bobDeniedRole = await sendAndWait(bob.socket, { type: 'role_create', serverId, name: 'Nope', permissions: {} }, message => message.type === 'error');
+    assert.match(bobDeniedRole.message, /Manage Roles/);
+
+    const roleManager = await sendAndWait(alice.socket, {
+      type: 'role_create', serverId, name: 'Role Manager', permissions: { manageRoles: true }
+    }, message => message.type === 'server_updated' && message.server.roles.some(role => role.name === 'Role Manager'));
+    const roleManagerRole = roleManager.server.roles.find(role => role.name === 'Role Manager');
+    await sendAndWait(alice.socket, { type: 'role_assign', serverId, username: 'RoleBob', roleId: roleManagerRole.id, enabled: true }, message => message.type === 'server_updated' && (message.server.memberRoles?.RoleBob || []).includes(roleManagerRole.id));
+    const helper = await sendAndWait(bob.socket, { type: 'role_create', serverId, name: 'Helper', permissions: {} }, message => message.type === 'server_updated' && message.server.roles.some(role => role.name === 'Helper'));
+    const helperRole = helper.server.roles.find(role => role.name === 'Helper');
+    await sendAndWait(bob.socket, { type: 'role_assign', serverId, username: 'RoleCarol', roleId: helperRole.id, enabled: true }, message => message.type === 'server_updated' && (message.server.memberRoles?.RoleCarol || []).includes(helperRole.id));
+
+    const kicker = await sendAndWait(alice.socket, { type: 'role_create', serverId, name: 'Kicker', permissions: { kickMembers: true } }, message => message.type === 'server_updated' && message.server.roles.some(role => role.name === 'Kicker'));
+    const kickerRole = kicker.server.roles.find(role => role.name === 'Kicker');
+    await sendAndWait(alice.socket, { type: 'role_assign', serverId, username: 'RoleBob', roleId: kickerRole.id, enabled: true }, message => message.type === 'server_updated' && (message.server.memberRoles?.RoleBob || []).includes(kickerRole.id));
+    const carolRemoved = waitFor(carol.socket, message => message.type === 'server_removed' && message.serverId === serverId);
+    const aliceSawCarolRemoved = waitFor(alice.socket, message => message.type === 'server_updated' && message.server.id === serverId && !message.server.members.includes('RoleCarol'));
+    await sendAndWait(bob.socket, { type: 'server_member_kick', serverId, username: 'RoleCarol' }, message => message.type === 'server_updated' && message.server.id === serverId && !message.server.members.includes('RoleCarol'));
+    await Promise.all([carolRemoved, aliceSawCarolRemoved]);
+
+    const deletedChannel = waitFor(alice.socket, message => message.type === 'channel_deleted' && message.serverId === serverId && message.channelId === bobChannel.channel.id);
+    await sendAndWait(bob.socket, { type: 'delete_channel', serverId, channelId: bobChannel.channel.id }, message => message.type === 'channel_deleted' && message.channelId === bobChannel.channel.id);
+    await deletedChannel;
+
+    const bobDeniedRename = await sendAndWait(bob.socket, { type: 'server_update', serverId, name: 'Hijacked' }, message => message.type === 'error');
+    assert.match(bobDeniedRename.message, /Manage Server/);
+    const adminRole = await sendAndWait(alice.socket, { type: 'role_create', serverId, name: 'Admin', permissions: { manageServer: true } }, message => message.type === 'server_updated' && message.server.roles.some(role => role.name === 'Admin'));
+    const adminRoleId = adminRole.server.roles.find(role => role.name === 'Admin').id;
+    await sendAndWait(alice.socket, { type: 'role_assign', serverId, username: 'RoleBob', roleId: adminRoleId, enabled: true }, message => message.type === 'server_updated' && (message.server.memberRoles?.RoleBob || []).includes(adminRoleId));
+    const renamed = await sendAndWait(bob.socket, { type: 'server_update', serverId, name: 'Renamed Role Server' }, message => message.type === 'server_updated' && message.server.name === 'Renamed Role Server');
+    assert.equal(renamed.server.name, 'Renamed Role Server');
+
+    const ownerKickDenied = await sendAndWait(bob.socket, { type: 'server_member_kick', serverId, username: 'RoleAlice' }, message => message.type === 'error');
+    assert.match(ownerKickDenied.message, /owner/i);
+
+    const messageScope = `${serverId}:general`;
+    const deletable = await sendAndWait(alice.socket, { type: 'message', scope: messageScope, text: 'delete this message' }, message => message.type === 'message' && message.item.text === 'delete this message');
+    const bobDeniedDelete = await sendAndWait(bob.socket, { type: 'delete_message', scope: messageScope, messageId: deletable.item.id }, message => message.type === 'error');
+    assert.match(bobDeniedDelete.message, /Manage Messages/);
+    const messageRole = await sendAndWait(alice.socket, { type: 'role_create', serverId, name: 'Message Manager', permissions: { manageMessages: true } }, message => message.type === 'server_updated' && message.server.roles.some(role => role.name === 'Message Manager'));
+    const messageRoleId = messageRole.server.roles.find(role => role.name === 'Message Manager').id;
+    await sendAndWait(alice.socket, { type: 'role_assign', serverId, username: 'RoleBob', roleId: messageRoleId, enabled: true }, message => message.type === 'server_updated' && (message.server.memberRoles?.RoleBob || []).includes(messageRoleId));
+    const aliceDeleted = waitFor(alice.socket, message => message.type === 'message_deleted' && message.messageId === deletable.item.id);
+    await sendAndWait(bob.socket, { type: 'delete_message', scope: messageScope, messageId: deletable.item.id }, message => message.type === 'message_deleted' && message.messageId === deletable.item.id);
+    await aliceDeleted;
+
+    await sendAndWait(alice.socket, { type: 'role_delete', serverId, roleId: moderatorRole.id }, message => message.type === 'server_updated' && !message.server.roles.some(role => role.id === moderatorRole.id));
+    const bobDeniedAfterRoleDelete = await sendAndWait(bob.socket, { type: 'create_channel', serverId, name: 'after-delete', channelType: 'text' }, message => message.type === 'error');
+    assert.match(bobDeniedAfterRoleDelete.message, /Manage Channels/);
+
+    await closeSocket(bob.socket);
+    const bobReconnected = await openSocket(running.origin, bobCookie);
+    sockets.push(bobReconnected.socket);
+    const persistedServer = bobReconnected.ready.servers.find(server => server.id === serverId);
+    assert.ok(persistedServer.roles.some(role => role.name === 'Role Manager'));
+    assert.ok((persistedServer.memberRoles?.RoleBob || []).includes(adminRoleId));
+
+    const bobDeniedServerDelete = await sendAndWait(bobReconnected.socket, { type: 'server_delete', serverId }, message => message.type === 'error');
+    assert.match(bobDeniedServerDelete.message, /owner/i);
+    const bobSawDeletion = waitFor(bobReconnected.socket, message => message.type === 'server_removed' && message.serverId === serverId);
+    await sendAndWait(alice.socket, { type: 'server_delete', serverId }, message => message.type === 'server_removed' && message.serverId === serverId);
+    await bobSawDeletion;
+  } finally {
+    for (const socket of sockets) {
+      try { await closeSocket(socket); } catch {}
+    }
+    await stopServer(running.child);
+  }
+});
+
+test('health endpoint, login and invite rate limits, origin checks, and session cookie flags', { timeout: 60000 }, async () => {
+  const port = await availablePort();
+  const running = await startServer(port);
+  let socket;
+  try {
+    const health = await fetch(`${running.origin}/health`);
+    assert.equal(health.status, 200);
+    assert.equal(health.headers.get('cache-control'), 'no-store');
+    const healthBody = await health.json();
+    assert.equal(healthBody.ok, true);
+    assert.equal(healthBody.service, 'minecord');
+    assert.equal(healthBody.commit, null);
+
+    const registerResponse = await fetch(`${running.origin}/api/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Origin: running.origin },
+      body: JSON.stringify({ username: 'CookieUser', password: 'A-long-test-passphrase!' })
+    });
+    assert.equal(registerResponse.status, 201);
+    const setCookie = registerResponse.headers.get('set-cookie') || '';
+    assert.match(setCookie, /HttpOnly/i);
+    assert.match(setCookie, /SameSite=Lax/i);
+    assert.match(setCookie, /Path=\//i);
+
+    const cookie = setCookie.split(';', 1)[0];
+    const socketResult = await openSocket(running.origin, cookie);
+    socket = socketResult.socket;
+    const created = await sendAndWait(socket, { type: 'create_server', name: 'Rate Server' }, message => message.type === 'server_created');
+    const serverId = created.server.id;
+
+    const crossOriginInvite = await fetch(`${running.origin}/api/invite/create`, {
+      method: 'POST',
+      headers: { Cookie: cookie, 'Content-Type': 'application/json', Origin: 'https://evil.example' },
+      body: JSON.stringify({ serverId })
+    });
+    assert.equal(crossOriginInvite.status, 403);
+
+    for (let index = 0; index < 10; index++) {
+      const failed = await fetch(`${running.origin}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Origin: running.origin },
+        body: JSON.stringify({ username: 'CookieUser', password: 'wrong-password' })
+      });
+      assert.equal(failed.status, 401);
+    }
+    const blockedLogin = await fetch(`${running.origin}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Origin: running.origin },
+      body: JSON.stringify({ username: 'CookieUser', password: 'A-long-test-passphrase!' })
+    });
+    assert.equal(blockedLogin.status, 429, 'the login limiter must block after ten failures');
+
+    const otherCookie = await createAccount(running.origin, 'UnaffectedUser');
+    const otherLogin = await fetch(`${running.origin}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Origin: running.origin },
+      body: JSON.stringify({ username: 'UnaffectedUser', password: 'A-long-test-passphrase!' })
+    });
+    assert.equal(otherLogin.status, 200, 'login limits must be scoped to the account and client');
+    assert.ok(otherCookie);
+
+    for (let index = 0; index < 20; index++) {
+      const invite = await fetch(`${running.origin}/api/invite/create`, {
+        method: 'POST',
+        headers: { Cookie: cookie, 'Content-Type': 'application/json', Origin: running.origin },
+        body: JSON.stringify({ serverId })
+      });
+      assert.equal(invite.status, 200, `invite ${index + 1} should be created`);
+      const body = await invite.json();
+      assert.equal(body.expiresAt, null);
+    }
+    const listedInvites = await fetch(`${running.origin}/api/invite/list?serverId=${encodeURIComponent(serverId)}`, { headers: { Cookie: cookie } });
+    assert.equal(listedInvites.status, 200);
+    const listedInviteBody = await listedInvites.json();
+    assert.ok(listedInviteBody.invites.length >= 20);
+    assert.ok(listedInviteBody.invites.every(invite => invite.maxUses === null));
+    const rateLimitedInvite = await fetch(`${running.origin}/api/invite/create`, {
+      method: 'POST',
+      headers: { Cookie: cookie, 'Content-Type': 'application/json', Origin: running.origin },
+      body: JSON.stringify({ serverId })
+    });
+    assert.equal(rateLimitedInvite.status, 429, 'invite creation must be rate limited');
+
+    const badSocket = new WebSocket(running.origin.replace(/^http/, 'ws'), {
+      headers: { Cookie: cookie, Origin: 'https://evil.example' }
+    });
+    const badOutcome = await new Promise(resolve => {
+      const timer = setTimeout(() => resolve('timeout'), 4000);
+      badSocket.once('open', () => { clearTimeout(timer); resolve('open'); });
+      badSocket.once('error', () => { clearTimeout(timer); resolve('error'); });
+      badSocket.once('unexpected-response', () => { clearTimeout(timer); resolve('rejected'); });
+    });
+    assert.notEqual(badOutcome, 'open', 'WebSocket connections from unapproved origins must be rejected');
+    try { badSocket.close(); } catch {}
+  } finally {
+    if (socket) await closeSocket(socket);
+    await stopServer(running.child);
+  }
+});
+
+test('Java and Eaglercraft activity pairing, presence, privacy, and unpairing', { timeout: 30000 }, async () => {
+  const port = await availablePort();
+  const running = await startServer(port);
+  try {
+    const cookie = await createAccount(running.origin, 'ActivityUser');
+    const javaPresence = await fetch(`${running.origin}/api/activity/presence`, {
+      method: 'POST',
+      headers: { Cookie: cookie, 'Content-Type': 'application/json', Origin: running.origin },
+      body: JSON.stringify({ game: 'java', active: true })
+    });
+    assert.equal(javaPresence.status, 200);
+    const javaProfile = await fetch(`${running.origin}/api/auth/me`, { headers: { Cookie: cookie } });
+    const javaBody = await javaProfile.json();
+    assert.equal(javaBody.user.activity.game, 'java');
+    assert.equal(javaBody.user.activity.active, true);
+
+    const pairing = await fetch(`${running.origin}/api/activity/pairing`, {
+      method: 'POST',
+      headers: { Cookie: cookie, 'Content-Type': 'application/json', Origin: running.origin },
+      body: '{}'
+    });
+    assert.equal(pairing.status, 200);
+    const pairingBody = await pairing.json();
+    assert.equal(pairingBody.expiresIn, 300);
+    assert.ok(pairingBody.code.length >= 20);
+
+    const invalidClaim = await fetch(`${running.origin}/api/integrations/eaglercraft/claim`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: 'not-a-real-pairing-code' })
+    });
+    assert.equal(invalidClaim.status, 400);
+
+    const claim = await fetch(`${running.origin}/api/integrations/eaglercraft/claim`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: pairingBody.code })
+    });
+    assert.equal(claim.status, 200);
+    const { token } = await claim.json();
+    assert.ok(token.length > 20);
+    const replayClaim = await fetch(`${running.origin}/api/integrations/eaglercraft/claim`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: pairingBody.code })
+    });
+    assert.equal(replayClaim.status, 400, 'pairing codes must be single-use');
+
+    const presence = await fetch(`${running.origin}/api/integrations/eaglercraft/presence`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Minecord-Activity-Token': token },
+      body: JSON.stringify({ active: true })
+    });
+    assert.equal(presence.status, 200);
+    const activeProfile = await (await fetch(`${running.origin}/api/auth/me`, { headers: { Cookie: cookie } })).json();
+    assert.equal(activeProfile.user.activity.game, 'eaglercraft');
+    assert.equal(activeProfile.user.activity.active, true);
+
+    const disabled = await fetch(`${running.origin}/api/activity/settings`, {
+      method: 'POST',
+      headers: { Cookie: cookie, 'Content-Type': 'application/json', Origin: running.origin },
+      body: JSON.stringify({ enabled: false })
+    });
+    assert.equal(disabled.status, 200);
+    const disabledPresence = await fetch(`${running.origin}/api/integrations/eaglercraft/presence`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Minecord-Activity-Token': token },
+      body: JSON.stringify({ active: true })
+    });
+    assert.equal(disabledPresence.status, 401, 'disabling activity must revoke the paired connector');
+    const hiddenProfile = await (await fetch(`${running.origin}/api/auth/me`, { headers: { Cookie: cookie } })).json();
+    assert.equal(hiddenProfile.user.activity, null);
+
+    const pairingAgain = await fetch(`${running.origin}/api/activity/pairing`, {
+      method: 'POST',
+      headers: { Cookie: cookie, 'Content-Type': 'application/json', Origin: running.origin },
+      body: '{}'
+    });
+    const pairingAgainBody = await pairingAgain.json();
+    const claimAgain = await fetch(`${running.origin}/api/integrations/eaglercraft/claim`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: pairingAgainBody.code })
+    });
+    const { token: secondToken } = await claimAgain.json();
+    const unpair = await fetch(`${running.origin}/api/integrations/eaglercraft/unpair`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Minecord-Activity-Token': secondToken }
+    });
+    assert.equal(unpair.status, 200);
+    const afterUnpair = await fetch(`${running.origin}/api/integrations/eaglercraft/presence`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Minecord-Activity-Token': secondToken },
+      body: JSON.stringify({ active: true })
+    });
+    assert.equal(afterUnpair.status, 401);
+  } finally {
+    await stopServer(running.child);
+  }
+});
+
+test('multiplayer game invitations, synchronized actions, and non-player rejection', { timeout: 30000 }, async () => {
+  const port = await availablePort();
+  const running = await startServer(port);
+  const sockets = [];
+  try {
+    const aliceCookie = await createAccount(running.origin, 'GameAlice');
+    const bobCookie = await createAccount(running.origin, 'GameBob');
+    const carolCookie = await createAccount(running.origin, 'GameCarol');
+    const alice = await openSocket(running.origin, aliceCookie);
+    const bob = await openSocket(running.origin, bobCookie);
+    const carol = await openSocket(running.origin, carolCookie);
+    sockets.push(alice.socket, bob.socket, carol.socket);
+    await befriend(alice, bob, 'GameAlice', 'GameBob');
+
+    const bobInvited = waitFor(bob.socket, message => message.type === 'game_invite' && message.gameType === 'flappy');
+    const inviteSent = await sendAndWait(alice.socket, { type: 'game_invite', gameType: 'flappy', opponent: 'GameBob' }, message => message.type === 'game_invite_sent' || message.type === 'error');
+    assert.equal(inviteSent.type, 'game_invite_sent', inviteSent.message || 'game invite was rejected');
+    const invitation = await bobInvited;
+    assert.equal(invitation.inviteId, inviteSent.inviteId);
+    assert.equal(invitation.from, 'GameAlice');
+
+    const aliceStarted = waitFor(alice.socket, message => message.type === 'game_state' && message.gameId === invitation.gameId && message.state === 'playing');
+    const bobStarted = await sendAndWait(bob.socket, { type: 'game_accept', inviteId: invitation.inviteId }, message => message.type === 'game_state' && message.gameId === invitation.gameId && message.state === 'playing');
+    const aliceState = await aliceStarted;
+    assert.equal(bobStarted.gameType, 'flappy');
+    assert.ok(bobStarted.gameData.birds.GameAlice);
+    assert.ok(bobStarted.gameData.birds.GameBob);
+    assert.equal(aliceState.players.length, 2);
+
+    const aliceFlap = waitFor(alice.socket, message => message.type === 'game_state' && message.lastAction?.by === 'GameAlice');
+    const bobFlap = waitFor(bob.socket, message => message.type === 'game_state' && message.lastAction?.by === 'GameAlice');
+    alice.socket.send(JSON.stringify({ type: 'game_action', gameId: invitation.gameId, action: { type: 'flap' } }));
+    const [aliceAction, bobAction] = await Promise.all([aliceFlap, bobFlap]);
+    assert.equal(aliceAction.lastAction.action.type, 'flap');
+    assert.equal(bobAction.lastAction.by, 'GameAlice');
+
+    const carolDenied = await sendAndWait(carol.socket, { type: 'game_action', gameId: invitation.gameId, action: { type: 'flap' } }, message => message.type === 'error');
+    assert.match(carolDenied.message, /not a player/i);
+
+    const bobLeft = waitFor(bob.socket, message => message.type === 'game_left' && message.gameId === invitation.gameId);
+    alice.socket.send(JSON.stringify({ type: 'game_leave', gameId: invitation.gameId }));
+    assert.equal((await bobLeft).by, 'GameAlice');
+  } finally {
+    for (const socket of sockets) {
+      try { await closeSocket(socket); } catch {}
+    }
     await stopServer(running.child);
   }
 });

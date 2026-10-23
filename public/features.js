@@ -326,10 +326,24 @@
     const element = document.createElement('div');
     const profile = memberProfiles[message.from] || (message.from === me?.username ? me : { username: message.from, displayName: message.from });
     element.className = 'msg';
+    if (message.id) element.dataset.messageId = message.id;
     const when = new Date(message.at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    element.innerHTML = `<div class="avatar">${avatar(profile)}</div><div class="msgBody"><div class="meta"><span class="name">${esc(profile.displayName || profile.username)}</span>${badge(message.role || profile.role)}<span class="time">${when}</span></div><div class="bubble">${esc(message.text || '')}</div></div>`;
+    const canDelete = Boolean(message.id && currentChannel?.type === 'text' && currentServer && typeof currentServerPerms === 'function' && currentServerPerms().manageMessages);
+    element.innerHTML = `<div class="avatar">${avatar(profile)}</div><div class="msgBody"><div class="meta"><span class="name">${esc(profile.displayName || profile.username)}</span>${badge(message.role || profile.role)}<span class="time">${when}</span></div><div class="bubble">${esc(message.text || '')}${canDelete ? `<button type="button" class="msgDelete" onclick="deleteMessage('${esc(message.id)}')" title="Delete message" aria-label="Delete message" style="margin-left:8px;background:none;border:0;color:var(--muted);cursor:pointer;font-size:12px">Delete</button>` : ''}</div></div>`;
     $('messages').appendChild(element);
     $('messages').scrollTop = $('messages').scrollHeight;
+  };
+  window.deleteMessage = function (messageId) {
+    if (!currentServer || !currentChannel || currentChannel.type !== 'text') return;
+    send({ type: 'delete_message', scope: scope(), messageId });
+  };
+  const handleBeforeMessageDeletion = handle;
+  handle = function (message) {
+    handleBeforeMessageDeletion(message);
+    if (message.type === 'message_deleted') {
+      const node = [...document.querySelectorAll('#messages [data-message-id]')].find(item => item.dataset.messageId === message.messageId);
+      if (node) node.remove();
+    }
   };
   const baseRenderUser = renderUser;
   renderUser = function () {
