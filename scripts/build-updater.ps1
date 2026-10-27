@@ -80,7 +80,9 @@ $electronDllPath = Join-Path (Join-Path $buildDir $Configuration) "MineCordUpdat
 if (-not (Test-Path (Split-Path $electronDllPath -Parent))) {
     New-Item -ItemType Directory -Path (Split-Path $electronDllPath -Parent) -Force | Out-Null
 }
-Copy-Item $dllPath -Destination $electronDllPath -Force
+if ($dllPath -ne $electronDllPath) {
+    Copy-Item $dllPath -Destination $electronDllPath -Force
+}
 Write-Host "Copied for electron-builder: $electronDllPath" -ForegroundColor Green
 
 # Build NSIS installer if requested
