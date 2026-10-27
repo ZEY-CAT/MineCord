@@ -11,7 +11,8 @@
 - Added gaming gradient background.
 - Added Gamer UI toggle with localStorage persistence.
 - Added first-login Gamer UI prompt.
+- Fixed app to show login screen immediately while auth check runs.
 - Added regression tests tests/ui-settings.test.js.
 - Current: 98 tests pass, 0 fail; build succeeds.
 - server/data.json SHA-256 unchanged.
-- Next: commit/push verified changes.
+- Next: account linking and updater.
