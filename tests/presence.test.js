@@ -467,3 +467,104 @@ test('In Call follows voice and call lifecycle, multiple calls, disconnects, and
     removeTemp(dir);
   }
 });
+
+test('pending and accepted friendships persist across restarts without duplicate requests', { timeout: 60000 }, async () => {
+  const { dir, databaseFile } = tempDatabase();
+  let running;
+  let alice, bob;
+  try {
+    const port = await availablePort();
+    running = await startServer(port, databaseFile);
+    const origin = running.origin;
+    const aliceCookie = await createAccount(origin, 'persist_alice');
+    const bobCookie = await createAccount(origin, 'persist_bob');
+    alice = await openSocket(origin, aliceCookie);
+    bob = await openSocket(origin, bobCookie);
+
+    const incoming = waitFor(bob.socket, message => message.type === 'friend_request' && message.from === 'persist_alice');
+    const pendingAtAlice = waitFor(alice.socket, message => message.type === 'friend_status' && message.status === 'pending' && message.user === 'persist_bob');
+    alice.socket.send(JSON.stringify({ type: 'friend_request', to: 'persist_bob' }));
+    await Promise.all([incoming, pendingAtAlice]);
+
+    // Clicking Add Friend again must be idempotent and must not create a second row.
+    const repeatedBeforeRestart = await sendAndWait(alice.socket, { type: 'friend_request', to: 'persist_bob' }, message => message.type === 'friend_status' && message.status === 'pending' && message.user === 'persist_bob');
+    assert.ok(repeatedBeforeRestart);
+    let database = new DatabaseSync(databaseFile, { readOnly: true });
+    assert.equal(database.prepare('SELECT COUNT(*) AS count FROM friends').get().count, 1);
+    database.close();
+
+    // A full server/app restart must retain the pending request in both directions.
+    await closeSocket(alice.socket);
+    await closeSocket(bob.socket);
+    alice = null;
+    bob = null;
+    await stopServer(running.child);
+    running = null;
+    running = await startServer(port, databaseFile);
+    alice = await openSocket(origin, aliceCookie);
+    bob = await openSocket(origin, bobCookie);
+    assert.deepEqual(alice.ready.friends, []);
+    assert.deepEqual(alice.ready.pendingFriendRequests, []);
+    assert.deepEqual(alice.ready.sentFriendRequests, ['persist_bob']);
+    assert.deepEqual(bob.ready.friends, []);
+    assert.deepEqual(bob.ready.pendingFriendRequests, ['persist_alice']);
+    assert.deepEqual(bob.ready.sentFriendRequests, []);
+
+    const repeatedAfterRestart = await sendAndWait(alice.socket, { type: 'friend_request', to: 'persist_bob' }, message => message.type === 'friend_status' && message.status === 'pending' && message.user === 'persist_bob');
+    assert.ok(repeatedAfterRestart);
+    database = new DatabaseSync(databaseFile, { readOnly: true });
+    assert.equal(database.prepare('SELECT COUNT(*) AS count FROM friends').get().count, 1);
+    database.close();
+
+    const acceptedAtAlice = waitFor(alice.socket, message => message.type === 'friend_status' && message.status === 'accepted' && message.user === 'persist_bob');
+    const acceptedAtBob = waitFor(bob.socket, message => message.type === 'friend_status' && message.status === 'accepted' && message.user === 'persist_alice');
+    bob.socket.send(JSON.stringify({ type: 'friend_accept', with: 'persist_alice' }));
+    await Promise.all([acceptedAtAlice, acceptedAtBob]);
+
+    // Duplicate accept and post-accept request clicks are harmless.
+    const repeatedAccept = await sendAndWait(bob.socket, { type: 'friend_accept', with: 'persist_alice' }, message => message.type === 'friend_status' && message.status === 'accepted' && message.user === 'persist_alice');
+    assert.ok(repeatedAccept);
+    const alreadyFriends = await sendAndWait(alice.socket, { type: 'friend_request', to: 'persist_bob' }, message => message.type === 'friend_status' && message.status === 'accepted' && message.user === 'persist_bob');
+    assert.ok(alreadyFriends);
+
+    // Restart once more: the accepted friendship must be present for both users.
+    await closeSocket(alice.socket);
+    await closeSocket(bob.socket);
+    alice = null;
+    bob = null;
+    await stopServer(running.child);
+    running = null;
+    running = await startServer(port, databaseFile);
+    alice = await openSocket(origin, aliceCookie);
+    bob = await openSocket(origin, bobCookie);
+    assert.deepEqual(alice.ready.friends, ['persist_bob']);
+    assert.deepEqual(bob.ready.friends, ['persist_alice']);
+    assert.deepEqual(alice.ready.sentFriendRequests, []);
+    assert.deepEqual(bob.ready.pendingFriendRequests, []);
+
+    // Logging out and back in must reload the same server-side friendship.
+    const logout = await fetch(`${origin}/api/auth/logout`, { method: 'POST', headers: { Cookie: aliceCookie } });
+    assert.equal(logout.status, 200);
+    const login = await fetch(`${origin}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Origin: origin },
+      body: JSON.stringify({ username: 'persist_alice', password: PASSWORD })
+    });
+    assert.equal(login.status, 200);
+    const freshCookie = login.headers.get('set-cookie')?.split(';', 1)[0];
+    assert.ok(freshCookie);
+    await closeSocket(alice.socket);
+    alice = await openSocket(origin, freshCookie);
+    assert.deepEqual(alice.ready.friends, ['persist_bob']);
+
+    // A second connected device/tab sees the same persisted relationship.
+    const aliceSecond = await openSocket(origin, freshCookie);
+    assert.deepEqual(aliceSecond.ready.friends, ['persist_bob']);
+    await closeSocket(aliceSecond.socket);
+  } finally {
+    await closeSocket(alice?.socket);
+    await closeSocket(bob?.socket);
+    if (running) await stopServer(running.child);
+    removeTemp(dir);
+  }
+});

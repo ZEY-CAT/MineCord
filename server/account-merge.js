@@ -334,9 +334,11 @@ function mergeRoutes(app, context) {
     if (!process.env[`${prefix}_CLIENT_ID`] || !process.env[`${prefix}_CLIENT_SECRET`]) return res.status(503).json({ error: `${provider} sign-in is not configured.` });
     const state = createId('merge-state');
     const createdAt = Date.now();
-    database.createOAuthState(state, { purpose: 'merge-target-proof', provider, userId: req.minecordUser.id, sessionHash: sessionHash(req), createdAt }, createdAt + PROOF_LIFETIME);
-    context.bindBrowserToOAuthState(res, provider, state, context.appUrl);
-    res.json({ authorizeUrl: buildAuthorizationUrl(provider, state, context.appUrl) });
+    const origin = context.oauthOrigin(req);
+    const redirectUri = context.oauthRedirectUri(provider, origin);
+    database.createOAuthState(state, { purpose: 'merge-target-proof', provider, userId: req.minecordUser.id, sessionHash: sessionHash(req), origin, redirectUri, createdAt }, createdAt + PROOF_LIFETIME);
+    context.bindBrowserToOAuthState(res, provider, state, origin);
+    res.json({ authorizeUrl: buildAuthorizationUrl(provider, state, redirectUri) });
   });
 
   app.post('/api/accounts/merge/source-oauth/start', requireAuth, (req, res) => {
@@ -351,16 +353,20 @@ function mergeRoutes(app, context) {
     if (!process.env[`${prefix}_CLIENT_ID`] || !process.env[`${prefix}_CLIENT_SECRET`]) return res.status(503).json({ error: `${provider} sign-in is not configured.` });
     const state = createId('merge-state');
     const createdAt = Date.now();
+    const origin = context.oauthOrigin(req);
+    const redirectUri = context.oauthRedirectUri(provider, origin);
     database.createOAuthState(state, {
       purpose: 'merge-source-proof',
       provider,
       targetUserId: req.minecordUser.id,
       sourceUserId: source.id,
       sessionHash: sessionHash(req),
+      origin,
+      redirectUri,
       createdAt
     }, createdAt + PROOF_LIFETIME);
-    context.bindBrowserToOAuthState(res, provider, state, context.appUrl);
-    res.json({ authorizeUrl: buildAuthorizationUrl(provider, state, context.appUrl) });
+    context.bindBrowserToOAuthState(res, provider, state, origin);
+    res.json({ authorizeUrl: buildAuthorizationUrl(provider, state, redirectUri) });
   });
 
   app.post('/api/accounts/merge/source-password', requireAuth, (req, res) => {
@@ -446,14 +452,14 @@ function mergeRoutes(app, context) {
     if (!pendingState?.purpose?.startsWith('merge-')) return next();
     const provider = req.params.provider;
     if (!context.hasBrowserOAuthState(req, provider, stateKey)) {
-      context.clearBrowserOAuthState(res, provider, context.appUrl);
+      context.clearBrowserOAuthState(res, provider, pendingState.origin || context.oauthOrigin(req));
       return res.status(400).send('Account merge verification expired or did not match the browser.');
     }
     const state = database.consumeOAuthState(stateKey, provider);
     if (!state?.purpose?.startsWith('merge-')) {
       return res.status(400).send('Account merge verification expired or did not match the provider.');
     }
-    context.clearBrowserOAuthState(res, provider, context.appUrl);
+    context.clearBrowserOAuthState(res, provider, state.origin || context.oauthOrigin(req));
     if (req.query.error) return res.redirect('/app#merge-error=cancelled');
     if (typeof req.query.code !== 'string' || !req.query.code) return res.status(400).send('The identity provider did not return an authorization code.');
     const currentSession = sessionHash(req);
@@ -463,7 +469,8 @@ function mergeRoutes(app, context) {
       return res.status(401).send('Sign in to the original destination account to finish merge verification.');
     }
     try {
-      const identity = await fetchIdentity(provider, req.query.code, context.appUrl);
+      const redirectUri = context.oauthRedirectUriForState(provider, state, req);
+      const identity = await fetchIdentity(provider, req.query.code, redirectUri);
       const identityUser = findLinkedUser(data.users, provider, identity.id);
       if (state.purpose === 'merge-target-proof') {
         if (!identityUser || identityUser.id !== state.userId) return res.redirect('/app#merge-error=target-proof-failed');

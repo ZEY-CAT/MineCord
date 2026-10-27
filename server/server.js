@@ -2,9 +2,15 @@ require('dotenv').config();
 const express=require('express'),http=require('http'),crypto=require('crypto'),fs=require('fs'),path=require('path');
 const {WebSocketServer}=require('ws');
 const oauthStateCookie=require('./oauth-state');
+const oauthOriginHelper=require('./oauth-origin');
 const PORT=Number(process.env.PORT||3000),APP_URL=process.env.APP_URL||process.env.RENDER_EXTERNAL_URL||`http://localhost:${PORT}`,DATA=path.join(__dirname,'data.json');
 if(APP_URL.startsWith('https://')){const publicOrigin=APP_URL.replace(/\/+$/,'');process.env.GOOGLE_CALLBACK_URL=`${publicOrigin}/auth/google/callback`;process.env.GITHUB_CALLBACK_URL=`${publicOrigin}/auth/github/callback`}
-const app=express(),server=http.createServer(app),wss=new WebSocketServer({server,verifyClient:({origin,req},done)=>{if(origin&&origin!==new URL(APP_URL).origin)return done(false,403,'Invalid origin');const user=authUser(req);if(!user)return done(false,401,'Sign in required.');const ban=bans.activeBan(data,user);if(ban)return done(false,403,bans.banMessage(ban));done(true)}});
+const OAUTH_ORIGIN_OPTIONS={appUrl:APP_URL,port:PORT};
+function oauthOrigin(req){return oauthOriginHelper.originFromHost(req,OAUTH_ORIGIN_OPTIONS)}
+function oauthRedirectUri(provider,origin){return oauthOriginHelper.callbackUrl(provider,origin,OAUTH_ORIGIN_OPTIONS)}
+function oauthRedirectUriForState(provider,state,req){return oauthOriginHelper.callbackUrlFromState(provider,state,req,OAUTH_ORIGIN_OPTIONS)}
+function oauthOriginAllowed(req){return oauthOriginHelper.originAllowed(req,OAUTH_ORIGIN_OPTIONS)}
+const app=express(),server=http.createServer(app),wss=new WebSocketServer({server,verifyClient:({origin,req},done)=>{if(origin&&!oauthOriginAllowed({headers:{origin,host:req.headers.host}}))return done(false,403,'Invalid origin');const user=authUser(req);if(!user)return done(false,401,'Sign in required.');const ban=bans.activeBan(data,user);if(ban)return done(false,403,bans.banMessage(ban));done(true)}});
 app.set('trust proxy', 1);
 const blank={users:{},servers:[],messages:{},friends:{},invites:{},oauthStates:{},gameActivities:{},dmRead:{},groupDms:{},groupRead:{},gameServers:[],gameAccounts:[],eaglercraftLinks:[],bans:[],banAudit:[]};
 const database=require('./database');
@@ -75,6 +81,7 @@ function initializeServerRoles(){let changed=false;for(const server of data.serv
 initializeServerRoles();
 function validRtcSignal(signal){
  if(!signal||typeof signal!=='object'||Array.isArray(signal))return false;
+ if(signal.renegotiate===true&&Object.keys(signal).length===1)return true;
  if(signal.description&&signal.candidate===undefined){
   const description=signal.description;
   return description&&['offer','answer'].includes(description.type)&&typeof description.sdp==='string'&&description.sdp.length<=100000;
@@ -212,7 +219,7 @@ function validLocalCredential(password,credential){
  return expected.length===actual.length&&crypto.timingSafeEqual(actual,expected)
 }
 function hasValidPassword(password,user){return [user,...(user.passwordCredentials||[])].some(credential=>validLocalCredential(password,credential))}
-function originAllowed(req){return !req.headers.origin||req.headers.origin===new URL(APP_URL).origin}
+function originAllowed(req){return oauthOriginAllowed(req)}
 const loginAttempts=new Map();
 const LOGIN_WINDOW_MS=15*60*1000,LOGIN_MAX_FAILURES=10;
 function loginAttemptKey(req,username){return `${req.ip||req.socket?.remoteAddress||'unknown'}|${String(username||'').toLowerCase()}`}
@@ -220,10 +227,10 @@ function loginRateLimited(key){const entry=loginAttempts.get(key);if(!entry)retu
 function recordLoginFailure(key){const now=Date.now(),entry=loginAttempts.get(key);if(!entry||entry.resetAt<=now)loginAttempts.set(key,{count:1,resetAt:now+LOGIN_WINDOW_MS});else entry.count++}
 function clearLoginFailures(key){loginAttempts.delete(key)}
 setInterval(()=>{const now=Date.now();for(const [key,entry] of loginAttempts)if(entry.resetAt<=now)loginAttempts.delete(key)},60*1000).unref();
-accountLinks.accountLinkRoutes(app,{data,save,authUser,requireAuth,setSession,appUrl:APP_URL,ownerUserId:APP_OWNER_USER_ID,createId:id,originAllowed,database,activeBan:user=>bans.activeBan(data,user),banMessage:bans.banMessage,bindBrowserToOAuthState:oauthStateCookie.bindBrowserToOAuthState,hasBrowserOAuthState:oauthStateCookie.hasBrowserOAuthState,clearBrowserOAuthState:oauthStateCookie.clearBrowserOAuthState});
+accountLinks.accountLinkRoutes(app,{data,save,authUser,requireAuth,setSession,appUrl:APP_URL,ownerUserId:APP_OWNER_USER_ID,createId:id,originAllowed,oauthOrigin,oauthRedirectUri,oauthRedirectUriForState,database,activeBan:user=>bans.activeBan(data,user),banMessage:bans.banMessage,bindBrowserToOAuthState:oauthStateCookie.bindBrowserToOAuthState,hasBrowserOAuthState:oauthStateCookie.hasBrowserOAuthState,clearBrowserOAuthState:oauthStateCookie.clearBrowserOAuthState});
 accountMerge.ensureMergeState(data);
 shopModule.initializeShop(data);
-const oauthContext={data,save,authUser,requireAuth,setSession,appUrl:APP_URL,ownerUserId:APP_OWNER_USER_ID,createId:id,originAllowed,database,bindBrowserToOAuthState:oauthStateCookie.bindBrowserToOAuthState,hasBrowserOAuthState:oauthStateCookie.hasBrowserOAuthState,clearBrowserOAuthState:oauthStateCookie.clearBrowserOAuthState,validPassword:hasValidPassword,buildAuthorizationUrl:accountLinks.buildAuthorizationUrl,fetchIdentity:accountLinks.fetchIdentity,invalidateConnections:(userIds,usernames=[])=>{for(const [socket,username] of clients)if(usernames.includes(username)||userIds.includes(data.users[username]?.id))socket.close(1008,'Account merged. Sign in again.')}};
+const oauthContext={data,save,authUser,requireAuth,setSession,appUrl:APP_URL,ownerUserId:APP_OWNER_USER_ID,createId:id,originAllowed,oauthOrigin,oauthRedirectUri,oauthRedirectUriForState,database,bindBrowserToOAuthState:oauthStateCookie.bindBrowserToOAuthState,hasBrowserOAuthState:oauthStateCookie.hasBrowserOAuthState,clearBrowserOAuthState:oauthStateCookie.clearBrowserOAuthState,validPassword:hasValidPassword,buildAuthorizationUrl:accountLinks.buildAuthorizationUrl,fetchIdentity:accountLinks.fetchIdentity,invalidateConnections:(userIds,usernames=[])=>{for(const [socket,username] of clients)if(usernames.includes(username)||userIds.includes(data.users[username]?.id))socket.close(1008,'Account merged. Sign in again.')}};
 accountMerge.mergeRoutes(app,oauthContext);
 games.gamesRoutes(app,{data,save,requireAuth,id,originAllowed,database});
 updaterRoutes(app,{data,save,requireAuth,originAllowed,APP_OWNER_USER_ID});
@@ -472,7 +479,9 @@ app.post('/api/invite/friend', requireAuth, (req, res) => {
 function activityFor(username){const entries=data.gameActivities[username]||{};let latest=null;for(const [game,item] of Object.entries(entries)){const timeout=game==='eaglercraft'?90000:35000;if(Date.now()-item.lastSeenAt>timeout){delete entries[game];continue}if(!latest||item.lastSeenAt>latest.lastSeenAt)latest={game,active:true,startedAt:item.startedAt,lastSeenAt:item.lastSeenAt,playerName:item.playerName||null,serverName:item.serverName||null}}if(!Object.keys(entries).length)delete data.gameActivities[username];if(latest)return latest;const user=data.users[username];return user&&user.showGameActivity!==false&&database.hasActivityConnector(user.id)?{game:'eaglercraft',active:false,startedAt:null,lastSeenAt:null}:null}
 function activityPresenceFor(username){return activityFor(username)}
 function canViewActivity(viewer,subject){return viewer===subject||Object.values(data.friends).some(f=>f.status==='accepted'&&((f.a===viewer&&f.b===subject)||(f.b===viewer&&f.a===subject)))}
-function dmPeersFor(username){const peers=new Set();for(const friendship of Object.values(data.friends))if(friendship.status==='accepted'&&(friendship.a===username||friendship.b===username))peers.add(canonicalUsername(friendship.a===username?friendship.b:friendship.a));for(const scope of Object.keys(data.messages))if(scope.startsWith('dm:')){const pairNames=scope.slice(3).split('::').map(canonicalUsername);if(pairNames.length===2&&pairNames.includes(username)){const peer=pairNames[0]===username?pairNames[1]:pairNames[0];if(data.users[peer])peers.add(peer)}}return [...peers].sort((a,b)=>a.localeCompare(b))}
+function acceptedFriendsFor(username){return [...new Set(Object.values(data.friends||{}).filter(friendship=>friendship?.status==='accepted'&&(canonicalUsername(friendship.a)===username||canonicalUsername(friendship.b)===username)).map(friendship=>canonicalUsername(canonicalUsername(friendship.a)===username?friendship.b:friendship.a)).filter(name=>name&&name!==username&&data.users[name]))].sort((a,b)=>a.localeCompare(b))}
+function pendingFriendRequestsFor(username){const incoming=new Set(),outgoing=new Set();for(const friendship of Object.values(data.friends||{})){if(friendship?.status!=='pending')continue;const a=canonicalUsername(friendship.a),b=canonicalUsername(friendship.b),by=canonicalUsername(friendship.by);if(a!==username&&b!==username)continue;const other=a===username?b:a;if(!other||other===username||!data.users[other])continue;(by===username?outgoing:incoming).add(other)}return{incoming:[...incoming].sort((a,b)=>a.localeCompare(b)),outgoing:[...outgoing].sort((a,b)=>a.localeCompare(b))}}
+function dmPeersFor(username){const peers=new Set(acceptedFriendsFor(username));for(const scope of Object.keys(data.messages))if(scope.startsWith('dm:')){const pairNames=scope.slice(3).split('::').map(canonicalUsername);if(pairNames.length===2&&pairNames.includes(username)){const peer=pairNames[0]===username?pairNames[1]:pairNames[0];if(data.users[peer])peers.add(peer)}}return [...peers].sort((a,b)=>a.localeCompare(b))}
 function dmUnreadCount(username,peer){const conversation=`dm:${pair(username,peer)}`,messages=data.messages[conversation]||[],cursor=data.dmRead?.[username]?.[conversation];let start=0;if(cursor){const index=messages.findIndex(message=>message.id===cursor);if(index>=0)start=index+1}return messages.slice(start).filter(message=>message.from!==username).length}
 function dmUnreadSummary(username){return Object.fromEntries(dmPeersFor(username).map(peer=>[peer,dmUnreadCount(username,peer)]).filter(([,count])=>count>0))}
 function groupDmsFor(username){return Object.values(data.groupDms||{}).filter(group=>Array.isArray(group.members)&&group.members.includes(username)).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0))}
@@ -482,7 +491,7 @@ function groupUnreadSummary(username){return Object.fromEntries(groupDmsFor(user
 function groupLastMessages(username){return Object.fromEntries(groupDmsFor(username).map(group=>{const messages=data.messages['gdm:'+group.id]||[];return[group.id,messages[messages.length-1]||null]}))}
 function serverMemberProfiles(username){const names=new Set();for(const server of data.servers)if(server.members?.includes(username))for(const member of server.members)names.add(member);return Object.fromEntries([...names].filter(name=>data.users[name]).map(name=>[name,{username:name,displayName:data.users[name].displayName||name,avatar:data.users[name].avatar||''}]))}
 function decorateMessages(messages){return messages.map(message=>({...message,role:data.users[message.from]?.role||roles.ROLES.MEMBER}))}
-function sendReady(ws,username){const dmPeers=dmPeersFor(username),friends=Object.values(data.friends).filter(friend=>friend.status==='accepted'&&(friend.a===username||friend.b===username)).map(friend=>canonicalUsername(friend.a===username?friend.b:friend.a)).filter(name=>data.users[name]).sort((a,b)=>a.localeCompare(b));send(ws,{type:'ready',me:pub(data.users[username]),servers:data.servers.filter(server=>server.members?.includes(username)),online:onlineFor(username),members:visibleProfilesFor(username),friends,activities:Object.fromEntries([...new Set(clients.values())].filter(name=>canViewActivity(username,name)).map(name=>[name,activityFor(name)]).filter(([,activity])=>activity)),pendingInvites:Object.entries(data.invites).filter(([,inv])=>inviteIsUsable(inv)&&inv.target===username).map(([code,inv])=>{const s=data.servers.find(x=>x.id===inv.serverId);return{code,serverId:inv.serverId,serverName:s?.name||'Server',from:inv.createdBy,expires:inv.expires}}),dmPeers,dmUnread:dmUnreadSummary(username),pendingFriendRequests:Object.values(data.friends).filter(friend=>friend.status==='pending'&&friend.by!==username).map(friend=>canonicalUsername(friend.by)),dmLastMessages:Object.fromEntries(dmPeers.map(peer=>{const messages=data.messages[`dm:${pair(username,peer)}`]||[];return[peer,messages[messages.length-1]||null]})),groupDms:groupDmsFor(username),groupUnread:groupUnreadSummary(username),groupLastMessages:groupLastMessages(username),serverMemberProfiles:serverMemberProfiles(username)})}
+function sendReady(ws,username){const pending=pendingFriendRequestsFor(username),dmPeers=dmPeersFor(username),friends=acceptedFriendsFor(username);send(ws,{type:'ready',maxCallParticipants:MAX_CALL_PARTICIPANTS,me:pub(data.users[username]),servers:data.servers.filter(server=>server.members?.includes(username)),online:onlineFor(username),members:visibleProfilesFor(username),friends,activities:Object.fromEntries([...new Set(clients.values())].filter(name=>canViewActivity(username,name)).map(name=>[name,activityFor(name)]).filter(([,activity])=>activity)),pendingInvites:Object.entries(data.invites).filter(([,inv])=>inviteIsUsable(inv)&&inv.target===username).map(([code,inv])=>{const s=data.servers.find(x=>x.id===inv.serverId);return{code,serverId:inv.serverId,serverName:s?.name||'Server',from:inv.createdBy,expires:inv.expires}}),dmPeers,dmUnread:dmUnreadSummary(username),pendingFriendRequests:pending.incoming,sentFriendRequests:pending.outgoing,dmLastMessages:Object.fromEntries(dmPeers.map(peer=>{const messages=data.messages[`dm:${pair(username,peer)}`]||[];return[peer,messages[messages.length-1]||null]})),groupDms:groupDmsFor(username),groupUnread:groupUnreadSummary(username),groupLastMessages:groupLastMessages(username),serverMemberProfiles:serverMemberProfiles(username)})}
 function broadcastActivity(username){const activity=activityPresenceFor(username);for(const [client,viewer] of clients)if(canViewActivity(viewer,username))send(client,{type:'activity_update',username,activity})}
 function updateActivity(username,game,active,details={}){if(!data.gameActivities[username])data.gameActivities[username]={};if(!active){delete data.gameActivities[username][game];if(!Object.keys(data.gameActivities[username]).length)delete data.gameActivities[username]}else{const previous=data.gameActivities[username][game],now=Date.now();data.gameActivities[username][game]={startedAt:previous?.startedAt||now,lastSeenAt:now,source:game,playerName:details.playerName||null,serverName:details.serverName||null}}save();broadcastActivity(username)}
 const GAME_NAMES={java:'Minecraft Java',bedrock:'Minecraft Bedrock',eaglercraft:'Eaglercraft'};
@@ -495,41 +504,32 @@ setInterval(()=>{for(const username of Object.keys(data.gameActivities)){const b
 app.post('/api/activity/presence',requireAuth,(q,r)=>{if(!originAllowed(q))return r.status(403).json({error:'Request origin is not allowed.'});const game=q.body?.game,active=q.body?.active;if(!['java','bedrock'].includes(game)||typeof active!=='boolean')return r.status(400).json({error:'Unsupported activity update.'});if(q.minecordUser.showGameActivity===false){updateActivity(q.minecordUser.username,game,false);return r.json({ok:true,disabled:true})}updateActivity(q.minecordUser.username,game,active);r.json({ok:true})});
 app.post('/api/activity/settings',requireAuth,(q,r)=>{if(!originAllowed(q))return r.status(403).json({error:'Request origin is not allowed.'});if(typeof q.body?.enabled!=='boolean')return r.status(400).json({error:'Activity setting must be boolean.'});q.minecordUser.showGameActivity=q.body.enabled;if(!q.body.enabled){delete data.gameActivities[q.minecordUser.username];database.revokeActivityConnector(q.minecordUser.id)}save();broadcastActivity(q.minecordUser.username);r.json({enabled:q.body.enabled})});
 function oauthStart(provider, req, res) {
-  const google = provider === 'google', github = provider === 'github', prefix = provider.toUpperCase();
+  const prefix = provider.toUpperCase();
   const clientId = process.env[`${prefix}_CLIENT_ID`], secret = process.env[`${prefix}_CLIENT_SECRET`];
   if (!clientId || !secret) return res.status(503).send(`${provider} sign-in is not configured on this MINECORD server.`);
   const state = crypto.randomBytes(24).toString('hex'), createdAt = Date.now();
   const returnTo = req.query.returnTo ? accountLinks.safeAppReturnTo(req.query.returnTo) : '/app?oauth=success';
-  database.createOAuthState(state, { provider, returnTo, createdAt }, createdAt + 10 * 60 * 1000);
-  oauthStateCookie.bindBrowserToOAuthState(res, provider, state, APP_URL);
-  const redirect = encodeURIComponent(process.env[`${prefix}_CALLBACK_URL`] || `${APP_URL}/auth/${provider}/callback`);
-  let url;
-  if (google) {
-    url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${redirect}&response_type=code&scope=${encodeURIComponent('openid email profile')}&state=${state}&access_type=offline&prompt=select_account`;
-  } else if (github) {
-    url = `https://github.com/login/oauth/authorize?client_id=${encodeURIComponent(clientId)}&redirect_uri=${decodeURIComponent(redirect)}&scope=read:user user:email&state=${state}`;
-  } else {
-    url = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${encodeURIComponent(clientId)}&redirect_uri=${redirect}&response_type=code&scope=${encodeURIComponent('openid email profile User.Read')}&state=${state}`;
-  }
-  res.redirect(url);
+  const origin = oauthOrigin(req), redirectUri = oauthRedirectUri(provider, origin);
+  database.createOAuthState(state, { provider, returnTo, origin, redirectUri, createdAt }, createdAt + 10 * 60 * 1000);
+  oauthStateCookie.bindBrowserToOAuthState(res, provider, state, origin);
+  res.redirect(accountLinks.buildAuthorizationUrl(provider, state, redirectUri));
 }
 for (const provider of ['google', 'microsoft', 'github']) {
   app.get(`/auth/${provider}`, (req, res) => oauthStart(provider, req, res));
 }
 function saveOAuthState(key,value){database.createOAuthState(key,value,value.createdAt+10*60*1000)}
-function microsoftCallbackUrl(){return process.env.MICROSOFT_CALLBACK_URL||`${APP_URL}/auth/microsoft/callback`}
-app.get('/auth/minecraft/link',requireAuth,(q,r)=>{const clientId=process.env.MICROSOFT_CLIENT_ID,clientSecret=process.env.MICROSOFT_CLIENT_SECRET;if(!clientId||!clientSecret)return r.status(503).send('Microsoft sign-in is not configured on this MINECORD server.');const state=crypto.randomBytes(24).toString('hex'),returnTo=accountLinks.safeAppReturnTo(q.query.returnTo);saveOAuthState(state,{provider:'microsoft',purpose:'minecraft-link',userId:q.minecordUser.id,returnTo,createdAt:Date.now()});oauthStateCookie.bindBrowserToOAuthState(r,'microsoft',state,APP_URL);const authorize=new URL('https://login.live.com/oauth20_authorize.srf');authorize.search=new URLSearchParams({client_id:clientId,response_type:'code',redirect_uri:microsoftCallbackUrl(),scope:'XboxLive.signin offline_access',state}).toString();r.redirect(authorize.toString())});
+app.get('/auth/minecraft/link',requireAuth,(q,r)=>{const clientId=process.env.MICROSOFT_CLIENT_ID,clientSecret=process.env.MICROSOFT_CLIENT_SECRET;if(!clientId||!clientSecret)return r.status(503).send('Microsoft sign-in is not configured on this MINECORD server.');const state=crypto.randomBytes(24).toString('hex'),returnTo=accountLinks.safeAppReturnTo(q.query.returnTo),origin=oauthOrigin(q),redirectUri=oauthRedirectUri('microsoft',origin);saveOAuthState(state,{provider:'microsoft',purpose:'minecraft-link',userId:q.minecordUser.id,returnTo,origin,redirectUri,createdAt:Date.now()});oauthStateCookie.bindBrowserToOAuthState(r,'microsoft',state,origin);const authorize=new URL('https://login.live.com/oauth20_authorize.srf');authorize.search=new URLSearchParams({client_id:clientId,response_type:'code',redirect_uri:redirectUri,scope:'XboxLive.signin offline_access',state}).toString();r.redirect(authorize.toString())});
 
 // Bedrock (Xbox) account linking - mirrors Java linking but retrieves Xbox profile
-app.get('/auth/bedrock/link',requireAuth,(q,r)=>{const clientId=process.env.MICROSOFT_CLIENT_ID,clientSecret=process.env.MICROSOFT_CLIENT_SECRET;if(!clientId||!clientSecret)return r.status(503).send('Microsoft sign-in is not configured on this MINECORD server.');const state=crypto.randomBytes(24).toString('hex'),returnTo=accountLinks.safeAppReturnTo(q.query.returnTo);saveOAuthState(state,{provider:'microsoft',purpose:'bedrock-link',userId:q.minecordUser.id,returnTo,createdAt:Date.now()});oauthStateCookie.bindBrowserToOAuthState(r,'microsoft',state,APP_URL);const authorize=new URL('https://login.live.com/oauth20_authorize.srf');authorize.search=new URLSearchParams({client_id:clientId,response_type:'code',redirect_uri:microsoftCallbackUrl(),scope:'XboxLive.signin offline_access',state}).toString();r.redirect(authorize.toString())});
+app.get('/auth/bedrock/link',requireAuth,(q,r)=>{const clientId=process.env.MICROSOFT_CLIENT_ID,clientSecret=process.env.MICROSOFT_CLIENT_SECRET;if(!clientId||!clientSecret)return r.status(503).send('Microsoft sign-in is not configured on this MINECORD server.');const state=crypto.randomBytes(24).toString('hex'),returnTo=accountLinks.safeAppReturnTo(q.query.returnTo),origin=oauthOrigin(q),redirectUri=oauthRedirectUri('microsoft',origin);saveOAuthState(state,{provider:'microsoft',purpose:'bedrock-link',userId:q.minecordUser.id,returnTo,origin,redirectUri,createdAt:Date.now()});oauthStateCookie.bindBrowserToOAuthState(r,'microsoft',state,origin);const authorize=new URL('https://login.live.com/oauth20_authorize.srf');authorize.search=new URLSearchParams({client_id:clientId,response_type:'code',redirect_uri:redirectUri,scope:'XboxLive.signin offline_access',state}).toString();r.redirect(authorize.toString())});
 async function microsoftJson(url,options){const response=await fetch(url,{...options,signal:AbortSignal.timeout(15000)});let result;try{result=await response.json()}catch{throw new Error('The identity service returned an invalid response.')}if(!response.ok){if(response.status===404&&url.endsWith('/minecraft/profile'))throw new Error('No Minecraft Java profile found.');throw new Error('The identity service rejected the authorization.')}return result}
-async function finishMinecraftLink(code){const token=await microsoftJson('https://login.live.com/oauth20_token.srf',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({client_id:process.env.MICROSOFT_CLIENT_ID,client_secret:process.env.MICROSOFT_CLIENT_SECRET,code,redirect_uri:microsoftCallbackUrl(),grant_type:'authorization_code',scope:'XboxLive.signin offline_access'})});if(typeof token.access_token!=='string')throw new Error('Microsoft did not return an access token.');
+async function finishMinecraftLink(code,redirectUri){const token=await microsoftJson('https://login.live.com/oauth20_token.srf',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({client_id:process.env.MICROSOFT_CLIENT_ID,client_secret:process.env.MICROSOFT_CLIENT_SECRET,code,redirect_uri:redirectUri,grant_type:'authorization_code',scope:'XboxLive.signin offline_access'})});if(typeof token.access_token!=='string')throw new Error('Microsoft did not return an access token.');
  const xbox=await microsoftJson('https://user.auth.xboxlive.com/user/authenticate',{method:'POST',headers:{'content-type':'application/json','accept':'application/json'},body:JSON.stringify({Properties:{AuthMethod:'RPS',SiteName:'user.auth.xboxlive.com',RpsTicket:`d=${token.access_token}`},RelyingParty:'http://auth.xboxlive.com',TokenType:'JWT'})});if(typeof xbox.Token!=='string')throw new Error('Xbox authentication failed.');
  const xsts=await microsoftJson('https://xsts.auth.xboxlive.com/xsts/authorize',{method:'POST',headers:{'content-type':'application/json','accept':'application/json'},body:JSON.stringify({Properties:{SandboxId:'RETAIL',UserTokens:[xbox.Token]},RelyingParty:'rp://api.minecraftservices.com/',TokenType:'JWT'})});const userHash=xsts.DisplayClaims?.xui?.[0]?.uhs;if(typeof xsts.Token!=='string'||typeof userHash!=='string')throw new Error('Xbox security authorization failed.');
  const minecraft=await microsoftJson('https://api.minecraftservices.com/authentication/login_with_xbox',{method:'POST',headers:{'content-type':'application/json','accept':'application/json'},body:JSON.stringify({identityToken:`XBL3.0 x=${userHash};${xsts.Token}`})});if(typeof minecraft.access_token!=='string')throw new Error('Minecraft Services did not authorize this account.');
  const profile=await microsoftJson('https://api.minecraftservices.com/minecraft/profile',{headers:{Authorization:`Bearer ${minecraft.access_token}`,Accept:'application/json'}});if(typeof profile.id!=='string'||!/^[a-f0-9]{32}$/i.test(profile.id)||typeof profile.name!=='string'||!/^[A-Za-z0-9_]{1,16}$/.test(profile.name))throw new Error('Minecraft Services returned an invalid profile.');
  return {username:profile.name,uuid:profile.id.toLowerCase(),edition:'Java',linkedAt:Date.now(),source:'minecraft-services'}}
-async function finishBedrockLink(code){const token=await microsoftJson('https://login.live.com/oauth20_token.srf',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({client_id:process.env.MICROSOFT_CLIENT_ID,client_secret:process.env.MICROSOFT_CLIENT_SECRET,code,redirect_uri:microsoftCallbackUrl(),grant_type:'authorization_code',scope:'XboxLive.signin offline_access'})});if(typeof token.access_token!=='string')throw new Error('Microsoft did not return an access token.');
+async function finishBedrockLink(code,redirectUri){const token=await microsoftJson('https://login.live.com/oauth20_token.srf',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({client_id:process.env.MICROSOFT_CLIENT_ID,client_secret:process.env.MICROSOFT_CLIENT_SECRET,code,redirect_uri:redirectUri,grant_type:'authorization_code',scope:'XboxLive.signin offline_access'})});if(typeof token.access_token!=='string')throw new Error('Microsoft did not return an access token.');
   const xbox=await microsoftJson('https://user.auth.xboxlive.com/user/authenticate',{method:'POST',headers:{'content-type':'application/json','accept':'application/json'},body:JSON.stringify({Properties:{AuthMethod:'RPS',SiteName:'user.auth.xboxlive.com',RpsTicket:'d=' + token.access_token},RelyingParty:'http://auth.xboxlive.com',TokenType:'JWT'})});if(typeof xbox.Token!=='string')throw new Error('Xbox authentication failed.');
   const xsts=await microsoftJson('https://xsts.auth.xboxlive.com/xsts/authorize',{method:'POST',headers:{'content-type':'application/json','accept':'application/json'},body:JSON.stringify({Properties:{SandboxId:'RETAIL',UserTokens:[xbox.Token]},RelyingParty:'http://xboxlive.com',TokenType:'JWT'})});const xuid=xsts.DisplayClaims?.xui?.[0]?.xid;if(typeof xsts.Token!=='string'||typeof xuid!=='string'||!/^\d{16}$/.test(xuid))throw new Error('Xbox security authorization failed or XUID not found.');
   const profile=await microsoftJson('https://profile.xboxlive.com/users/me/profile/settings',{headers:{Authorization:'Bearer ' + xsts.Token,Accept:'application/json'}});let gamertag=null;if(profile?.profileSettings){const g=profile.profileSettings.find(s=>s.id==='Gamertag');if(g)gamertag=g.value}if(!gamertag||typeof gamertag!=='string')throw new Error('Could not retrieve Xbox gamertag.');
@@ -543,14 +543,15 @@ app.get('/auth/microsoft/callback',async(q,r)=>{
     return r.status(400).send('Microsoft sign-in state is invalid or expired. Please try again.');
   }
   if(!oauthStateCookie.hasBrowserOAuthState(q,'microsoft',stateKey)){
-    oauthStateCookie.clearBrowserOAuthState(r,'microsoft',APP_URL);
+    oauthStateCookie.clearBrowserOAuthState(r,'microsoft',pendingState.origin||oauthOrigin(q));
     return r.status(400).send('Microsoft sign-in state is invalid or expired. Please restart sign-in.');
   }
   const state=database.consumeOAuthState(stateKey,'microsoft');
   if(!state)return r.status(400).send('Microsoft sign-in state is invalid or expired. Please try again.');
-  oauthStateCookie.clearBrowserOAuthState(r,'microsoft',APP_URL);
+  oauthStateCookie.clearBrowserOAuthState(r,'microsoft',state.origin||oauthOrigin(q));
   if(state.purpose==='account-link'||state.purpose?.startsWith('merge-'))return r.status(400).send('OAuth state is invalid or expired. Please retry sign-in.');
   const linkPurpose=state.purpose==='minecraft-link'?'minecraft':state.purpose==='bedrock-link'?'bedrock':null;
+  const redirectUri=oauthRedirectUriForState('microsoft',state,q);
   const returnTo=accountLinks.safeAppReturnTo(state.returnTo||'/app');
   const redirectResult=(key,value)=>{
     const target=new URL(returnTo,APP_URL);
@@ -564,7 +565,7 @@ app.get('/auth/microsoft/callback',async(q,r)=>{
     const authenticated=authUser(q);
     if(!authenticated||authenticated.id!==state.userId)return r.status(401).send('Sign in to the same MINECORD account before linking Minecraft.');
     try{
-      const profile=await finishMinecraftLink(q.query.code);
+      const profile=await finishMinecraftLink(q.query.code,redirectUri);
       const duplicate=Object.values(data.users).some(user=>user.id!==authenticated.id&&user.minecraft?.uuid===profile.uuid);
       if(duplicate)return redirectResult('minecraft_link_error','already_linked');
       authenticated.minecraft=profile;save();
@@ -578,7 +579,7 @@ app.get('/auth/microsoft/callback',async(q,r)=>{
     const authenticated=authUser(q);
     if(!authenticated||authenticated.id!==state.userId)return r.status(401).send('Sign in to the same MINECORD account before linking Bedrock.');
     try{
-      const profile=await finishBedrockLink(q.query.code);
+      const profile=await finishBedrockLink(q.query.code,redirectUri);
       const duplicate=Object.values(data.users).some(user=>user.id!==authenticated.id&&user.gameAccounts?.some(ga=>ga.edition==='bedrock'&&ga.xuid===profile.xuid));
       if(duplicate)return redirectResult('bedrock_link_error','already_linked');
       authenticated.gameAccounts=authenticated.gameAccounts||[];
@@ -596,8 +597,10 @@ app.get('/auth/microsoft/callback',async(q,r)=>{
 
 app.use('/auth/:provider/callback',(_q,r)=>r.status(400).send('OAuth state is invalid or expired. Please restart sign-in.'));
 const clients=new Map(),rooms=new Map(),calls=new Map(),socketRooms=new Map(),socketCalls=new Map();
+const MAX_CALL_PARTICIPANTS=(()=>{const value=Number(process.env.MAX_CALL_PARTICIPANTS);return Number.isInteger(value)&&value>=2&&value<=25?value:10})();
 const DEFAULT_CALL_RING_TIMEOUT_MS=45000;
 const CALL_RING_TIMEOUT_MS=(()=>{const value=Number(process.env.CALL_RING_TIMEOUT_MS);return Number.isFinite(value)&&value>=1000&&value<=120000?Math.floor(value):DEFAULT_CALL_RING_TIMEOUT_MS})();
+function callMediaType(value){return value==='video'?'video':'audio'}
 function socketSetFor(map,ws){let set=map.get(ws);if(!set){set=new Set();map.set(ws,set)}return set}
 function otherSocketInRoom(username,room,ws){for(const [other,name] of clients)if(other!==ws&&name===username&&socketRooms.get(other)?.has(room))return true;return false}
 function otherSocketInCall(username,callId,ws){for(const [other,name] of clients)if(other!==ws&&name===username&&socketCalls.get(other)?.has(callId))return true;return false}
@@ -677,8 +680,8 @@ if(m.type==='group_dm_read'){const group=groupForUser(username,m.groupId);if(!gr
 if(m.type==='group_dm_add'){const group=groupForUser(username,m.groupId);if(!group)return send(ws,{type:'error',message:'Group conversation not found.'});if(group.owner!==username)return send(ws,{type:'error',message:'Only the group owner can add members.'});const requested=[...new Set((Array.isArray(m.members)?m.members:[]).map(value=>clean(value,32)).filter(Boolean))];const added=requested.filter(name=>!group.members.includes(name)&&data.users[name]&&isAcceptedFriend(username,name));if(!added.length)return send(ws,{type:'error',message:'Choose at least one accepted friend who is not already in the group.'});if(group.members.length+added.length>10)return send(ws,{type:'error',message:'A group conversation can have at most 10 members.'});group.members.push(...added);save();for(const member of group.members)toUser(member,{type:'group_dm_updated',group,added});return}
 if(m.type==='group_dm_rename'){const group=groupForUser(username,m.groupId);if(!group)return send(ws,{type:'error',message:'Group conversation not found.'});if(group.owner!==username)return send(ws,{type:'error',message:'Only the group owner can rename this conversation.'});const name=clean(m.name,40);if(!name)return send(ws,{type:'error',message:'Group name cannot be empty.'});group.name=name;save();for(const member of group.members)toUser(member,{type:'group_dm_updated',group});return}
 if(m.type==='group_dm_leave'){const group=groupForUser(username,m.groupId);if(!group)return send(ws,{type:'error',message:'Group conversation not found.'});group.members=group.members.filter(member=>member!==username);if(!group.members.length){delete data.groupDms[group.id];delete data.messages['gdm:'+group.id];for(const reads of Object.values(data.groupRead||{}))delete reads['gdm:'+group.id];save();return send(ws,{type:'group_dm_left',groupId:group.id})}if(group.owner===username)group.owner=group.members[0];save();send(ws,{type:'group_dm_left',groupId:group.id});for(const member of group.members)toUser(member,{type:'group_dm_updated',group,removed:username});return}
-if(m.type==='friend_request'){const toRaw=clean(m.to,32);if(toRaw===username)return send(ws,{type:'error',message:'You cannot add yourself as a friend.'});const toLower=toRaw.toLowerCase();const toActual=Object.keys(data.users).find(u=>u.toLowerCase()===toLower);if(!toActual)return send(ws,{type:'error',message:'User not found. Check the username and try again.'});const to=toActual;const k=pair(username,to);if(data.friends[k])return send(ws,{type:'error',message:data.friends[k].status==='pending'?'Friend request already sent.':data.friends[k].status==='accepted'?'Already friends.':'Friend request already exists.'});data.friends[k]={a:username,b:to,status:'pending',by:username};save();toUser(to,{type:'friend_request',from:username});return send(ws,{type:'friend_status',user:to,status:'pending'})}
-if(m.type==='friend_accept'){const other=canonicalUsername(m.with),k=pair(username,other),friendship=data.friends[k];if(friendship?.status==='pending'&&friendship.by!==username){friendship.status='accepted';save();toUser(other,{type:'friend_status',user:username,status:'accepted'});send(ws,{type:'friend_status',user:other,status:'accepted'});broadcastActivity(username);broadcastActivity(other);broadcastPresence()}return}
+if(m.type==='friend_request'){const toRaw=clean(m.to,32);if(toRaw.toLowerCase()===username.toLowerCase())return send(ws,{type:'error',message:'You cannot add yourself as a friend.'});const toLower=toRaw.toLowerCase();const toActual=Object.keys(data.users).find(u=>u.toLowerCase()===toLower);if(!toActual)return send(ws,{type:'error',message:'User not found. Check the username and try again.'});const to=toActual;const k=pair(username,to),existing=data.friends[k];if(existing){const requester=canonicalUsername(existing.by);if(existing.status==='accepted')return send(ws,{type:'friend_status',user:to,status:'accepted'});if(requester===username)return send(ws,{type:'friend_status',user:to,status:'pending'});return send(ws,{type:'friend_status',user:to,status:'incoming'})}data.friends[k]={a:username,b:to,status:'pending',by:username};save();toUser(to,{type:'friend_request',from:username});return send(ws,{type:'friend_status',user:to,status:'pending'})}
+if(m.type==='friend_accept'){const other=canonicalUsername(m.with),k=pair(username,other),friendship=data.friends[k];if(friendship?.status==='accepted'&&(friendship.a===username||friendship.b===username))return send(ws,{type:'friend_status',user:other,status:'accepted'});if(friendship?.status==='pending'&&friendship.by!==username){friendship.status='accepted';save();toUser(other,{type:'friend_status',user:username,status:'accepted'});send(ws,{type:'friend_status',user:other,status:'accepted'});broadcastActivity(username);broadcastActivity(other);broadcastPresence()}return}
 if(m.type==='friend_reject'){const other=canonicalUsername(m.with),k=pair(username,other),friendship=data.friends[k];if(friendship?.status==='pending'&&friendship.by!==username){const requester=canonicalUsername(friendship.by);delete data.friends[k];save();toUser(requester,{type:'friend_status',user:username,status:'rejected'});send(ws,{type:'friend_status',user:requester,status:'rejected'})}return}
 if(m.type==='friend_remove'){const other=canonicalUsername(m.with),k=pair(username,other),friendship=data.friends[k];if(friendship?.status==='accepted'&&(friendship.a===username||friendship.b===username)){delete data.friends[k];save();toUser(other,{type:'friend_status',user:username,status:'removed'});send(ws,{type:'friend_status',user:other,status:'removed'});broadcastPresence()}return}
 if(m.type==='friend_invite'){const targetRaw=clean(m.to,32),target=Object.keys(data.users).find(name=>name.toLowerCase()===targetRaw.toLowerCase()),serverId=clean(m.serverId);if(!targetRaw||!serverId)return send(ws,{type:'error',message:'Target and server required.'});if(!target)return send(ws,{type:'error',message:'User not found.'});if(target===username)return send(ws,{type:'error',message:'You cannot invite yourself.'});const k=pair(username,target),friendship=data.friends[k];if(!friendship||friendship.status!=='accepted')return send(ws,{type:'error',message:'You can only invite accepted friends.'});const s=data.servers.find(x=>x.id===serverId);if(!s||!s.members.includes(username))return send(ws,{type:'error',message:'You are not a member of this server.'});if(s.members.includes(target))return send(ws,{type:'error',message:'User is already a member of this server.'});const existing=Object.entries(data.invites).find(([,inv])=>inviteIsUsable(inv)&&inv.serverId===s.id&&inv.target===target&&inv.createdBy===username);if(existing)return send(ws,{type:'friend_invite_sent',code:existing[0],serverId:s.id,target,existing:true});const code=crypto.randomBytes(18).toString('base64url');data.invites[code]={serverId:s.id,createdBy:username,target,expires:null,createdAt:Date.now(),uses:0,maxUses:1};save();toUser(target,{type:'friend_invite',code,serverId:s.id,serverName:s.name,from:username,url:inviteUrl(code)});return send(ws,{type:'friend_invite_sent',code,serverId:s.id,target,url:inviteUrl(code)})}
@@ -690,11 +693,81 @@ if(m.type==='voice_join'){const room=clean(m.room,120);if(!channelForUser(userna
 if(m.type==='voice_leave'){const room=clean(m.room,120),set=rooms.get(room),memberships=socketRooms.get(ws);if(!memberships?.delete(room))return;if(!memberships.size)socketRooms.delete(ws);if(!set||otherSocketInRoom(username,room,ws))return;if(set.delete(username)){for(const [c,u] of clients)if(set.has(u))send(c,{type:'voice_peer_left',room,peer:username});if(!set.size)rooms.delete(room);broadcastPresence()}return}
 if(m.type==='voice_signal'){const room=clean(m.room,120),targetName=canonicalUsername(m.to),set=rooms.get(room);if(!socketRooms.get(ws)?.has(room)||!set?.has(username)||!set.has(targetName)||targetName===username||!channelForUser(username,room,'voice')||!channelForUser(targetName,room,'voice'))return send(ws,{type:'error',message:'Join the same voice channel before sending voice data.'});if(!validRtcSignal(m.data))return send(ws,{type:'error',message:'Invalid voice signaling data.'});const target=[...clients.entries()].find(([,u])=>u===targetName)?.[0];if(target)send(target,{type:'voice_signal',from:username,room,data:m.data});return}
 /* private calls */
-if(m.type==='call_start'){const onlineUsers=new Set(clients.values()),targets=[...new Set([...(Array.isArray(m.to)?m.to:[m.to])].map(x=>canonicalUsername(x)).filter(x=>x!==username&&data.users[x]&&onlineUsers.has(x)&&isAcceptedFriend(username,x)))];if(!targets.length)return send(ws,{type:'error',message:'Call recipients must be online accepted friends.'});const call={id:id('call'),type:m.callType==='group'?'group':'private',participants:new Set([username]),ringing:new Set(targets),startedBy:username,startedAt:Date.now()};calls.set(call.id,call);socketSetFor(socketCalls,ws).add(call.id);scheduleCallTimeout(call);broadcastPresence();for(const target of targets)toUser(target,{type:'incoming_call',callId:call.id,from:username,typeName:call.type,participants:[username],expiresInMs:CALL_RING_TIMEOUT_MS,recipientPresence:manualPresenceFor(target)});return send(ws,{type:'call_started',callId:call.id,participants:[username],typeName:call.type,expiresInMs:CALL_RING_TIMEOUT_MS})}
-if(m.type==='call_accept'){const c=calls.get(clean(m.callId,100));if(!c||!c.ringing.has(username))return send(ws,{type:'error',message:'This call is no longer awaiting your response.'});c.ringing.delete(username);c.participants.add(username);socketSetFor(socketCalls,ws).add(c.id);if(!c.ringing.size)clearCallTimer(c);toOtherSockets(username,ws,{type:'call_state_sync',callId:c.id,state:'accepted',user:username});broadcastPresence();for(const user of c.participants)if(user!==username)toCallSocketsForUser(user,c.id,{type:'call_member_joined',callId:c.id,user:username,participants:[...c.participants]});return send(ws,{type:'call_accepted',callId:c.id,participants:[...c.participants],typeName:c.type})}
-if(m.type==='call_decline'){const c=calls.get(clean(m.callId,100));if(!c||!c.ringing.delete(username))return;toOtherSockets(username,ws,{type:'call_state_sync',callId:c.id,state:'declined',user:username});toCallSockets(c,{type:'call_declined',callId:c.id,user:username,reason:'declined'});if(!c.ringing.size)clearCallTimer(c);if(c.participants.size<2&&!c.ringing.size)endCall(c,username,'declined',ws);return}
-if(m.type==='call_end'){const c=calls.get(clean(m.callId,100));if(!c||!c.participants.has(username))return;endCall(c,username,'ended',ws);return}
-if(m.type==='call_signal'){const c=calls.get(clean(m.callId,100)),targetName=canonicalUsername(m.to);if(!c||!socketCalls.get(ws)?.has(c.id)||!c.participants.has(username)||!c.participants.has(targetName)||username===targetName)return send(ws,{type:'error',message:'Join the call before sending voice data.'});if(!validRtcSignal(m.data))return send(ws,{type:'error',message:'Invalid call signaling data.'});toCallSocketsForUser(targetName,c.id,{type:'call_signal',callId:c.id,from:username,data:m.data});return}
+if(m.type==='call_start'){
+ const onlineUsers=new Set(clients.values());
+ const requested=[...new Set((Array.isArray(m.to)?m.to:[m.to]).map(value=>canonicalUsername(value)).filter(Boolean))];
+ const targets=requested.filter(name=>name!==username&&data.users[name]&&onlineUsers.has(name)&&isAcceptedFriend(username,name)).slice(0,MAX_CALL_PARTICIPANTS-1);
+ if(!targets.length)return send(ws,{type:'error',message:'Call recipients must be online accepted friends.'});
+ const call={id:id('call'),type:m.callType==='group'?'group':'private',mediaType:callMediaType(m.mediaType),participants:new Set([username]),ringing:new Set(targets),mediaState:{[username]:{audio:true,video:false}},startedBy:username,startedAt:Date.now()};
+ calls.set(call.id,call);
+ socketSetFor(socketCalls,ws).add(call.id);
+ scheduleCallTimeout(call);
+ broadcastPresence();
+ for(const target of targets)toUser(target,{type:'incoming_call',from:username,typeName:call.type,mediaType:call.mediaType,participants:[username],expiresInMs:CALL_RING_TIMEOUT_MS,recipientPresence:manualPresenceFor(target),callId:call.id});
+ return send(ws,{type:'call_started',callId:call.id,participants:[username],invited:[...call.ringing],typeName:call.type,mediaType:call.mediaType,mediaState:call.mediaState||{},expiresInMs:CALL_RING_TIMEOUT_MS});
+}
+if(m.type==='call_accept'){
+ const c=calls.get(clean(m.callId,100));
+ if(!c||!c.ringing.has(username))return send(ws,{type:'error',message:'This call is no longer awaiting your response.'});
+ c.ringing.delete(username);
+ c.participants.add(username);
+ socketSetFor(socketCalls,ws).add(c.id);
+ if(!c.ringing.size)clearCallTimer(c);
+ toOtherSockets(username,ws,{type:'call_state_sync',callId:c.id,state:'accepted',user:username});
+ broadcastPresence();
+ for(const user of c.participants)if(user!==username)toCallSocketsForUser(user,c.id,{type:'call_member_joined',callId:c.id,user:username,typeName:c.type,mediaType:c.mediaType,participants:[...c.participants],mediaState:c.mediaState||{}});
+ return send(ws,{type:'call_accepted',callId:c.id,participants:[...c.participants],typeName:c.type,mediaType:c.mediaType,mediaState:c.mediaState||{}});
+}
+if(m.type==='call_decline'){
+ const c=calls.get(clean(m.callId,100));
+ if(!c||!c.ringing.delete(username))return;
+ toOtherSockets(username,ws,{type:'call_state_sync',callId:c.id,state:'declined',user:username});
+ toCallSockets(c,{type:'call_declined',callId:c.id,user:username,reason:'declined'});
+ if(!c.ringing.size)clearCallTimer(c);
+ if(c.participants.size<2&&!c.ringing.size)endCall(c,username,'declined',ws);
+ return;
+}
+if(m.type==='call_end'){
+ const c=calls.get(clean(m.callId,100));
+ if(!c||!c.participants.has(username))return;
+ endCall(c,username,'ended',ws);
+ return;
+}
+if(m.type==='call_invite'){
+ const c=calls.get(clean(m.callId,100));
+ if(!c||!socketCalls.get(ws)?.has(c.id)||!c.participants.has(username))return send(ws,{type:'error',message:'Join the call before inviting people.'});
+ const onlineUsers=new Set(clients.values());
+ const requested=[...new Set((Array.isArray(m.to)?m.to:[m.to]).map(value=>canonicalUsername(value)).filter(Boolean))];
+ if(!requested.length)return send(ws,{type:'error',message:'Choose at least one friend to invite.'});
+ const eligible=requested.filter(name=>name!==username&&data.users[name]&&onlineUsers.has(name)&&isAcceptedFriend(username,name)&&!c.participants.has(name)&&!c.ringing.has(name));
+ const skipped=requested.filter(name=>!eligible.includes(name));
+ if(!eligible.length)return send(ws,{type:'error',message:'Those friends are offline, already in this call, or already invited.'});
+ const room=MAX_CALL_PARTICIPANTS-(c.participants.size+c.ringing.size);
+ const targets=eligible.slice(0,Math.max(0,room));
+ if(!targets.length)return send(ws,{type:'error',message:`This call is limited to ${MAX_CALL_PARTICIPANTS} people.`});
+ if(c.participants.size+targets.length>2)c.type='group';
+ for(const target of targets)c.ringing.add(target);
+ scheduleCallTimeout(c);
+ for(const target of targets)toUser(target,{type:'incoming_call',from:username,typeName:c.type,mediaType:c.mediaType,participants:[...c.participants],expiresInMs:CALL_RING_TIMEOUT_MS,recipientPresence:manualPresenceFor(target),callId:c.id,invitedBy:username});
+ for(const user of c.participants)toCallSocketsForUser(user,c.id,{type:'call_member_invited',callId:c.id,user:targets.length===1?targets[0]:null,users:targets,by:username,typeName:c.type,mediaType:c.mediaType,participants:[...c.participants]});
+ return send(ws,{type:'call_invite_sent',callId:c.id,targets,skipped,typeName:c.type,mediaType:c.mediaType,participants:[...c.participants],invited:[...c.ringing]});
+}
+if(m.type==='call_media'){
+ const c=calls.get(clean(m.callId,100));
+ if(!c||!socketCalls.get(ws)?.has(c.id)||!c.participants.has(username))return send(ws,{type:'error',message:'Join the call before sharing media state.'});
+ if(typeof m.audio!=='boolean'||typeof m.video!=='boolean')return send(ws,{type:'error',message:'Invalid call media state.'});
+ c.mediaState??={};
+ c.mediaState[username]={audio:m.audio,video:m.video};
+ toCallSockets(c,{type:'call_media',callId:c.id,user:username,audio:m.audio,video:m.video},username);
+ return;
+}
+if(m.type==='call_signal'){
+ const c=calls.get(clean(m.callId,100)),targetName=canonicalUsername(m.to);
+ if(!c||!socketCalls.get(ws)?.has(c.id)||!c.participants.has(username)||!c.participants.has(targetName)||username===targetName)return send(ws,{type:'error',message:'Join the call before sending call data.'});
+ if(!validRtcSignal(m.data))return send(ws,{type:'error',message:'Invalid call signaling data.'});
+ toCallSocketsForUser(targetName,c.id,{type:'call_signal',callId:c.id,from:username,data:m.data});
+ return;
+}
 /* multiplayer games */
 if(m.type==='game_invite'){multiplayer.handleGameInvite(m,{data,users:data.users,clients,isAcceptedFriend,clean,toUser},username,payload=>send(ws,payload),toUser);return}
 if(m.type==='game_accept'){multiplayer.handleGameAccept(m,{data,users:data.users,clients,clean,toUser},username,payload=>send(ws,payload),toUser);return}

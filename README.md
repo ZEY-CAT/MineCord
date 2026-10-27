@@ -54,7 +54,7 @@ OAuth is optional. Local accounts work without provider credentials. For a provi
 | Microsoft | `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_CALLBACK_URL` | `https://YOUR_DOMAIN/auth/microsoft/callback` |
 | GitHub | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GITHUB_CALLBACK_URL` | `https://YOUR_DOMAIN/auth/github/callback` |
 
-Register the callback exactly as shown with each identity provider. Google and GitHub callback URLs are derived from `APP_URL` in production, so an HTTPS `APP_URL` takes precedence over stale localhost callback overrides. In local development, those optional overrides remain available; otherwise callbacks use `${APP_URL}/auth/<provider>/callback`. Microsoft continues to use `MICROSOFT_CALLBACK_URL` when configured. OAuth state is stored as a one-use, expiring record in SQLite and bound to the initiating browser by a short-lived HttpOnly, SameSite=Lax cookie. The callback consumes state atomically before exchanging the authorization code on the server and creates an HttpOnly session cookie. State therefore survives a process restart only when the callback reaches a server using the same SQLite database. Do not run multiple instances with separate local SQLite files; use one shared persistent database/service instance. Set `APP_URL` to the public HTTPS origin in production. On Render, `RENDER_EXTERNAL_URL` is also used as a fallback when `APP_URL` is unset. Keep `.env` out of source control; `.gitignore` excludes it while allowing `.env.example`.
+Register the callback exactly as shown with each identity provider. Google and GitHub callback URLs are derived from `APP_URL` in production, so an HTTPS `APP_URL` takes precedence over stale localhost callback overrides. In local development, those optional overrides remain available; otherwise callbacks use `${APP_URL}/auth/<provider>/callback`. When `APP_URL` is a local HTTP origin, OAuth started from a LAN/private address on the same port automatically returns to that initiating origin; a localhost callback override is ignored for a different LAN origin. Add any extra hostnames or origins with `OAUTH_ALLOWED_ORIGINS` (comma-separated) and register every callback URL used with the provider. Microsoft continues to use `MICROSOFT_CALLBACK_URL` when configured. OAuth state is stored as a one-use, expiring record in SQLite and bound to the initiating browser by a short-lived HttpOnly, SameSite=Lax cookie. The callback consumes state atomically before exchanging the authorization code on the server and creates an HttpOnly session cookie. State therefore survives a process restart only when the callback reaches a server using the same SQLite database. Do not run multiple instances with separate local SQLite files; use one shared persistent database/service instance. Set `APP_URL` to the public HTTPS origin in production. On Render, `RENDER_EXTERNAL_URL` is also used as a fallback when `APP_URL` is unset. Keep `.env` out of source control; `.gitignore` excludes it while allowing `.env.example`.
 
 Signed-in users can link Google, Microsoft, and GitHub from **Settings → Linked sign-in accounts**. The provider must be configured on the server and use the same registered callback URL as sign-in. Linking requires a live MINECORD session and a one-use OAuth state tied to that account. MINECORD links by the provider's stable account ID, never by email; it will not merge an identity that belongs to another MINECORD account. Users must keep at least one sign-in method. Provider access tokens are exchanged server-side and are not stored.
 
@@ -92,9 +92,9 @@ Render's default service filesystem is ephemeral. If using Render with SQLite, a
 
 The app's built-in HTTP listener does not itself configure TLS certificates. Use a production TLS reverse proxy or a hosting platform that provides HTTPS and WebSocket forwarding. An HTTP tunnel provides neither TURN nor WebRTC media relay.
 
-## 5. TURN setup for voice
+## 5. TURN setup for voice and video calls
 
-Voice uses Metered TURN when configured and falls back to Google STUN if not. STUN-only calls are best effort and may fail on restrictive networks. Set these values only in the server's private environment configuration:
+Voice and video calls use Metered TURN when configured and fall back to Google STUN if not. STUN-only calls are best effort and may fail on restrictive networks. Set these values only in the server's private environment configuration:
 
 ```env
 METERED_APP_NAME=minecord
@@ -111,7 +111,9 @@ For a real relay test, call between two devices on separate networks. Inspect th
 
 The service does not change Metered billing or select a plan. If credential creation is rejected because the Metered account has no TURN access, check the account/provider dashboard yourself before enabling production usage.
 
-For a real voice test, open the HTTPS MINECORD site on two separate devices/browsers, create or sign in to two accounts, add and accept the friendship, then either join the same server voice channel or start a DM call and accept it on the other device. Grant microphone permission on both devices; check that participant status becomes `connected`, speak to verify actual two-way audio, and try mute, deafen, leave, reconnect, and rejoin. The browser in-call status reports the selected route when WebRTC exposes it and may show a speaking indicator from inbound audio stats. Automated tests verify authorization/signaling/configuration only; they do not prove microphone access, audible media, or TURN relay connectivity.
+Private calls can be started as voice or video from a DM. Group calls use the person-plus action, and **Add people** can invite more accepted, online friends to an active call; adding beyond two people upgrades the call to a group call. Invitations are separate from server invitations and only use the call signaling channel. Calls are capped by `MAX_CALL_PARTICIPANTS` (2-25, default 10) and unanswered calls time out after `CALL_RING_TIMEOUT_MS` (1000-120000 ms, default 45000). Microphone/camera permission failures leave a clear error state instead of a fake call, and ending a call closes peer connections, stops local media, clears the timer, and restores the previous screen.
+
+For a real voice or video test, open the HTTPS MINECORD site on two separate devices/browsers, create or sign in to two accounts, add and accept the friendship, then either join the same server voice channel or start a DM voice/video call and accept it on the other device. Grant microphone (and camera) permission on both devices; check that participant status becomes `connected`, speak to verify actual two-way audio, verify remote video and local preview for video calls, and try mute, camera toggle, add people, deafen, leave, reconnect, and rejoin. The browser in-call status reports the selected route when WebRTC exposes it and may show a speaking indicator from inbound audio stats. Automated tests verify authorization, signaling, media state, invitation behavior, cleanup, and static UI contracts only; they do not prove microphone/camera access, audible media, or TURN relay connectivity.
 
 ## 6. Configure the packaged client server URL
 
@@ -165,8 +167,11 @@ Deploy the new server code while retaining the same `DATABASE_URL` and persisten
 | `MICROSOFT_CALLBACK_URL` | Optional | Microsoft sign-in and Minecraft-link callback; defaults to `${APP_URL}/auth/microsoft/callback` |
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | Optional, as a pair | GitHub OAuth credentials |
 | `GITHUB_CALLBACK_URL` | Optional | GitHub callback override |
+| `OAUTH_ALLOWED_ORIGINS` | Optional | Comma-separated extra origins allowed to initiate OAuth, such as a LAN hostname |
 | `STUN_URL` | Optional | Additional comma-separated STUN/STUNS URLs |
-| `TURN_URL`, `TURN_SHARED_SECRET` | Optional, both | Existing self-hosted coturn REST/shared-secret fallback |
+| `MAX_CALL_PARTICIPANTS` | Optional (default `10`) | Maximum people in one call; clamped to 2-25 |
+| `CALL_RING_TIMEOUT_MS` | Optional (default `45000`) | Unanswered call timeout in milliseconds; clamped to 1000-120000 |
+| `TURN_URL`, `TURN_SHARED_SECRET` | Optional, both | Existing self-hosted coturn relay fallback |
 | `METERED_APP_NAME` | Optional (default `minecord`) | Metered application name for server-side TURN REST calls |
 | `METERED_SECRET_KEY` | Optional | Private Metered API secret; used only on the server to provision credentials and query usage |
 | `MINECORD_SERVER_URL` | Optional | Electron runtime URL override; edit `desktop/config.json` before packaging |

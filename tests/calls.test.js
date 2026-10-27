@@ -175,6 +175,7 @@ test('incoming calls reach every tab, cancel cleanly, time out, and survive call
     const bobCookie = await createAccount(running.origin, 'receiver_bob');
     const alice = await openSocket(running.origin, aliceCookie);
     aliceSocket = alice.socket;
+    assert.ok(Number.isInteger(alice.ready.maxCallParticipants) && alice.ready.maxCallParticipants >= 2);
     const bob = await openSocket(running.origin, bobCookie);
     bobSocket = bob.socket;
     const bobSecond = await openSocket(running.origin, bobCookie);
@@ -237,6 +238,97 @@ test('incoming calls reach every tab, cancel cleanly, time out, and survive call
     if (aliceSocket) await closeSocket(aliceSocket).catch(() => {});
     if (bobSocket) await closeSocket(bobSocket).catch(() => {});
     if (bobTabTwo) await closeSocket(bobTabTwo).catch(() => {});
+    await stopServer(running?.child);
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
+test('video calls carry media type, allow participant invitations, and synchronize media state', { timeout: 60000 }, async () => {
+  const port = await availablePort();
+  const tempDir = mkdtempSync(path.join(os.tmpdir(), 'minecord-video-calls-'));
+  const databaseFile = path.join(tempDir, 'minecord.sqlite');
+  initializeDatabase(databaseFile);
+  let running;
+  let aliceSocket;
+  let bobSocket;
+  let carolSocket;
+  let daveSocket;
+  try {
+    running = await startServer(port, databaseFile, { CALL_RING_TIMEOUT_MS: '30000' });
+    const aliceCookie = await createAccount(running.origin, 'video_alice');
+    const bobCookie = await createAccount(running.origin, 'video_bob');
+    const carolCookie = await createAccount(running.origin, 'video_carol');
+    const daveCookie = await createAccount(running.origin, 'video_dave');
+    aliceSocket = (await openSocket(running.origin, aliceCookie)).socket;
+    bobSocket = (await openSocket(running.origin, bobCookie)).socket;
+    carolSocket = (await openSocket(running.origin, carolCookie)).socket;
+    daveSocket = (await openSocket(running.origin, daveCookie)).socket;
+    await befriend(running.origin, aliceSocket, bobSocket, 'video_alice', 'video_bob');
+    await befriend(running.origin, aliceSocket, carolSocket, 'video_alice', 'video_carol');
+
+    const bobIncoming = waitFor(bobSocket, message => message.type === 'incoming_call' && message.from === 'video_alice');
+    const started = await sendAndWait(aliceSocket, { type: 'call_start', to: 'video_bob', callType: 'private', mediaType: 'video' }, message => message.type === 'call_started');
+    assert.equal(started.mediaType, 'video');
+    assert.equal(started.typeName, 'private');
+    assert.deepEqual(started.invited, ['video_bob']);
+    const bobRinging = await bobIncoming;
+    assert.equal(bobRinging.mediaType, 'video');
+
+    const bobAccepted = sendAndWait(bobSocket, { type: 'call_accept', callId: started.callId }, message => message.type === 'call_accepted');
+    const aliceSawBob = waitFor(aliceSocket, message => message.type === 'call_member_joined' && message.user === 'video_bob');
+    const [bobAcceptance] = await Promise.all([bobAccepted, aliceSawBob]);
+    assert.equal(bobAcceptance.mediaType, 'video');
+
+    const bobSeesAliceMedia = waitFor(bobSocket, message => message.type === 'call_media' && message.user === 'video_alice');
+    aliceSocket.send(JSON.stringify({ type: 'call_media', callId: started.callId, audio: true, video: true }));
+    assert.deepEqual(await bobSeesAliceMedia, {
+      type: 'call_media', callId: started.callId, user: 'video_alice', audio: true, video: true
+    });
+
+    const aliceSeesBobMedia = waitFor(aliceSocket, message => message.type === 'call_media' && message.user === 'video_bob');
+    bobSocket.send(JSON.stringify({ type: 'call_media', callId: started.callId, audio: true, video: false }));
+    assert.equal((await aliceSeesBobMedia).video, false);
+
+    const carolIncoming = waitFor(carolSocket, message => message.type === 'incoming_call' && message.callId === started.callId);
+    const aliceInvited = waitFor(aliceSocket, message => message.type === 'call_invite_sent' && message.callId === started.callId);
+    const bobSawInvitation = waitFor(bobSocket, message => message.type === 'call_member_invited' && message.users?.includes('video_carol'));
+    aliceSocket.send(JSON.stringify({ type: 'call_invite', callId: started.callId, to: ['video_carol'] }));
+    const [carolRinging, inviteSent, invitedEvent] = await Promise.all([carolIncoming, aliceInvited, bobSawInvitation]);
+    assert.deepEqual(inviteSent.targets, ['video_carol']);
+    assert.equal(inviteSent.typeName, 'group');
+    assert.equal(carolRinging.mediaType, 'video');
+    assert.equal(carolRinging.typeName, 'group');
+    assert.equal(invitedEvent.by, 'video_alice');
+
+    // Repeated invitations and invitations from non-participants are rejected.
+    const duplicateInvite = await sendAndWait(aliceSocket, { type: 'call_invite', callId: started.callId, to: ['video_carol'] }, message => message.type === 'error');
+    assert.match(duplicateInvite.message, /already in this call|already invited/i);
+    const outsiderInvite = await sendAndWait(daveSocket, { type: 'call_invite', callId: started.callId, to: ['video_bob'] }, message => message.type === 'error');
+    assert.match(outsiderInvite.message, /Join the call/);
+
+    const carolAccepted = sendAndWait(carolSocket, { type: 'call_accept', callId: started.callId }, message => message.type === 'call_accepted');
+    const aliceSawCarol = waitFor(aliceSocket, message => message.type === 'call_member_joined' && message.user === 'video_carol');
+    const bobSawCarol = waitFor(bobSocket, message => message.type === 'call_member_joined' && message.user === 'video_carol');
+    const [carolAcceptance] = await Promise.all([carolAccepted, aliceSawCarol, bobSawCarol]);
+    assert.deepEqual([...carolAcceptance.participants].sort(), ['video_alice', 'video_bob', 'video_carol']);
+    assert.equal(carolAcceptance.mediaType, 'video');
+
+    // Camera/screen-share style renegotiation is a valid signaling payload.
+    const aliceRenegotiation = waitFor(aliceSocket, message => message.type === 'call_signal' && message.from === 'video_bob' && message.data?.renegotiate === true);
+    bobSocket.send(JSON.stringify({ type: 'call_signal', callId: started.callId, to: 'video_alice', data: { renegotiate: true } }));
+    assert.equal((await aliceRenegotiation).data.renegotiate, true);
+    const invalidSignal = await sendAndWait(bobSocket, { type: 'call_signal', callId: started.callId, to: 'video_alice', data: { unexpected: true } }, message => message.type === 'error');
+    assert.match(invalidSignal.message, /Invalid call signaling/);
+
+    const bobEnded = waitFor(bobSocket, message => message.type === 'call_ended' && message.callId === started.callId);
+    const carolEnded = waitFor(carolSocket, message => message.type === 'call_ended' && message.callId === started.callId);
+    aliceSocket.send(JSON.stringify({ type: 'call_end', callId: started.callId }));
+    await Promise.all([bobEnded, carolEnded]);
+  } finally {
+    if (aliceSocket) await closeSocket(aliceSocket).catch(() => {});
+    if (bobSocket) await closeSocket(bobSocket).catch(() => {});
+    if (carolSocket) await closeSocket(carolSocket).catch(() => {});
+    if (daveSocket) await closeSocket(daveSocket).catch(() => {});
     await stopServer(running?.child);
     rmSync(tempDir, { recursive: true, force: true });
   }

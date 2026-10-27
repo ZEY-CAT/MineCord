@@ -25,10 +25,9 @@ function oauthAccounts(user) {
   return normalized;
 }
 
-function buildAuthorizationUrl(provider, state, appUrl) {
+function buildAuthorizationUrl(provider, state, redirectUri) {
   const prefix = provider.toUpperCase();
   const clientId = process.env[`${prefix}_CLIENT_ID`];
-  const redirectUri = process.env[`${prefix}_CALLBACK_URL`] || `${appUrl}/auth/${provider}/callback`;
   const query = new URLSearchParams({ client_id: clientId, redirect_uri: redirectUri, response_type: 'code', state });
   if (provider === 'google') {
     query.set('scope', 'openid email profile');
@@ -56,7 +55,7 @@ function findLinkedUser(users, provider, externalId) {
 }
 
 function accountLinkRoutes(app, context) {
-  const { data, save, authUser, requireAuth, setSession, appUrl, ownerUserId, originAllowed } = context;
+  const { data, save, authUser, requireAuth, setSession, appUrl, ownerUserId, originAllowed, oauthOrigin, oauthRedirectUri } = context;
   const { ASSIGNABLE_ROLES, can, ROLE_LABELS } = require('./roles');
   const ownerFor = user => Boolean(ownerUserId && user?.id === ownerUserId);
   const publicAccount = user => ({
@@ -89,30 +88,19 @@ function accountLinkRoutes(app, context) {
     if (!clientId || !clientSecret) return res.status(503).json({ error: `${provider} linking is not configured on this MINECORD server.` });
 
     const state = require('node:crypto').randomBytes(24).toString('hex');
+    const origin = oauthOrigin(req);
+    const redirectUri = oauthRedirectUri(provider, origin);
     saveOAuthState(context, state, {
       provider,
       purpose: 'account-link',
       userId: req.minecordUser.id,
       returnTo: safeAppReturnTo(req.body?.returnTo),
+      origin,
+      redirectUri,
       createdAt: Date.now()
     });
-    context.bindBrowserToOAuthState(res, provider, state, appUrl);
-    const redirectUri = process.env[`${prefix}_CALLBACK_URL`] || `${appUrl}/auth/${provider}/callback`;
-    const query = new URLSearchParams({ client_id: clientId, redirect_uri: redirectUri, response_type: 'code', state });
-    let authorizeUrl;
-    if (provider === 'google') {
-      query.set('scope', 'openid email profile');
-      query.set('access_type', 'offline');
-      query.set('prompt', 'select_account');
-      authorizeUrl = `https://accounts.google.com/o/oauth2/v2/auth?${query}`;
-    } else if (provider === 'github') {
-      query.set('scope', 'read:user user:email');
-      authorizeUrl = `https://github.com/login/oauth/authorize?${query}`;
-    } else {
-      query.set('scope', 'openid email profile User.Read');
-      authorizeUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${query}`;
-    }
-    res.json({ authorizeUrl });
+    context.bindBrowserToOAuthState(res, provider, state, origin);
+    res.json({ authorizeUrl: buildAuthorizationUrl(provider, state, redirectUri) });
   });
 
   app.delete('/api/auth/links/:provider', requireAuth, (req, res) => {
@@ -185,7 +173,7 @@ function saveOAuthState(context, key, value) {
 }
 
 function oauthCallback(context) {
-  const { data, save, authUser, setSession, database, hasBrowserOAuthState, clearBrowserOAuthState, appUrl } = context;
+  const { data, save, authUser, setSession, database, hasBrowserOAuthState, clearBrowserOAuthState, appUrl, oauthOrigin, oauthRedirectUriForState } = context;
   return async (req, res, next) => {
     const provider = req.params.provider;
     if (!PROVIDERS.has(provider)) return next();
@@ -195,14 +183,14 @@ function oauthCallback(context) {
     if (pendingState.provider !== provider) return res.status(400).send('OAuth state is invalid for this provider.');
     if (pendingState.purpose && pendingState.purpose !== 'account-link') return next();
     if (!hasBrowserOAuthState(req, provider, stateKey)) {
-      clearBrowserOAuthState(res, provider, appUrl);
+      clearBrowserOAuthState(res, provider, pendingState.origin || oauthOrigin(req));
       return res.status(400).send('OAuth state is invalid or expired. Please restart sign-in.');
     }
     const state = database.consumeOAuthState(stateKey, provider);
     if (!state || (state.purpose && state.purpose !== 'account-link')) {
       return res.status(400).send('OAuth state is invalid or expired. Please try again.');
     }
-    clearBrowserOAuthState(res, provider, appUrl);
+    clearBrowserOAuthState(res, provider, state.origin || oauthOrigin(req));
 
     const accountLink = state.purpose === 'account-link';
     const accountLinkReturnTo = accountLink ? safeAppReturnTo(state.returnTo || '/app') : '/app';
@@ -235,7 +223,8 @@ function oauthCallback(context) {
     }
 
     try {
-      const identity = await fetchIdentity(provider, req.query.code, context.appUrl);
+      const redirectUri = oauthRedirectUriForState(provider, state, req);
+      const identity = await fetchIdentity(provider, req.query.code, redirectUri);
       if (accountLink) {
         const user = authUser(req);
         if (!user || user.id !== state.userId) return redirectError('session_expired', 'Sign in to the same MINECORD account before linking this provider.');
@@ -289,11 +278,10 @@ function oauthCallback(context) {
   };
 }
 
-async function fetchIdentity(provider, code, appUrl) {
+async function fetchIdentity(provider, code, redirectUri) {
   const prefix = provider.toUpperCase();
   const clientId = process.env[`${prefix}_CLIENT_ID`];
   const clientSecret = process.env[`${prefix}_CLIENT_SECRET`];
-  const redirectUri = process.env[`${prefix}_CALLBACK_URL`] || `${appUrl}/auth/${provider}/callback`;
   const fetchJson = async (url, options) => {
     const response = await fetch(url, { ...options, signal: AbortSignal.timeout(15000) });
     const text = await response.text();

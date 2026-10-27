@@ -281,6 +281,11 @@
       memberProfiles = message.members || {};
       if (message.me) memberProfiles[message.me.username] = message.me;
       acceptedFriends = Array.isArray(message.friends) ? message.friends : [];
+      incomingFriendRequests = Array.isArray(message.pendingFriendRequests) ? message.pendingFriendRequests.slice() : [];
+      outgoingFriendRequests = Array.isArray(message.sentFriendRequests) ? message.sentFriendRequests.slice() : [];
+    } else if (message.type === 'friend_request' && message.from) {
+      includeFriendRequest(incomingFriendRequests, message.from);
+      removeFriendRequest(outgoingFriendRequests, message.from);
     } else if (message.type === 'presence' && message.members) {
       memberProfiles = { ...memberProfiles, ...message.members };
       if (me?.username && message.members[me.username]) me = { ...me, ...message.members[me.username] };
@@ -291,13 +296,31 @@
       memberProfiles[message.me.username] = message.me;
     } else if (message.type === 'friend_profile' && message.user?.username) {
       memberProfiles[message.user.username] = message.user;
-    } else if (message.type === 'friend_status' && message.status === 'accepted' && message.user) {
-      if (!acceptedFriends.includes(message.user)) acceptedFriends = [...acceptedFriends, message.user].sort((a, b) => a.localeCompare(b));
-    } else if (message.type === 'friend_status' && message.status === 'removed' && message.user) {
-      acceptedFriends = acceptedFriends.filter(username => username !== message.user);
+    } else if (message.type === 'friend_status' && message.user) {
+      if (message.status === 'accepted') {
+        if (!acceptedFriends.includes(message.user)) acceptedFriends = [...acceptedFriends, message.user].sort((a, b) => a.localeCompare(b));
+        removeFriendRequest(incomingFriendRequests, message.user);
+        removeFriendRequest(outgoingFriendRequests, message.user);
+      } else if (message.status === 'pending') {
+        includeFriendRequest(outgoingFriendRequests, message.user);
+        removeFriendRequest(incomingFriendRequests, message.user);
+      } else if (message.status === 'incoming') {
+        includeFriendRequest(incomingFriendRequests, message.user);
+        removeFriendRequest(outgoingFriendRequests, message.user);
+      } else if (message.status === 'rejected') {
+        removeFriendRequest(incomingFriendRequests, message.user);
+        removeFriendRequest(outgoingFriendRequests, message.user);
+      } else if (message.status === 'removed') {
+        acceptedFriends = acceptedFriends.filter(username => username !== message.user);
+        removeFriendRequest(incomingFriendRequests, message.user);
+        removeFriendRequest(outgoingFriendRequests, message.user);
+      }
     }
     baseHandle(message);
-    if (message.type === 'ready' || message.type === 'presence' || message.type === 'presence_updated' || message.type === 'friend_status') renderFriends();
+    if (message.type === 'friend_status' && message.status === 'incoming') {
+      showAlert(`${message.user} already sent you a friend request.`, 'Friend Request');
+    }
+    if (message.type === 'ready' || message.type === 'presence' || message.type === 'presence_updated' || message.type === 'friend_status' || message.type === 'friend_request') renderFriends();
     if (message.type === 'presence' || message.type === 'presence_updated') {
       renderPeople();
       renderDMs();
@@ -318,14 +341,59 @@
   };
   let memberProfiles = {};
   let acceptedFriends = [];
+  let incomingFriendRequests = [];
+  let outgoingFriendRequests = [];
+
+  function includeFriendRequest(list, username) {
+    if (!username || list.includes(username)) return;
+    list.push(username);
+    list.sort((a, b) => a.localeCompare(b));
+  }
+
+  function removeFriendRequest(list, username) {
+    const index = list.indexOf(username);
+    if (index >= 0) list.splice(index, 1);
+  }
+
+  function friendRequestRow(username, state, actions = []) {
+    const profile = memberProfiles[username] || { username, displayName: username };
+    const row = document.createElement('div');
+    row.className = 'friendRow pendingFriend';
+    row.dataset.user = username;
+    row.innerHTML = `${presenceDot('offline')}<span class="friendName">${esc(profile.displayName || username)}</span><span class="friendState">${esc(state)}</span>`;
+    for (const action of actions) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'icon friendRemove';
+      button.textContent = action.label;
+      button.title = action.title;
+      button.setAttribute('aria-label', action.title);
+      if (action.color) button.style.color = action.color;
+      button.addEventListener('click', event => {
+        event.stopPropagation();
+        action.run();
+      });
+      row.appendChild(button);
+    }
+    return row;
+  }
 
   renderFriends = function () {
     const container = $('friendList');
     if (!container) return;
     container.replaceChildren();
-    if (!acceptedFriends.length) {
+    if (!acceptedFriends.length && !incomingFriendRequests.length && !outgoingFriendRequests.length) {
       container.innerHTML = '<div class="muted" style="padding:8px">No friends yet.</div>';
       return;
+    }
+    for (const username of incomingFriendRequests) {
+      container.appendChild(friendRequestRow(username, 'Request received', [
+        { label: '✓', title: `Accept friend request from ${username}`, color: '#23a559', run: () => send({ type: 'friend_accept', with: username }) },
+        { label: '×', title: `Decline friend request from ${username}`, run: () => send({ type: 'friend_reject', with: username }) }
+      ]));
+    }
+    for (const username of outgoingFriendRequests) {
+      container.appendChild(friendRequestRow(username, 'Request sent'));
     }
     for (const username of acceptedFriends) {
       const profile = memberProfiles[username] || { username, displayName: username };
