@@ -11,3 +11,5 @@ build/tauri.release.conf.json
 server/*.sqlite
 server/*.sqlite-shm
 server/*.sqlite-wal
+server/data.json
+DEV-LOGINS.json

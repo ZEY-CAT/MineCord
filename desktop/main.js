@@ -1,4 +1,4 @@
-const { app, BrowserWindow, shell, session, dialog } = require('electron');
+const { app, BrowserWindow, shell, session, dialog, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { startActivityMonitor } = require('./activity-monitor');
@@ -19,6 +19,78 @@ let updateCheckInterval = null;
 // Current app version from package.json
 const packageJsonPath = path.join(__dirname, '..', 'package.json');
 const currentVersion = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')).version;
+
+let mainWindow = null;
+let pendingOAuthUrl = '';
+
+function validOAuthUrl(value) {
+  if (typeof value !== 'string' || value.length > 2048) return '';
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'minecord:' || url.hostname !== 'oauth' || url.username || url.password || url.port
+        || !['/complete', '/error'].includes(url.pathname)) return '';
+    if (!/^[A-Za-z0-9_-]{43,128}$/.test(url.searchParams.get('state') || '')) return '';
+    if (url.pathname === '/complete' && !/^[A-Za-z0-9_-]{43}$/.test(url.searchParams.get('code') || '')) return '';
+    if (url.pathname === '/error' && !['cancelled', 'provider_failed', 'account_banned'].includes(url.searchParams.get('error') || '')) return '';
+    return url.toString();
+  } catch {
+    return '';
+  }
+}
+
+function deliverOAuthUrl(value) {
+  const url = validOAuthUrl(value);
+  if (!url) return false;
+  pendingOAuthUrl = url;
+  if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isLoading()) {
+    mainWindow.webContents.send('minecord:oauth-url', url);
+  }
+  return true;
+}
+
+const startupOAuthUrl = process.argv.map(validOAuthUrl).find(Boolean) || '';
+const hasSingleInstance = app.requestSingleInstanceLock();
+if (!hasSingleInstance) app.quit();
+else {
+  if (startupOAuthUrl) pendingOAuthUrl = startupOAuthUrl;
+  app.on('second-instance', (_event, argv) => {
+    const url = argv.map(validOAuthUrl).find(Boolean);
+    if (url) deliverOAuthUrl(url);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+  app.on('open-url', (event, url) => {
+    event.preventDefault();
+    deliverOAuthUrl(url);
+  });
+}
+
+ipcMain.handle('minecord:get-initial-oauth-url', event => {
+  if (mainWindow && event.sender !== mainWindow.webContents) return '';
+  const url = pendingOAuthUrl;
+  pendingOAuthUrl = '';
+  return url;
+});
+
+ipcMain.handle('minecord:open-external-auth', async (event, value) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents || typeof value !== 'string' || value.length > 2048) {
+    throw new Error('MINECORD could not open this sign-in request.');
+  }
+  let url;
+  try { url = new URL(value); } catch { throw new Error('MINECORD sign-in URL is invalid.'); }
+  const allowedOrigins = new Set(['https://minecord-8vg2.onrender.com']);
+  if (!app.isPackaged && /^http:\/\/(localhost|127\.0\.0\.1):3000$/.test(serverUrl)) allowedOrigins.add(serverUrl);
+  const provider = url.pathname.match(/^\/auth\/(google|microsoft|github)$/)?.[1];
+  if (!allowedOrigins.has(url.origin) || !provider || url.searchParams.get('native') !== '1'
+      || !/^[A-Za-z0-9_-]{43,128}$/.test(url.searchParams.get('client_state') || '')
+      || !/^[A-Za-z0-9_-]{43}$/.test(url.searchParams.get('code_challenge') || '')) {
+    throw new Error('MINECORD could not verify this sign-in request.');
+  }
+  await shell.openExternal(url.toString());
+});
 
 // Initialize the native updater
 const updater = require('./updater-bridge');
@@ -151,9 +223,11 @@ function createWindow() {
     backgroundColor: '#111',
     webPreferences: {
       contextIsolation: true,
-      sandbox: true
+      sandbox: true,
+      preload: path.join(__dirname, 'preload.js')
     }
   });
+  mainWindow = win;
 
   if (!serverUrl) {
     win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent('<h2>MINECORD server is not configured</h2><p>Set MINECORD_SERVER_URL or update desktop/config.json before building.</p>'));
@@ -180,13 +254,21 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  if (process.platform === 'win32' || process.platform === 'linux') {
+    if (app.isPackaged) app.setAsDefaultProtocolClient('minecord');
+    else app.setAsDefaultProtocolClient('minecord', process.execPath, [path.resolve(__dirname, '..')]);
+  }
   // Initialize auto-updater for packaged apps
   setupAutoUpdater();
 
   const win = createWindow();
 
   win.on('closed', () => {
+    if (mainWindow === win) mainWindow = null;
     if (stopActivityMonitor) stopActivityMonitor();
+  });
+  win.webContents.on('did-finish-load', () => {
+    if (pendingOAuthUrl) win.webContents.send('minecord:oauth-url', pendingOAuthUrl);
   });
 
   // Handle update-available from renderer

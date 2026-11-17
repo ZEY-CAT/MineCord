@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const { spawn, spawnSync } = require('node:child_process');
 const { mkdtempSync, rmSync, writeFileSync } = require('node:fs');
 const http = require('node:http');
@@ -35,22 +36,27 @@ async function startServer(databaseFile, preloadFile) {
       MICROSOFT_CLIENT_SECRET: 'oauth-test-server-secret',
       DATABASE_URL: databaseFile,
       APP_OWNER_USER_ID: '',
+      APP_OWNER_USERNAME: '',
       METERED_SECRET_KEY: ''
     },
-    stdio: ['ignore', 'ignore', 'pipe']
+    stdio: ['ignore', 'pipe', 'pipe']
   });
+  let stdout = '';
   let stderr = '';
+  let probeResult = 'No readiness response was received.';
+  child.stdout.setEncoding('utf8').on('data', chunk => { stdout += chunk; });
   child.stderr.setEncoding('utf8').on('data', chunk => { stderr += chunk; });
   for (let attempt = 0; attempt < 100; attempt++) {
-    if (child.exitCode !== null) throw new Error(`OAuth test server exited early: ${stderr}`);
+    if (child.exitCode !== null) throw new Error(`OAuth test server exited early:\n${stdout}${stderr}`);
     try {
       const response = await fetch(`${origin}/api/config`);
       if (response.ok) return { child, origin };
-    } catch {}
-    await new Promise(resolve => setTimeout(resolve, 50));
+      probeResult = `HTTP ${response.status}: ${await response.text()}`;
+    } catch (error) { probeResult = error.message; }
+    await new Promise(resolve => setTimeout(resolve, 100));
   }
   child.kill();
-  throw new Error(`OAuth test server did not start: ${stderr}`);
+  throw new Error(`OAuth test server did not start (${probeResult}):\n${stdout}${stderr}`);
 }
 
 async function stopServer(child) {
@@ -73,6 +79,24 @@ async function beginMicrosoftSignIn(origin, returnTo) {
     .split(';', 1)[0];
   assert.equal(decodeURIComponent(cookie.slice('mc_oauth_state='.length)), state);
   return { state, cookie };
+}
+
+async function beginNativeMicrosoftSignIn(origin) {
+  const verifier = crypto.randomBytes(32).toString('base64url');
+  const clientState = crypto.randomBytes(32).toString('base64url');
+  const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
+  const startUrl = new URL('/auth/microsoft', origin);
+  startUrl.searchParams.set('native', '1');
+  startUrl.searchParams.set('client_state', clientState);
+  startUrl.searchParams.set('code_challenge', challenge);
+  const response = await fetch(startUrl, { redirect: 'manual' });
+  assert.equal(response.status, 302);
+  const authorization = new URL(response.headers.get('location'));
+  const oauthState = authorization.searchParams.get('state');
+  const cookie = response.headers.getSetCookie()
+    .find(value => value.startsWith('mc_oauth_state='))
+    .split(';', 1)[0];
+  return { verifier, clientState, oauthState, cookie };
 }
 
 function createTestFiles() {
@@ -377,4 +401,69 @@ test('account-merge OAuth proof requires the originating browser and session', a
   const verified = await fetch(callbackUrl, { headers: { Cookie: `${sessionCookie}; ${stateCookie}` }, redirect: 'manual' });
   assert.equal(verified.status, 302);
   assert.equal(verified.headers.get('location'), '/app#merge-error=target-proof-failed');
+});
+
+test('native OAuth return is bound to PKCE and exchanges once for the app session', async t => {
+  const files = createTestFiles();
+  const server = await startServer(files.databaseFile, files.preloadFile);
+  t.after(async () => {
+    await stopServer(server.child);
+    rmSync(files.directory, { recursive: true, force: true });
+  });
+
+  const { verifier, clientState, oauthState, cookie } = await beginNativeMicrosoftSignIn(server.origin);
+  const callback = await fetch(`${server.origin}/auth/microsoft/callback?state=${encodeURIComponent(oauthState)}&code=approved-test-code`, {
+    headers: { Cookie: cookie },
+    redirect: 'manual'
+  });
+  assert.equal(callback.status, 302);
+  const deepLink = new URL(callback.headers.get('location'));
+  assert.equal(deepLink.protocol, 'minecord:');
+  assert.equal(deepLink.hostname, 'oauth');
+  assert.equal(deepLink.pathname, '/complete');
+  assert.equal(deepLink.searchParams.get('state'), clientState);
+  const code = deepLink.searchParams.get('code');
+  assert.match(code, /^[A-Za-z0-9_-]{43}$/);
+  assert.ok(!callback.headers.getSetCookie().some(value => value.startsWith('mc_session=')));
+
+  async function exchange(requestVerifier, requestState = clientState) {
+    return fetch(`${server.origin}/api/auth/native/exchange`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Origin: server.origin },
+      body: JSON.stringify({ code, state: requestState, verifier: requestVerifier })
+    });
+  }
+
+  assert.equal((await exchange(crypto.randomBytes(32).toString('base64url'))).status, 401);
+  assert.equal((await exchange(verifier, crypto.randomBytes(32).toString('base64url'))).status, 401);
+  const exchanged = await exchange(verifier);
+  assert.equal(exchanged.status, 200);
+  assert.match(exchanged.headers.get('cache-control') || '', /no-store/i);
+  const sessionCookie = exchanged.headers.getSetCookie().find(value => value.startsWith('mc_session='))?.split(';', 1)[0];
+  assert.ok(sessionCookie);
+  assert.equal((await (await fetch(`${server.origin}/api/auth/me`, { headers: { Cookie: sessionCookie } })).json()).user.displayName, 'OAuth Test Player');
+  assert.equal((await exchange(verifier)).status, 401);
+});
+
+test('native OAuth cancellation returns only a correlated safe error link', async t => {
+  const files = createTestFiles();
+  const server = await startServer(files.databaseFile, files.preloadFile);
+  t.after(async () => {
+    await stopServer(server.child);
+    rmSync(files.directory, { recursive: true, force: true });
+  });
+
+  const { clientState, oauthState, cookie } = await beginNativeMicrosoftSignIn(server.origin);
+  const callback = await fetch(`${server.origin}/auth/microsoft/callback?state=${encodeURIComponent(oauthState)}&error=access_denied`, {
+    headers: { Cookie: cookie },
+    redirect: 'manual'
+  });
+  assert.equal(callback.status, 302);
+  const deepLink = new URL(callback.headers.get('location'));
+  assert.equal(deepLink.protocol, 'minecord:');
+  assert.equal(deepLink.hostname, 'oauth');
+  assert.equal(deepLink.pathname, '/error');
+  assert.equal(deepLink.searchParams.get('state'), clientState);
+  assert.equal(deepLink.searchParams.get('error'), 'cancelled');
+  assert.equal(deepLink.searchParams.has('code'), false);
 });

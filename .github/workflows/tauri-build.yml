@@ -423,10 +423,11 @@ jobs:
       - name: Build frontend
         run: npm run build
 
-      - name: Initialize Android project
+      - name: Verify checked-in Android project
         run: |
-          rm -rf src-tauri/gen/android
-          npm run tauri -- android init --ci
+          test -f src-tauri/gen/android/gradlew
+          test -f src-tauri/gen/android/app/src/main/AndroidManifest.xml
+          test -f src-tauri/gen/android/app/src/main/java/com/minecord/app/MainActivity.kt
 
       - name: Build Android APK
         run: npm run tauri -- android build --apk --ci

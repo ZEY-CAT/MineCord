@@ -1,0 +1,33 @@
+#minecordCompanionToggle{min-width:34px;height:34px;border:0;border-radius:8px;background:transparent;color:var(--text,#f2f3f5);font-size:18px;cursor:pointer}
+#minecordCompanionToggle:hover{background:var(--hover,#383a40)}
+#minecordCompanion{position:fixed;z-index:25;width:154px;color:#f2f3f5;font:13px/1.4 system-ui,sans-serif;filter:drop-shadow(0 8px 18px #0007)}
+#minecordCompanion[hidden],#minecordCompanionMenu[hidden]{display:none!important}
+.mc-pet-card{position:relative;display:flex;flex-direction:column;align-items:center;min-height:124px;padding:10px 9px 7px;border:1px solid #ffffff20;border-radius:14px;background:linear-gradient(145deg,#262a35f2,#171a22f2);backdrop-filter:blur(12px)}
+.mc-pet-art{width:74px;height:74px;padding:3px;border:0;background:transparent;cursor:pointer;touch-action:none;outline-offset:2px}
+.mc-pet-art svg{display:block;width:100%;height:100%;shape-rendering:crispEdges;image-rendering:pixelated;transform-origin:50% 100%}
+.mc-pet-name{max-width:132px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700;color:#fff}
+.mc-pet-bubble{position:absolute;bottom:calc(100% + 7px);left:50%;max-width:210px;padding:7px 10px;border:1px solid #ffffff24;border-radius:12px;background:#fff;color:#282a31;font-size:12px;text-align:center;transform:translateX(-50%);opacity:0;pointer-events:none;transition:opacity .16s ease}
+.mc-pet-bubble::after{content:"";position:absolute;top:100%;left:calc(50% - 5px);border:5px solid transparent;border-top-color:#fff}
+.mc-pet-bubble.is-visible{opacity:1}
+#minecordCompanionMenu{position:absolute;right:0;bottom:calc(100% + 9px);width:244px;padding:14px;border:1px solid #ffffff20;border-radius:14px;background:#1e2028f7;color:#f2f3f5;box-shadow:0 12px 34px #0008;backdrop-filter:blur(14px)}
+#minecordCompanionMenu h3{margin:0 0 10px;font-size:15px}
+#minecordCompanionMenu label{display:flex;align-items:center;gap:8px;margin:9px 0;color:#d8dbe2;font-size:12px}
+#minecordCompanionMenu label.mc-pet-field{display:block}
+#minecordCompanionMenu input[type=text],#minecordCompanionMenu select{box-sizing:border-box;width:100%;margin-top:4px;padding:7px 8px;border:1px solid #424651;border-radius:7px;background:#12141a;color:#fff;font:inherit}
+#minecordCompanionMenu input[type=checkbox]{accent-color:#7e8cff}
+#minecordCompanionMenu button{width:100%;padding:7px 9px;border:1px solid #484c59;border-radius:7px;background:#30333d;color:#fff;font:inherit;cursor:pointer}
+#minecordCompanionMenu button:hover{background:#3c4050}
+.mc-pet-animation-idle svg{animation:mc-pet-idle 2.8s ease-in-out infinite}
+.mc-pet-animation-walking svg{animation:mc-pet-walking .55s steps(2,end) infinite}
+.mc-pet-animation-sleeping svg{animation:mc-pet-sleeping 3s ease-in-out infinite}
+.mc-pet-animation-happy svg{animation:mc-pet-hop .42s ease-in-out 3}
+.mc-pet-animation-excited svg{animation:mc-pet-excited .3s ease-in-out 5}
+.mc-pet-animation-playful svg{animation:mc-pet-play 1s ease-in-out 2}
+@keyframes mc-pet-idle{50%{transform:translateY(-3px)}}
+@keyframes mc-pet-walking{50%{transform:translateY(-3px) rotate(3deg)}}
+@keyframes mc-pet-sleeping{50%{transform:scaleY(.94) translateY(2px)}}
+@keyframes mc-pet-hop{50%{transform:translateY(-13px) scale(1.04)}}
+@keyframes mc-pet-excited{50%{transform:translateY(-7px) rotate(-5deg)}}
+@keyframes mc-pet-play{25%{transform:rotate(-10deg) translateY(-4px)}75%{transform:rotate(10deg) translateY(-4px)}}
+@media(max-width:600px){#minecordCompanion{width:126px}#minecordCompanionMenu{width:min(240px,calc(100vw - 40px))}.mc-pet-art{width:64px;height:64px}.mc-pet-card{min-height:110px}}
+@media(prefers-reduced-motion:reduce){#minecordCompanion *{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition:none!important}}

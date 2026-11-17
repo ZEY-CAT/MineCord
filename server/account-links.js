@@ -1,3 +1,5 @@
+const crypto = require('node:crypto');
+
 const PROVIDERS = new Set(['google', 'microsoft', 'github']);
 
 function safeAppReturnTo(value) {
@@ -202,7 +204,15 @@ function oauthCallback(context) {
       target.searchParams.set(key, value);
       return res.redirect(`${target.pathname}${target.search}${target.hash}`);
     };
+    const nativeAuth = state.nativeAuth && typeof state.nativeAuth === 'object' ? state.nativeAuth : null;
+    const redirectNativeError = reason => {
+      const target = new URL('minecord://oauth/error');
+      if (typeof nativeAuth?.state === 'string') target.searchParams.set('state', nativeAuth.state);
+      target.searchParams.set('error', reason);
+      return res.redirect(target.toString());
+    };
     const redirectError = (reason, message) => {
+      if (nativeAuth) return redirectNativeError(reason);
       if (accountLink) return redirectAccountResult('account_link_error', reason);
       const target = new URL(returnTo, appUrl);
       target.searchParams.delete('oauth');
@@ -268,6 +278,25 @@ function oauthCallback(context) {
       }
       const ban = context.activeBan?.(user);
       if (ban) return redirectError('account_banned', context.banMessage?.(ban) || 'This account is banned.');
+      if (nativeAuth) {
+        if (!/^[A-Za-z0-9_-]{43,128}$/.test(nativeAuth.state || '')
+            || !/^[A-Za-z0-9_-]{43}$/.test(nativeAuth.codeChallenge || '')) {
+          return res.status(400).send('The app sign-in request is invalid. Please restart sign-in.');
+        }
+        const handoffCode = crypto.randomBytes(32).toString('base64url');
+        const codeHash = crypto.createHash('sha256').update(handoffCode, 'ascii').digest('hex');
+        database.createNativeAuthHandoff(
+          codeHash,
+          user.id,
+          nativeAuth.state,
+          nativeAuth.codeChallenge,
+          Date.now() + 60 * 1000
+        );
+        const target = new URL('minecord://oauth/complete');
+        target.searchParams.set('code', handoffCode);
+        target.searchParams.set('state', nativeAuth.state);
+        return res.redirect(target.toString());
+      }
       setSession(res, user);
       return res.redirect(returnTo);
     } catch (error) {

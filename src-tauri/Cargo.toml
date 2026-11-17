@@ -19,15 +19,11 @@ tauri-build = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri = { version = "2", features = [] }
-
-# Windows native updater bridge
-[target.'cfg(target_os = "windows")'.dependencies]
-libloading = "0.8"
-
-# Non-Windows platforms use tauri-plugin-updater
-[target.'cfg(not(target_os = "windows"))'.dependencies]
 tauri-plugin-updater = { version = "2", default-features = false, features = [] }
-# reqwest 0.13 gates the deprecated TLS-bypass methods used by
-# tauri-plugin-updater behind its internal `__tls` feature. Enable rustls so
-# feature unification turns that feature on and the updater compiles.
+tauri-plugin-opener = "2"
+tauri-plugin-deep-link = "2"
+tauri-plugin-notification = "2"
 reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
+
+[target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
+tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }

@@ -3,6 +3,7 @@ const express=require('express'),http=require('http'),crypto=require('crypto'),f
 const {WebSocketServer}=require('ws');
 const oauthStateCookie=require('./oauth-state');
 const oauthOriginHelper=require('./oauth-origin');
+const devPortal=require('./dev-portal');
 const PORT=Number(process.env.PORT||3000),APP_URL=process.env.APP_URL||process.env.RENDER_EXTERNAL_URL||`http://localhost:${PORT}`,DATA=path.join(__dirname,'data.json');
 if(APP_URL.startsWith('https://')){const publicOrigin=APP_URL.replace(/\/+$/,'');process.env.GOOGLE_CALLBACK_URL=`${publicOrigin}/auth/google/callback`;process.env.GITHUB_CALLBACK_URL=`${publicOrigin}/auth/github/callback`}
 const OAUTH_ORIGIN_OPTIONS={appUrl:APP_URL,port:PORT};
@@ -39,7 +40,7 @@ data.roleAudit ||= [];
 data.accountMergeAudit ||= [];
 function save(){for(const user of Object.values(data.users))if(!user.role)user.role=user.onboardingCompletedAt?roles.ROLES.MEMBER:roles.ROLES.NEW_MEMBER;database.writeState(data);userCache.clear();serverCache.clear();channelCache.clear();messageCache.clear();friendCache.clear();activityCache.clear()} function id(p){return p+'-'+Date.now().toString(36)+'-'+crypto.randomBytes(4).toString('hex')} function clean(x,n=100){return String(x??'').trim().slice(0,n)} function reservedUsername(value){const name=String(value||'').toLowerCase();return name==='__proto__'||name==='constructor'||name==='prototype'} function cleanAvatar(value){const avatar=clean(value,500);if(!avatar)return '';try{const url=new URL(avatar);return url.protocol==='https:'&&!url.username&&!url.password?url.href:null}catch{return null}} function canonicalUsername(value){const raw=clean(value,32);if(!raw)return '';if(data.users[raw])return raw;const byId=Object.values(data.users).find(user=>user.id===raw);if(byId)return byId.username;const match=Object.keys(data.users).find(name=>name.toLowerCase()===raw.toLowerCase());return match||raw} function pair(a,b){return [canonicalUsername(a),canonicalUsername(b)].sort().join('::')} function canonicalizeFriends(){const original=data.friends||{},normalized={};let changed=false;for(const [key,friend] of Object.entries(original)){const a=canonicalUsername(friend?.a),b=canonicalUsername(friend?.b),by=canonicalUsername(friend?.by)||a;if(!a||!b||a===b||!data.users[a]||!data.users[b]){changed=true;continue}const left=a<b?a:b,right=a<b?b:a,status=friend?.status==='accepted'?'accepted':'pending',normalizedKey=pair(left,right),existing=normalized[normalizedKey];if(!existing||(status==='accepted'&&existing.status!=='accepted'))normalized[normalizedKey]={a:left,b:right,status,by:data.users[by]?by:left};if(key!==normalizedKey||friend?.a!==left||friend?.b!==right||friend?.by!==by||friend?.status!==status)changed=true}if(changed||Object.keys(original).length!==Object.keys(normalized).length){data.friends=normalized;save()}}
 let APP_OWNER_USER_ID=String(process.env.APP_OWNER_USER_ID||'').trim();
-const APP_OWNER_USERNAME=String(process.env.APP_OWNER_USERNAME||'ZEY-CAT').trim();
+const APP_OWNER_USERNAME=String(process.env.APP_OWNER_USERNAME===undefined?'ZEY-CAT':process.env.APP_OWNER_USERNAME).trim();
 function resolveOwnerAccount(){
  const byId=APP_OWNER_USER_ID?Object.values(data.users).find(user=>user.id===APP_OWNER_USER_ID):null;
  if(byId)return byId;
@@ -100,14 +101,14 @@ function send(ws,o){if(ws&&ws.readyState===1)ws.send(JSON.stringify(o))} functio
 function onlineFor(username){return [...new Set(clients.values())].filter(subject=>subject===username||(isAcceptedFriend(username,subject)&&presenceFor(subject)!=='offline'))}
 function visibleProfilesFor(username){const names=new Set([username,...clients.values()]);for(const friendship of Object.values(data.friends||{}))if(friendship.status==='accepted'&&(friendship.a===username||friendship.b===username)){names.add(friendship.a);names.add(friendship.b)}return Object.fromEntries([...names].filter(name=>data.users[name]&&(name===username||isAcceptedFriend(username,name))).map(name=>[name,pub(data.users[name])]))}
 function broadcastPresence(){for(const [client,username] of clients)send(client,{type:'presence',online:onlineFor(username),members:visibleProfilesFor(username)})}
-const BUILT_PUBLIC=path.join(__dirname,'../dist/web');
+const BUILT_PUBLIC=process.env.MINECORD_PUBLIC_DIR?path.resolve(process.env.MINECORD_PUBLIC_DIR):path.join(__dirname,'../dist/web');
 const PUBLIC=fs.existsSync(path.join(BUILT_PUBLIC,'index.html'))?BUILT_PUBLIC:path.join(__dirname,'../public');
 app.use(express.json({limit:'256kb'}));
 app.use((req,res,next)=>{
   res.setHeader('X-Content-Type-Options','nosniff');
   res.setHeader('X-Frame-Options','DENY');
   res.setHeader('Referrer-Policy','strict-origin-when-cross-origin');
-  res.setHeader('Permissions-Policy','camera=(), geolocation=(), microphone=(self)');
+  res.setHeader('Permissions-Policy','camera=(self), geolocation=(), microphone=(self)');
   if(APP_URL.startsWith('https://'))res.setHeader('Strict-Transport-Security','max-age=31536000');
   next();
 });
@@ -220,6 +221,14 @@ function validLocalCredential(password,credential){
 }
 function hasValidPassword(password,user){return [user,...(user.passwordCredentials||[])].some(credential=>validLocalCredential(password,credential))}
 function originAllowed(req){return oauthOriginAllowed(req)}
+app.use('/dev',devPortal.createDevPortalRouter({
+ publicDirectory:PUBLIC,
+ repositoryRoot:path.resolve(__dirname,'..'),
+ workspaceRoot:process.env.MINECORD_DEVELOPER_WORKSPACE_ROOT||path.join(require('node:os').tmpdir(),'minecord-dev-workspaces'),
+ configPath:process.env.MINECORD_DEV_LOGINS_PATH?path.resolve(process.env.MINECORD_DEV_LOGINS_PATH):path.resolve(__dirname,'..','DEV-LOGINS.json'),
+ originAllowed,
+ audit:event=>console.info('[dev-portal]',JSON.stringify({...event,at:Date.now()}))
+}));
 const loginAttempts=new Map();
 const LOGIN_WINDOW_MS=15*60*1000,LOGIN_MAX_FAILURES=10;
 function loginAttemptKey(req,username){return `${req.ip||req.socket?.remoteAddress||'unknown'}|${String(username||'').toLowerCase()}`}
@@ -288,8 +297,28 @@ app.post('/api/cache/clear', requireAuth, (q, r) => {
   r.json({ok: true});
 });
 
-app.post('/api/auth/register',(q,r)=>{if(!originAllowed(q))return r.status(403).json({error:'Request origin is not allowed.'});const username=clean(q.body?.username,24),password=typeof q.body?.password==='string'?q.body.password:'';if(!/^[A-Za-z0-9_]{3,24}$/.test(username))return r.status(400).json({error:'Username must be 3–24 letters, numbers, or underscores.'});if(reservedUsername(username))return r.status(400).json({error:'That username is reserved.'});if(password.length<12||password.length>200)return r.status(400).json({error:'Password must be 12–200 characters.'});if(Object.keys(data.users).some(x=>x.toLowerCase()===username.toLowerCase())||Object.prototype.hasOwnProperty.call(data.mergedUsernames||{},username.toLowerCase()))return r.status(409).json({error:'That username is already taken.'});const credentials=localUser(username,password),user={id:id('usr'),username,displayName:username,avatar:'',minecraft:null,role:roles.ROLES.NEW_MEMBER,onboardingCompletedAt:null,createdAt:Date.now(),passwordSalt:credentials.salt,passwordHash:credentials.hash};data.users[username]=user;save();setSession(r,user);r.status(201).json({user:pub(user)})});
+app.post('/api/auth/register',(q,r)=>{if(!originAllowed(q))return r.status(403).json({error:'Request origin is not allowed.'});const username=clean(q.body?.username,24),password=typeof q.body?.password==='string'?q.body.password:'';if(!/^[A-Za-z0-9_]{3,24}$/.test(username))return r.status(400).json({error:'Username must be 3–24 letters, numbers, or underscores.'});if(reservedUsername(username))return r.status(400).json({error:'That username is reserved.'});if(password.length<8||password.length>200)return r.status(400).json({error:'Password must be 8–200 characters.'});if(Object.keys(data.users).some(x=>x.toLowerCase()===username.toLowerCase())||Object.prototype.hasOwnProperty.call(data.mergedUsernames||{},username.toLowerCase()))return r.status(409).json({error:'That username is already taken.'});const credentials=localUser(username,password),user={id:id('usr'),username,displayName:username,avatar:'',minecraft:null,role:roles.ROLES.NEW_MEMBER,onboardingCompletedAt:null,createdAt:Date.now(),passwordSalt:credentials.salt,passwordHash:credentials.hash};data.users[username]=user;save();setSession(r,user);r.status(201).json({user:pub(user)})});
 app.post('/api/auth/login',(q,r)=>{if(!originAllowed(q))return r.status(403).json({error:'Request origin is not allowed.'});const suppliedUsername=clean(q.body?.username,24),username=Object.prototype.hasOwnProperty.call(data.mergedUsernames||{},suppliedUsername.toLowerCase())?data.mergedUsernames[suppliedUsername.toLowerCase()]:suppliedUsername,password=typeof q.body?.password==='string'?q.body.password:'',attemptKey=loginAttemptKey(q,suppliedUsername);if(loginRateLimited(attemptKey))return r.status(429).json({error:'Too many sign-in attempts. Wait a few minutes and try again.'});const user=Object.values(data.users).find(x=>x.username.toLowerCase()===username.toLowerCase());if(!user||!hasValidPassword(password,user)){recordLoginFailure(attemptKey);return r.status(401).json({error:'Invalid username or password. OAuth-only accounts must use their provider button.'})}const ban=bans.activeBan(data,user);if(ban)return r.status(403).json({error:bans.banMessage(ban),code:'account_banned',ban:bans.publicBan(ban)});clearLoginFailures(attemptKey);setSession(r,user);r.json({user:pub(user)})});
+app.post('/api/auth/native/exchange',(q,r)=>{
+  if(!originAllowed(q))return r.status(403).json({error:'Request origin is not allowed.'});
+  r.set('Cache-Control','no-store');
+  const code=q.body?.code,state=q.body?.state,verifier=q.body?.verifier;
+  if(typeof code!=='string'||!/^[A-Za-z0-9_-]{43}$/.test(code)
+      ||typeof state!=='string'||!/^[A-Za-z0-9_-]{43,128}$/.test(state)
+      ||typeof verifier!=='string'||!/^[A-Za-z0-9._~-]{43,128}$/.test(verifier)){
+    return r.status(400).json({error:'The app sign-in response is invalid. Please start again.'});
+  }
+  const challenge=crypto.createHash('sha256').update(verifier,'ascii').digest('base64url');
+  const codeHash=crypto.createHash('sha256').update(code,'ascii').digest('hex');
+  const userId=database.consumeNativeAuthHandoff(codeHash,state,challenge);
+  if(!userId)return r.status(401).json({error:'This sign-in link expired or was already used. Please start again.'});
+  const user=Object.values(data.users).find(candidate=>candidate.id===userId);
+  if(!user)return r.status(401).json({error:'This MINECORD account is no longer available.'});
+  const ban=bans.activeBan(data,user);
+  if(ban)return r.status(403).json({error:bans.banMessage(ban),code:'account_banned',ban:bans.publicBan(ban)});
+  setSession(r,user);
+  return r.json({user:pub(user)});
+});
 app.get('/api/auth/me',requireAuth,(q,r)=>r.json({user:pub(q.minecordUser)}));
 app.post('/api/auth/logout',(q,r)=>{if(!originAllowed(q))return r.status(403).json({error:'Request origin is not allowed.'});const token=cookieToken(q);if(token)database.deleteSession(crypto.createHash('sha256').update(token).digest('hex'));r.clearCookie('mc_session',{httpOnly:true,sameSite:'lax',secure:APP_URL.startsWith('https://'),path:'/'});r.json({ok:true})});
 app.delete('/api/minecraft/link',requireAuth,(q,r)=>{if(!originAllowed(q))return r.status(403).json({error:'Request origin is not allowed.'});q.minecordUser.minecraft=null;save();r.json({ok:true,user:pub(q.minecordUser)})});
@@ -504,13 +533,23 @@ setInterval(()=>{for(const username of Object.keys(data.gameActivities)){const b
 app.post('/api/activity/presence',requireAuth,(q,r)=>{if(!originAllowed(q))return r.status(403).json({error:'Request origin is not allowed.'});const game=q.body?.game,active=q.body?.active;if(!['java','bedrock'].includes(game)||typeof active!=='boolean')return r.status(400).json({error:'Unsupported activity update.'});if(q.minecordUser.showGameActivity===false){updateActivity(q.minecordUser.username,game,false);return r.json({ok:true,disabled:true})}updateActivity(q.minecordUser.username,game,active);r.json({ok:true})});
 app.post('/api/activity/settings',requireAuth,(q,r)=>{if(!originAllowed(q))return r.status(403).json({error:'Request origin is not allowed.'});if(typeof q.body?.enabled!=='boolean')return r.status(400).json({error:'Activity setting must be boolean.'});q.minecordUser.showGameActivity=q.body.enabled;if(!q.body.enabled){delete data.gameActivities[q.minecordUser.username];database.revokeActivityConnector(q.minecordUser.id)}save();broadcastActivity(q.minecordUser.username);r.json({enabled:q.body.enabled})});
 function oauthStart(provider, req, res) {
+  const native = req.query.native === '1';
+  const clientState = typeof req.query.client_state === 'string' ? req.query.client_state : '';
+  const codeChallenge = typeof req.query.code_challenge === 'string' ? req.query.code_challenge : '';
+  if (native && (!/^[A-Za-z0-9_-]{43,128}$/.test(clientState)
+      || !/^[A-Za-z0-9_-]{43}$/.test(codeChallenge))) {
+    return res.status(400).send('The app sign-in request is invalid. Please restart sign-in.');
+  }
   const prefix = provider.toUpperCase();
   const clientId = process.env[`${prefix}_CLIENT_ID`], secret = process.env[`${prefix}_CLIENT_SECRET`];
   if (!clientId || !secret) return res.status(503).send(`${provider} sign-in is not configured on this MINECORD server.`);
   const state = crypto.randomBytes(24).toString('hex'), createdAt = Date.now();
-  const returnTo = req.query.returnTo ? accountLinks.safeAppReturnTo(req.query.returnTo) : '/app?oauth=success';
+  const returnTo = native ? '/app' : (req.query.returnTo ? accountLinks.safeAppReturnTo(req.query.returnTo) : '/app?oauth=success');
   const origin = oauthOrigin(req), redirectUri = oauthRedirectUri(provider, origin);
-  database.createOAuthState(state, { provider, returnTo, origin, redirectUri, createdAt }, createdAt + 10 * 60 * 1000);
+  database.createOAuthState(state, {
+    provider, returnTo, origin, redirectUri, createdAt,
+    ...(native ? { nativeAuth: { state: clientState, codeChallenge } } : {})
+  }, createdAt + 10 * 60 * 1000);
   oauthStateCookie.bindBrowserToOAuthState(res, provider, state, origin);
   res.redirect(accountLinks.buildAuthorizationUrl(provider, state, redirectUri));
 }

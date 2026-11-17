@@ -23,7 +23,7 @@
         "minWidth": 900,
         "minHeight": 600,
         "resizable": true,
-        "url": "https://minecord-8vg2.onrender.com"
+        "url": "https://minecord-8vg2.onrender.com/app"
       }
     ]
   },
@@ -79,9 +79,17 @@
     }
   },
   "plugins": {
+    "deep-link": {
+      "mobile": [
+        { "scheme": ["minecord"], "appLink": false }
+      ],
+      "desktop": {
+        "schemes": ["minecord"]
+      }
+    },
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXkgQ0JCOUM2NzJGRTIwQ0E4Qg0KUldTTHlpRCtjc2E1eTJob0FVVis2MWNqd1hRZnRXNDJsbThqYnQxenM5cFJHQjFNNGZrZ1pBMDkNCg==",
-      "endpoints": ["https://github.com/ZEY-CAT/MineCord/releases/latest/download/"],
+      "endpoints": [],
       "windows": {
         "installMode": "passive"
       },

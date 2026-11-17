@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const { spawn, spawnSync } = require('node:child_process');
-const { mkdtempSync, rmSync } = require('node:fs');
+const { mkdtempSync, rmSync, writeFileSync } = require('node:fs');
 const http = require('node:http');
 const os = require('node:os');
 const path = require('node:path');
@@ -35,16 +36,19 @@ function availablePort() {
   });
 }
 
-async function startServer(port, ownerUserId = '') {
+async function startServer(port, ownerUserId = '', developerLoginsPath = '') {
   const origin = `http://127.0.0.1:${port}`;
   const child = spawn(process.execPath, ['server/server.js'], {
     cwd: path.resolve(__dirname, '..'),
     env: {
       ...process.env,
       PORT: String(port),
+      HOST: '127.0.0.1',
       APP_URL: origin,
       DATABASE_URL: databaseFile,
+      MINECORD_DEV_LOGINS_PATH: developerLoginsPath,
       APP_OWNER_USER_ID: ownerUserId,
+      APP_OWNER_USERNAME: '',
       GOOGLE_CLIENT_ID: '',
       GOOGLE_CLIENT_SECRET: '',
       MICROSOFT_CLIENT_ID: '',
@@ -61,20 +65,24 @@ async function startServer(port, ownerUserId = '') {
       METERED_SECRET_KEY: '',
       METERED_CREDENTIAL_TTL_SECONDS: ''
     },
-    stdio: ['ignore', 'ignore', 'pipe']
+    stdio: ['ignore', 'pipe', 'pipe']
   });
+  let stdout = '';
   let stderr = '';
+  let probeResult = 'No readiness response was received.';
+  child.stdout.setEncoding('utf8').on('data', chunk => { stdout += chunk; });
   child.stderr.setEncoding('utf8').on('data', chunk => { stderr += chunk; });
   for (let attempt = 0; attempt < 100; attempt++) {
-    if (child.exitCode !== null) throw new Error(`Server exited early: ${stderr}`);
+    if (child.exitCode !== null) throw new Error(`Server exited early:\n${stdout}${stderr}`);
     try {
       const response = await fetch(`${origin}/api/config`);
       if (response.ok) return { child, origin };
-    } catch {}
+      probeResult = `HTTP ${response.status}: ${await response.text()}`;
+    } catch (error) { probeResult = error.message; }
     await new Promise(resolve => setTimeout(resolve, 100));
   }
   child.kill();
-  throw new Error(`Server did not start: ${stderr}`);
+  throw new Error(`Server did not start (${probeResult}):\n${stdout}${stderr}`);
 }
 
 async function stopServer(child) {
@@ -162,6 +170,51 @@ async function closeSocket(socket) {
   await closed;
 }
 
+test('serves the app, download page, and separate developer portal routes', { timeout: 30000 }, async () => {
+  const port = await availablePort();
+  const configPath = path.join(tempDir, 'persistent-portal-DEV-LOGINS.json');
+  const salt = crypto.randomBytes(16).toString('hex');
+  const password = 'portal-test-passphrase';
+  writeFileSync(configPath, JSON.stringify({
+    version: 1,
+    users: [{
+      id: crypto.randomUUID(),
+      username: 'persistent-owner',
+      passwordSalt: salt,
+      passwordHash: crypto.scryptSync(password, salt, 64, {
+        N: 16384, r: 8, p: 1, maxmem: 64 * 1024 * 1024
+      }).toString('hex'),
+      role: 'owner',
+      approved: true
+    }],
+    invitations: [],
+    secrets: {},
+    ai: {}
+  }));
+  const running = await startServer(port, '', configPath);
+  try {
+    const app = await fetch(`${running.origin}/app`);
+    assert.equal(app.status, 200);
+    assert.match(await app.text(), /<title>MINECORD/);
+
+    const downloads = await fetch(`${running.origin}/download`);
+    assert.equal(downloads.status, 200);
+    assert.match(await downloads.text(), /Download MINECORD/);
+
+    const developerPortal = await fetch(`${running.origin}/dev`);
+    assert.equal(developerPortal.status, 200);
+    assert.match(await developerPortal.text(), /Developer Portal|Developer Hub|MINECORD Developer/i);
+    const portalLogin = await fetch(`${running.origin}/dev/api/login`, {
+      method: 'POST',
+      headers: { Origin: running.origin, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'persistent-owner', password })
+    });
+    assert.equal(portalLogin.status, 200);
+  } finally {
+    await stopServer(running.child);
+  }
+});
+
 test('accounts, server permissions, DM history, unread state, and reconnects', { timeout: 60000 }, async () => {
   const port = await availablePort();
   let running = await startServer(port);
@@ -170,6 +223,8 @@ test('accounts, server permissions, DM history, unread state, and reconnects', {
     const frontendResponse = await fetch(running.origin);
     assert.equal(frontendResponse.status, 200);
     assert.match(await frontendResponse.text(), /<title>MINECORD — Minecraft Chat, Servers & Voice<\/title>/);
+    const appLoginPage = await fetch(`${running.origin}/app`);
+    assert.match(await appLoginPage.text(), /Password \(8\+ characters\)/);
     const frontendScript = await fetch(`${running.origin}/features.js`);
     assert.equal(frontendScript.status, 200);
     assert.match(await frontendScript.text(), /MINECORD Shop/);
@@ -182,11 +237,23 @@ test('accounts, server permissions, DM history, unread state, and reconnects', {
       body: JSON.stringify({ username: 'alice', password: 'A-long-test-passphrase!' })
     });
     assert.equal(rejectedOrigin.status, 403);
+    const register = (username, password) => fetch(`${running.origin}/api/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Origin: running.origin },
+      body: JSON.stringify({ username, password })
+    });
+    assert.equal((await register('password_seven', 'seven77')).status, 400);
+    assert.equal((await register('password_eight', 'eight888')).status, 201);
+    assert.equal((await register('password_max', 'x'.repeat(200))).status, 201);
+    assert.equal((await register('password_over', 'x'.repeat(201))).status, 400);
+    assert.ok(await loginAccount(running.origin, 'password_eight', 'eight888'));
+    assert.ok(await loginAccount(running.origin, 'password_max', 'x'.repeat(200)));
     const unauthorizedRtcConfig = await fetch(`${running.origin}/api/rtc-config`);
     assert.equal(unauthorizedRtcConfig.status, 401);
     const unauthorizedRtcUsage = await fetch(`${running.origin}/api/rtc-usage`);
     assert.equal(unauthorizedRtcUsage.status, 401);
     const aliceCookie = await createAccount(running.origin, 'alice');
+    assert.ok(await loginAccount(running.origin, 'alice'));
     const rtcResponse = await fetch(`${running.origin}/api/rtc-config`, { headers: { Cookie: aliceCookie } });
     assert.equal(rtcResponse.headers.get('cache-control'), 'no-store');
     const rtcConfig = await rtcResponse.json();
@@ -1384,6 +1451,7 @@ test('security headers are set on app and API responses', { timeout: 30000 }, as
       assert.equal(res.headers.get('x-content-type-options'), 'nosniff');
       assert.equal(res.headers.get('x-frame-options'), 'DENY');
       assert.equal(res.headers.get('referrer-policy'), 'strict-origin-when-cross-origin');
+      assert.match(res.headers.get('permissions-policy') || '', /camera=\(self\)/);
       assert.match(res.headers.get('permissions-policy') || '', /microphone=\(self\)/);
     }
   } finally {

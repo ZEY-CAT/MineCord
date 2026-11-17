@@ -1,0 +1,37 @@
+// Resolve Android modules from the Cargo registry using versions pinned in Cargo.lock.
+def cargoHomePath = System.getenv('CARGO_HOME') ?: new File(System.getProperty('user.home'), '.cargo').absolutePath
+def registryRoots = new File(cargoHomePath, 'registry/src').listFiles()?.findAll { it.isDirectory() } ?: []
+def lockFile = new File(settingsDir, '../../Cargo.lock')
+if (!lockFile.isFile()) {
+    throw new GradleException('MINECORD Android setup requires src-tauri/Cargo.lock.')
+}
+def packageBlocks = lockFile.getText('UTF-8').split(/(?m)(?=^\[\[package\]\]$)/)
+
+def androidProjectFor = { String crateName, String modulePath ->
+    def versions = packageBlocks.findAll { block ->
+        block.readLines().any { line -> line.trim() == "name = \"${crateName}\"" }
+    }.collect { block ->
+        def versionMatch = block =~ /(?m)^version = "([^"]+)"$/
+        versionMatch.find() ? versionMatch.group(1) : null
+    }.findAll { version -> version != null }
+
+    def androidProject = versions.collectMany { version ->
+        registryRoots.collect { registryRoot ->
+            new File(registryRoot, "${crateName}-${version}/${modulePath}")
+        }
+    }.find { candidate -> candidate.isDirectory() }
+
+    if (androidProject == null) {
+        throw new GradleException("MINECORD Android dependency ${crateName} was not found in the Cargo registry. Run cargo fetch and retry.")
+    }
+    androidProject.canonicalFile
+}
+
+include ':tauri-android'
+project(':tauri-android').projectDir = androidProjectFor('tauri', 'mobile/android')
+include ':tauri-plugin-deep-link'
+project(':tauri-plugin-deep-link').projectDir = androidProjectFor('tauri-plugin-deep-link', 'android')
+include ':tauri-plugin-notification'
+project(':tauri-plugin-notification').projectDir = androidProjectFor('tauri-plugin-notification', 'android')
+include ':tauri-plugin-opener'
+project(':tauri-plugin-opener').projectDir = androidProjectFor('tauri-plugin-opener', 'android')

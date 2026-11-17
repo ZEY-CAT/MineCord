@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 const { spawn, spawnSync } = require('node:child_process');
-const { mkdtempSync, rmSync } = require('node:fs');
+const { mkdtempSync, promises: fs } = require('node:fs');
 const http = require('node:http');
 const os = require('node:os');
 const path = require('node:path');
@@ -46,6 +46,7 @@ async function startServer(port, databaseFile, extraEnv = {}) {
       APP_URL: origin,
       DATABASE_URL: databaseFile,
       APP_OWNER_USER_ID: '',
+      APP_OWNER_USERNAME: '',
       GOOGLE_CLIENT_ID: '',
       GOOGLE_CLIENT_SECRET: '',
       MICROSOFT_CLIENT_ID: '',
@@ -63,20 +64,24 @@ async function startServer(port, databaseFile, extraEnv = {}) {
       METERED_CREDENTIAL_TTL_SECONDS: '',
       ...extraEnv
     },
-    stdio: ['ignore', 'ignore', 'pipe']
+    stdio: ['ignore', 'pipe', 'pipe']
   });
+  let stdout = '';
   let stderr = '';
+  let probeResult = 'No readiness response was received.';
+  child.stdout.setEncoding('utf8').on('data', chunk => { stdout += chunk; });
   child.stderr.setEncoding('utf8').on('data', chunk => { stderr += chunk; });
   for (let attempt = 0; attempt < 100; attempt++) {
-    if (child.exitCode !== null) throw new Error(`Server exited early: ${stderr}`);
+    if (child.exitCode !== null) throw new Error(`Server exited early:\n${stdout}${stderr}`);
     try {
       const response = await fetch(`${origin}/api/config`);
       if (response.ok) return { child, origin };
-    } catch {}
+      probeResult = `HTTP ${response.status}: ${await response.text()}`;
+    } catch (error) { probeResult = error.message; }
     await new Promise(resolve => setTimeout(resolve, 100));
   }
   child.kill();
-  throw new Error(`Server did not start: ${stderr}`);
+  throw new Error(`Server did not start (${probeResult}):\n${stdout}${stderr}`);
 }
 
 async function stopServer(child) {
@@ -84,6 +89,27 @@ async function stopServer(child) {
   const exited = once(child, 'exit');
   child.kill();
   await exited;
+}
+
+async function removeTestDirectory(directory) {
+  const temporaryRoot = path.resolve(os.tmpdir());
+  const target = path.resolve(directory);
+  if (!target.startsWith(`${temporaryRoot}${path.sep}`)) {
+    throw new Error('Refusing to remove a call-test directory outside the temporary root.');
+  }
+
+  let lastError;
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    try {
+      await fs.rm(target, { recursive: true, force: true, maxRetries: 2, retryDelay: 100 });
+      return;
+    } catch (error) {
+      lastError = error;
+      if (!['EPERM', 'EBUSY', 'ENOTEMPTY'].includes(error.code) || attempt === 7) break;
+      await new Promise(resolve => setTimeout(resolve, 150 * (attempt + 1)));
+    }
+  }
+  throw lastError;
 }
 
 async function createAccount(origin, username) {
@@ -239,7 +265,7 @@ test('incoming calls reach every tab, cancel cleanly, time out, and survive call
     if (bobSocket) await closeSocket(bobSocket).catch(() => {});
     if (bobTabTwo) await closeSocket(bobTabTwo).catch(() => {});
     await stopServer(running?.child);
-    rmSync(tempDir, { recursive: true, force: true });
+    await removeTestDirectory(tempDir);
   }
 });
 
@@ -330,7 +356,7 @@ test('video calls carry media type, allow participant invitations, and synchroni
     if (carolSocket) await closeSocket(carolSocket).catch(() => {});
     if (daveSocket) await closeSocket(daveSocket).catch(() => {});
     await stopServer(running?.child);
-    rmSync(tempDir, { recursive: true, force: true });
+    await removeTestDirectory(tempDir);
   }
 });
 
@@ -384,6 +410,6 @@ test('group calls deliver the right membership and keep accepted participants co
     if (bobSocket) await closeSocket(bobSocket).catch(() => {});
     if (carolSocket) await closeSocket(carolSocket).catch(() => {});
     await stopServer(running?.child);
-    rmSync(tempDir, { recursive: true, force: true });
+    await removeTestDirectory(tempDir);
   }
 });

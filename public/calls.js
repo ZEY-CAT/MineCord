@@ -395,7 +395,7 @@
   }
 
   async function startCall() {
-    if (!activeCall) return;
+    if (!activeCall || callUi.acquiring) return;
     const wantsVideo = isVideoCall();
     callUi.acquiring = true;
     renderCallBar();
@@ -1062,8 +1062,10 @@
       if (message.typeName) activeCall.type = message.typeName;
       if (message.mediaType) activeCall.mediaType = message.mediaType;
       if (message.mediaState) callUi.mediaState = { ...callUi.mediaState, ...message.mediaState };
-      makeCallPeer(message.user, shouldInitiatePeer(message.user)).catch(error => console.warn('Could not connect new call participant:', error.message));
-      sendCallMediaState();
+      if (!callUi.acquiring) {
+        makeCallPeer(message.user, shouldInitiatePeer(message.user)).catch(error => console.warn('Could not connect new call participant:', error.message));
+        sendCallMediaState();
+      }
       renderCallBar();
       return true;
     }

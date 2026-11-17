@@ -1,4 +1,5 @@
 const { DatabaseSync } = require('node:sqlite');
+const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -73,6 +74,10 @@ db.exec(`
   );
   CREATE TABLE IF NOT EXISTS oauth_states (
     state TEXT PRIMARY KEY, value TEXT NOT NULL, expires_at INTEGER NOT NULL
+  );
+  CREATE TABLE IF NOT EXISTS native_auth_handoffs (
+    code_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    client_state TEXT NOT NULL, code_challenge TEXT NOT NULL, expires_at INTEGER NOT NULL
   );
   CREATE TABLE IF NOT EXISTS game_activity (
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, game TEXT NOT NULL,
@@ -478,6 +483,45 @@ function consumeOAuthState(state, expectedProvider) {
   }
 }
 
+function createNativeAuthHandoff(codeHash, userId, clientState, codeChallenge, expiresAt) {
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    run('DELETE FROM native_auth_handoffs WHERE expires_at <= ?', Date.now());
+    run(`INSERT INTO native_auth_handoffs(code_hash, user_id, client_state, code_challenge, expires_at)
+      VALUES(?, ?, ?, ?, ?)`, codeHash, userId, clientState, codeChallenge, expiresAt);
+    db.exec('COMMIT');
+  } catch (error) {
+    db.exec('ROLLBACK');
+    throw error;
+  }
+}
+
+function consumeNativeAuthHandoff(codeHash, clientState, codeChallenge, now = Date.now()) {
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const entry = db.prepare(`SELECT user_id, client_state, code_challenge, expires_at
+      FROM native_auth_handoffs WHERE code_hash = ?`).get(codeHash);
+    const matches = (expected, actual) => {
+      if (typeof expected !== 'string' || typeof actual !== 'string') return false;
+      const left = Buffer.from(expected, 'utf8');
+      const right = Buffer.from(actual, 'utf8');
+      return left.length === right.length && crypto.timingSafeEqual(left, right);
+    };
+    if (!entry || entry.expires_at <= now || !matches(entry.client_state, clientState)
+        || !matches(entry.code_challenge, codeChallenge)) {
+      if (entry?.expires_at <= now) run('DELETE FROM native_auth_handoffs WHERE code_hash = ?', codeHash);
+      db.exec('COMMIT');
+      return null;
+    }
+    run('DELETE FROM native_auth_handoffs WHERE code_hash = ?', codeHash);
+    db.exec('COMMIT');
+    return entry.user_id;
+  } catch (error) {
+    db.exec('ROLLBACK');
+    throw error;
+  }
+}
+
 function createActivityPairing(codeHash, userId, expiresAt) {
   run('DELETE FROM activity_pairings WHERE user_id = ? OR expires_at <= ?', userId, Date.now());
   run('INSERT INTO activity_pairings(code_hash, user_id, expires_at) VALUES(?, ?, ?)', codeHash, userId, expiresAt);
@@ -529,4 +573,4 @@ function saveMeteredTurnCredential(userId, credential) {
   credential.createdAt, credential.expiresAt);
 }
 
-module.exports = { loadState, writeState, createSession, findSession, deleteSession, deleteSessionsForUser, pruneSessions, createOAuthState, getOAuthState, consumeOAuthState, createActivityPairing, claimActivityPairing, findActivityConnector, hasActivityConnector, revokeActivityToken, revokeActivityConnector, findMeteredTurnCredential, saveMeteredTurnCredential };
+module.exports = { loadState, writeState, createSession, findSession, deleteSession, deleteSessionsForUser, pruneSessions, createOAuthState, getOAuthState, consumeOAuthState, createNativeAuthHandoff, consumeNativeAuthHandoff, createActivityPairing, claimActivityPairing, findActivityConnector, hasActivityConnector, revokeActivityToken, revokeActivityConnector, findMeteredTurnCredential, saveMeteredTurnCredential };

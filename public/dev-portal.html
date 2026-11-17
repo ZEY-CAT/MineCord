@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#16171b">
+  <title>Developer Portal · MINECORD</title>
+  <link rel="stylesheet" href="/dev-portal.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/dev">MINECORD <span>Developer Portal</span></a>
+    <nav class="top-actions" id="portalNavigation" hidden>
+      <a href="https://github.com/ZEY-CAT/MineCord" target="_blank" rel="noopener noreferrer">Public repository</a>
+      <a href="https://github.com/ZEY-CAT/MineCord/codespaces" target="_blank" rel="noopener noreferrer">Codespaces</a>
+      <a id="createCodespaceLink" href="https://github.com/codespaces/new?repo=ZEY-CAT/MineCord" target="_blank" rel="noopener noreferrer">Create Codespace</a>
+      <a href="https://github.com/features/copilot" target="_blank" rel="noopener noreferrer">GitHub Copilot</a>
+      <a href="/app">MineCord</a>
+      <button id="logoutButton" type="button">Sign out</button>
+    </nav>
+  </header>
+  <main>
+    <section class="auth-panel panel" id="loginPanel">
+      <p class="eyebrow">INVITE-ONLY ACCESS</p>
+      <h1>Developer sign in</h1>
+      <p class="muted">This is a separate portal account. It does not use or collect your MineCord, Minecraft, or Microsoft password.</p>
+      <form id="loginForm">
+        <label for="loginUsername">Developer username</label>
+        <input id="loginUsername" name="username" autocomplete="username" required maxlength="32">
+        <label for="loginPassword">Portal password</label>
+        <input id="loginPassword" name="password" type="password" autocomplete="current-password" required maxlength="256">
+        <button class="primary" type="submit">Sign in</button>
+        <p id="loginError" class="form-message" role="alert"></p>
+      </form>
+      <form id="inviteForm" hidden>
+        <h2>Redeem developer invitation</h2>
+        <label for="inviteUsername">Developer username</label>
+        <input id="inviteUsername" name="username" autocomplete="username" required maxlength="32">
+        <label for="invitePassword">Create portal password (8–200 characters)</label>
+        <input id="invitePassword" name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="200">
+        <button class="primary" type="submit">Accept invitation</button>
+        <p id="inviteError" class="form-message" role="alert"></p>
+      </form>
+    </section>
+
+    <section id="portalApp" hidden>
+      <section class="welcome">
+        <div>
+          <p class="eyebrow">MINECORD ENGINEERING</p>
+          <h1>Developer workspace</h1>
+          <p class="muted">Edit isolated project files, compare changes, and open reviewed pull requests. Source changes never write to the production service.</p>
+        </div>
+        <div class="connection-state" id="connectionState" role="status">Loading workspace…</div>
+      </section>
+      <section class="workspace">
+        <aside class="explorer panel" aria-label="Source file explorer">
+          <div class="panel-heading">
+            <h2>Project files</h2>
+            <button class="icon-button" id="refreshFiles" type="button" title="Refresh files">↻</button>
+          </div>
+          <label class="sr-only" for="fileSearch">Search source files</label>
+          <input id="fileSearch" type="search" placeholder="Search project files" autocomplete="off">
+          <div id="fileTree" class="file-tree" aria-live="polite">Loading approved files…</div>
+          <div id="searchResults" class="file-tree search-results" hidden></div>
+        </aside>
+        <section class="editor panel" aria-label="Code editor">
+          <div class="editor-toolbar">
+            <div class="tabs" id="tabs" role="tablist" aria-label="Open files"></div>
+            <div class="editor-actions">
+              <span id="saveState" class="save-state">No file open</span>
+              <button type="button" id="diffButton" disabled>Review diff</button>
+              <button type="button" id="saveButton" class="primary" disabled>Save workspace</button>
+            </div>
+          </div>
+          <div class="editor-search">
+            <input id="findText" type="search" placeholder="Find in file">
+            <input id="replaceText" type="text" placeholder="Replace with">
+            <button type="button" id="replaceButton" disabled>Replace all</button>
+            <button type="button" id="findClose" aria-label="Clear find and replace">×</button>
+          </div>
+          <div class="code-area" id="codeArea" hidden>
+            <div class="gutter" id="gutter" aria-hidden="true"></div>
+            <div class="code-stack">
+              <pre id="highlight" aria-hidden="true"></pre>
+              <textarea id="editorInput" aria-label="Source code editor" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" disabled></textarea>
+            </div>
+          </div>
+          <div id="editorEmpty" class="empty-editor visible">
+            <div class="empty-icon">&lt;/&gt;</div>
+            <h2>Open a source file to begin</h2>
+            <p>Changes are saved to your own isolated workspace, never to the production checkout.</p>
+          </div>
+          <div class="editor-footer"><span id="languageLabel">Plain text</span><span id="lineLabel">Ln 1, Col 1</span></div>
+        </section>
+        <aside class="workspace-info panel">
+          <h2>Account</h2>
+          <p id="workspaceOwner" class="muted">Verifying invitation…</p>
+          <details class="account-security">
+            <summary>Change portal password</summary>
+            <form id="passwordForm">
+              <label for="currentPortalPassword">Current portal password</label>
+              <input id="currentPortalPassword" type="password" autocomplete="current-password" maxlength="200" required>
+              <label for="newPortalPassword">New portal password (8–200 characters)</label>
+              <input id="newPortalPassword" type="password" autocomplete="new-password" minlength="8" maxlength="200" required>
+              <button type="submit" class="secondary">Change password</button>
+              <p id="passwordStatus" class="muted" role="status"></p>
+            </form>
+          </details>
+          <div class="status-card">
+            <span class="status-dot"></span>
+            <div><strong>Isolated workspace</strong><p id="workspaceCount">Loading workspace…</p></div>
+          </div>
+          <section class="github-card">
+            <h2>GitHub</h2>
+            <p id="githubStatus" class="muted">Checking connection…</p>
+            <button type="button" id="githubConnect" class="secondary">Connect GitHub</button>
+            <p class="muted">GitHub authorization stays on the server. Codespaces and Copilot open in GitHub and use your own account access and billing.</p>
+            <div id="githubDevice" hidden>
+              <p>Enter this code on GitHub:</p>
+              <strong id="githubUserCode" class="device-code"></strong>
+              <a id="githubVerifyLink" target="_blank" rel="noopener noreferrer">Open GitHub verification</a>
+              <button type="button" id="githubPoll">I approved GitHub access</button>
+            </div>
+            <label for="branchName">Feature branch name</label>
+            <input id="branchName" maxlength="40" placeholder="fix/friend-list">
+            <label for="commitMessage">Commit message</label>
+            <input id="commitMessage" maxlength="200" placeholder="Describe this change">
+            <div id="stagedFiles" class="staged-files">Save files to prepare a reviewed change.</div>
+            <button id="pushButton" type="button" class="primary" disabled>Review and create pull request</button>
+            <p id="pushStatus" class="muted" role="status"></p>
+          </section>
+          <section class="github-card">
+            <h2>Checks and history</h2>
+            <label for="branchSelect">Base branch for this workspace</label>
+            <select id="branchSelect" disabled><option>Connect GitHub first</option></select>
+            <button id="loadCommits" type="button" class="secondary" disabled>Load recent commits</button>
+            <div id="commitList" class="commit-list"></div>
+            <button id="loadChecks" type="button" class="secondary" disabled>Load branch checks</button>
+            <div id="checkList" class="commit-list"></div>
+            <a href="https://github.com/ZEY-CAT/MineCord/actions" target="_blank" rel="noopener noreferrer">Repository checks on GitHub</a>
+          </section>
+          <p class="security-note">Protected data, environment files, databases, keys, credentials, and detected secrets are excluded.</p>
+          <section id="ownerPanel" hidden>
+            <h2>Owner controls</h2>
+            <button id="createInvite" type="button" class="secondary">Create developer invitation</button>
+            <div id="inviteResult" class="muted"></div>
+            <h3>Approved developers</h3>
+            <p class="muted">Invite an account as a developer first, then an owner can grant or revoke owner privileges after re-entering their password. The project owner account can use the username ZEY-CAT.</p>
+            <div id="userList"></div>
+            <h3>Secrets vault</h3>
+            <p class="muted">Only the owner can manage this vault. The portal displays names only; saved values are never sent back to any browser. Replace a value by entering it again.</p>
+            <div id="vaultEntries"></div>
+            <form id="vaultForm">
+              <label for="vaultName">Secret name</label><input id="vaultName" maxlength="80">
+              <label for="vaultValue">New or replacement secret value</label><textarea id="vaultValue" rows="3" maxlength="32768" autocomplete="off"></textarea>
+              <button class="secondary" type="submit">Save secret</button>
+            </form>
+            <p id="vaultStatus" class="muted" role="status"></p>
+          </section>
+        </aside>
+      </section>
+      <section class="ai-assistant panel" aria-label="AI coding assistant">
+        <div class="ai-heading">
+          <div><p class="eyebrow">MINECORD ENGINEERING</p><h2>AI coding assistant</h2></div>
+          <span id="aiConnection" class="ai-status" role="status">Checking provider…</span>
+        </div>
+        <div class="ai-toolbar">
+          <label for="aiProvider">Provider</label>
+          <select id="aiProvider">
+            <option value="openai">OpenAI · embedded assistant</option>
+            <option value="copilot">GitHub Copilot · external workflow</option>
+          </select>
+          <label for="aiConversation">Conversation</label>
+          <select id="aiConversation"></select>
+          <button type="button" class="secondary" id="newAiConversation">New</button>
+          <button type="button" class="secondary" id="clearAiConversation">Clear</button>
+        </div>
+        <p id="aiProviderMessage" class="muted ai-provider-message"></p>
+        <div id="copilotWorkflow" class="copilot-workflow" hidden>
+          <p>Embedded GitHub Copilot is unavailable in this portal. The official Copilot SDK requires a Copilot CLI runtime authenticated in its execution environment; MineCord does not have a supported per-developer runtime configured. No other model is presented as Copilot.</p>
+          <a href="https://github.com/copilot" target="_blank" rel="noopener noreferrer">Open GitHub Copilot</a>
+          <a href="https://github.com/codespaces/new?repo=ZEY-CAT/MineCord" target="_blank" rel="noopener noreferrer">Open repository in Codespaces</a>
+        </div>
+        <div id="aiMessages" class="ai-messages" aria-live="polite"><p class="muted">Ask about MineCord, attach permitted open files, or include safe test output.</p></div>
+        <div id="aiProposal" class="ai-proposal" hidden></div>
+        <div class="ai-context">
+          <label class="ai-attach"><input id="attachOpenFiles" type="checkbox" checked> Include currently open permitted files</label>
+          <label for="aiBuildOutput">Optional test/build output (secret-like content is blocked)</label>
+          <textarea id="aiBuildOutput" rows="2" maxlength="10000" placeholder="Paste relevant safe test or build output"></textarea>
+        </div>
+        <form id="aiForm" class="ai-form">
+          <label class="sr-only" for="aiPrompt">Ask the MineCord coding assistant</label>
+          <textarea id="aiPrompt" rows="3" maxlength="6000" placeholder="Ask a MineCord coding question or request a reviewed patch…" required></textarea>
+          <button type="submit" class="primary" id="aiSend">Send</button>
+        </form>
+        <section id="aiOwnerConfig" class="ai-owner-config" hidden>
+          <h3>Owner · OpenAI provider configuration</h3>
+          <p id="aiOwnerStatus" class="muted">Loading protected provider status…</p>
+          <form id="aiOwnerForm">
+            <label for="openaiModel">Default OpenAI model</label>
+            <input id="openaiModel" maxlength="80" placeholder="gpt-4.1-mini" autocomplete="off">
+            <label for="openaiKey">OpenAI API key (write-only)</label>
+            <input id="openaiKey" type="password" maxlength="2048" autocomplete="new-password" placeholder="Leave empty to keep the current key">
+            <div class="ai-owner-actions">
+              <button type="submit" class="primary">Save model / replace key</button>
+              <button type="button" class="secondary" id="removeOpenaiKey">Remove API key</button>
+            </div>
+          </form>
+        </section>
+      </section>
+    </section>
+  </main>
+  <dialog id="diffDialog" aria-labelledby="diffTitle">
+    <div class="dialog-heading"><div><p class="eyebrow">WORKSPACE REVIEW</p><h2 id="diffTitle">File comparison</h2></div><button id="diffClose" type="button" aria-label="Close diff">×</button></div>
+    <div class="diff-columns"><section><h3>Repository version</h3><pre id="diffOriginal"></pre></section><section><h3>Workspace version</h3><pre id="diffCurrent"></pre></section></div>
+  </dialog>
+  <dialog id="pushDialog" aria-labelledby="pushTitle">
+    <div class="dialog-heading"><div><p class="eyebrow">GITHUB REVIEW</p><h2 id="pushTitle">Create a feature branch</h2></div><button id="pushClose" type="button" aria-label="Close review">×</button></div>
+    <p id="pushReviewSummary" class="muted"></p>
+    <p class="notice">This explicitly pushes the selected files to a new feature branch and opens a pull request to main. It does not merge or deploy.</p>
+    <label class="confirm-row"><input id="confirmPush" type="checkbox"> I reviewed the diff and approve pushing this branch and opening its pull request.</label>
+    <button id="confirmPushButton" type="button" class="primary" disabled>Create branch and pull request</button>
+  </dialog>
+  <dialog id="proposalDialog" aria-labelledby="proposalTitle">
+    <div class="dialog-heading"><div><p class="eyebrow">AI PATCH REVIEW</p><h2 id="proposalTitle">Review proposed changes</h2></div><button id="proposalClose" type="button" aria-label="Close proposal review">×</button></div>
+    <div id="proposalReview"></div>
+  </dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="/dev-portal.js" defer></script>
+</body>
+</html>

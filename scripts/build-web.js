@@ -4,7 +4,9 @@ const vm = require('node:vm');
 
 const root = path.resolve(__dirname, '..');
 const sourceDir = path.join(root, 'public');
-const outputDir = path.join(root, 'dist', 'web');
+const outputDir = process.env.MINECORD_WEB_BUILD_DIR
+  ? path.resolve(root, process.env.MINECORD_WEB_BUILD_DIR)
+  : path.join(root, 'dist', 'web');
 const indexPath = path.join(sourceDir, 'index.html');
 
 if (!fs.existsSync(indexPath)) throw new Error('Frontend entry point public/index.html is missing.');
