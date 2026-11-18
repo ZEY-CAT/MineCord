@@ -9,6 +9,8 @@ const { once } = require('node:events');
 const { test } = require('node:test');
 const WebSocket = require('ws');
 
+const SERVER_STARTUP_TIMEOUT_MS = 20000;
+const SERVER_STARTUP_PROBE_TIMEOUT_MS = 500;
 const tempDir = mkdtempSync(path.join(os.tmpdir(), 'minecord-test-'));
 const databaseFile = path.join(tempDir, 'minecord.sqlite');
 const init = spawnSync(process.execPath, ['-e', `const { DatabaseSync } = require('node:sqlite');
@@ -72,14 +74,16 @@ async function startServer(port, ownerUserId = '', developerLoginsPath = '') {
   let probeResult = 'No readiness response was received.';
   child.stdout.setEncoding('utf8').on('data', chunk => { stdout += chunk; });
   child.stderr.setEncoding('utf8').on('data', chunk => { stderr += chunk; });
-  for (let attempt = 0; attempt < 100; attempt++) {
+  const startupDeadline = Date.now() + SERVER_STARTUP_TIMEOUT_MS;
+  while (Date.now() < startupDeadline) {
     if (child.exitCode !== null) throw new Error(`Server exited early:\n${stdout}${stderr}`);
     try {
-      const response = await fetch(`${origin}/api/config`);
+      const probeTimeout = Math.min(SERVER_STARTUP_PROBE_TIMEOUT_MS, Math.max(1, startupDeadline - Date.now()));
+      const response = await fetch(`${origin}/api/config`, { signal: AbortSignal.timeout(probeTimeout) });
       if (response.ok) return { child, origin };
       probeResult = `HTTP ${response.status}: ${await response.text()}`;
     } catch (error) { probeResult = error.message; }
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise(resolve => setTimeout(resolve, Math.min(100, Math.max(0, startupDeadline - Date.now()))));
   }
   child.kill();
   throw new Error(`Server did not start (${probeResult}):\n${stdout}${stderr}`);

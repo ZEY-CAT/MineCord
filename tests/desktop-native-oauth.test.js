@@ -33,3 +33,8 @@ test('Electron and Tauri clients correlate deep-link returns with the pending PK
   assert.match(frontend, /credentials: 'same-origin'/);
   assert.match(frontend, /minecord:\/\/|protocol !== 'minecord:'/);
 });
+
+test('Electron opens the canonical MineCord application route', () => {
+  const main = read('desktop/main.js');
+  assert.match(main, /win\.loadURL\(new URL\('\/app', serverUrl\)\.toString\(\)\)/);
+});

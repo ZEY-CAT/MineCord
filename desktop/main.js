@@ -232,7 +232,7 @@ function createWindow() {
   if (!serverUrl) {
     win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent('<h2>MINECORD server is not configured</h2><p>Set MINECORD_SERVER_URL or update desktop/config.json before building.</p>'));
   } else {
-    win.loadURL(serverUrl);
+    win.loadURL(new URL('/app', serverUrl).toString());
     stopActivityMonitor = startActivityMonitor(reportActivity, message => console.warn(message));
   }
 
