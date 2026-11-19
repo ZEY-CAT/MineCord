@@ -10,7 +10,7 @@ The server and its persistent database are the single source of truth for every 
 
 The Tauri desktop configuration points both its development and packaged windows at `https://minecord-8vg2.onrender.com`. It does not bundle or start a Node backend or local account database. Its WebView uses the hosted site origin so same-origin API requests, the authenticated `mc_session` cookie, WebSocket upgrades, and hosted OAuth callbacks remain on the same service. Provider callback URLs and secrets stay configured on the server. Tauri packaging is not verified until it has been built and exercised on Windows; installing the Rust MSVC toolchain and Windows build prerequisites may be required.
 
-The existing project ships the web app and Windows Electron client. Android and iOS/iPadOS clients are not currently packaged, but should consume this same server configuration and API/WebSocket protocol rather than introducing separate account or messaging storage. They must store the authenticated session securely on-device and send it with HTTP/WebSocket requests. Native app builds and their platform-specific OAuth redirects are separate future client work; they are not prerequisites for using MINECORD today.
+The source tree contains the web app, Windows Electron shell, Tauri desktop shell, and an Android Tauri client generated from the checked-in `src-tauri/gen/android` project. These clients share the same server configuration and API/WebSocket protocol rather than introducing separate account or messaging storage. Android starts at `/app` and uses the hosted MineCord service; iOS/iPadOS packaging is not currently configured or verified. Native packages still require builds and platform-specific callback configuration.
 
 ## 1. Local development
 

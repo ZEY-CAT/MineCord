@@ -17,6 +17,13 @@ android {
         vectorDrawables.useSupportLibrary = true
     }
 
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("universal") {
+            dimension = "distribution"
+        }
+    }
+
     signingConfigs {
         create("release") {
             if (project.hasProperty("MINECORD_ANDROID_KEYSTORE_PATH")) {

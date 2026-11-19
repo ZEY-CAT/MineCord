@@ -38,6 +38,7 @@ test('HTTP merge requires proof of both accounts and invalidates source sessions
       APP_URL: origin,
       DATABASE_URL: databaseFile,
       APP_OWNER_USER_ID: '',
+      APP_OWNER_USERNAME: '',
       GOOGLE_CLIENT_ID: '',
       GOOGLE_CLIENT_SECRET: '',
       MICROSOFT_CLIENT_ID: '',

@@ -16,6 +16,13 @@ test('desktop and Android start directly on the MineCord application route', () 
   assert.equal(generated.app.windows.find(window => window.label === 'main').url, `${hostedOrigin}/app`);
 });
 
+test('Android declares the universal flavor requested by Tauri APK builds', () => {
+  const gradle = fs.readFileSync(path.join(root, 'src-tauri', 'gen', 'android', 'app', 'build.gradle.kts'), 'utf8');
+
+  assert.match(gradle, /flavorDimensions\s*\+=\s*"distribution"/);
+  assert.match(gradle, /create\("universal"\)\s*\{\s*dimension\s*=\s*"distribution"/);
+});
+
 test('Android only evaluates init scripts manually when document-start scripts are unavailable', () => {
   const webView = fs.readFileSync(path.join(root, 'src-tauri', 'gen', 'android', 'app', 'src', 'main', 'java', 'com', 'minecord', 'app', 'generated', 'RustWebView.kt'), 'utf8');
   const client = fs.readFileSync(path.join(root, 'src-tauri', 'gen', 'android', 'app', 'src', 'main', 'java', 'com', 'minecord', 'app', 'generated', 'RustWebViewClient.kt'), 'utf8');

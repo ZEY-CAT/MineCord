@@ -12,7 +12,7 @@
     "dev": "node server/server.js",
     "electron": "electron .",
     "electron:serve": "concurrently -k \"node server/server.js\" \"electron .\"",
-    "test": "node --test --test-concurrency=2",
+    "test": "node --test --test-concurrency=2 \"tests/**/*.test.js\"",
     "build": "node scripts/build-web.js",
     "tauri": "tauri",
     "tauri:prepare": "npm run build",

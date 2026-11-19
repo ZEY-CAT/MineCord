@@ -4,6 +4,7 @@ build/tauri-resources/
 build/tauri.release.conf.json
 /src-tauri/target/
 /src-tauri/gen/schemas/
+/src-tauri/gen/android/local.properties
 .env
 .env.*
 !.env.example

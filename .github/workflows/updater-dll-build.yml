@@ -7,15 +7,20 @@ on:
         description: 'Version to build (e.g., 1.0.2)'
         required: true
         type: string
+      create_release:
+        description: 'Create a GitHub Release from verified main-branch artifacts'
+        required: false
+        type: boolean
+        default: false
   push:
-    branches: [main]
+    branches: [main, minecord-cloud-migration]
     paths:
       - 'updater/**'
       - 'scripts/build-updater.ps1'
       - '.github/workflows/updater-dll-build.yml'
 
 permissions:
-  contents: write
+  contents: read
 
 env:
   UPLOADER_PUBKEY: ${{ secrets.MINECORD_UPDATER_PUBKEY }}
@@ -336,7 +341,7 @@ jobs:
   release:
     name: Create Release
     needs: [windows-electron, build-updater-dll]
-    if: github.event.inputs.create_release == 'true'
+    if: ${{ github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.create_release }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
