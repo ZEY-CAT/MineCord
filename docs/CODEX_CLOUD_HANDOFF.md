@@ -6,6 +6,7 @@ Updated: 2026-11-19
 
 - Repository: `ZEY-CAT/MineCord`, remote `origin` (`https://github.com/ZEY-CAT/MineCord.git`).
 - Migration branch: `minecord-cloud-migration`, created from `origin/main` at `6cf140144cafe29ee5a97fb48f777c36111da567`.
+- Initial migration implementation commit: `85b8b7f` (`Prepare MineCord cloud migration`). Check the branch ref for the latest commit after handoff finalization.
 - Do not merge this branch into `main` until its diffs and CI results have been reviewed.
 - Source migration review found no tracked application source missing from `origin/main` at the starting commit. This branch adds cloud instructions, safer CI triggers/permissions, a scoped test command, and a test-isolation fix. Existing local edits to `MISSION_PROGRESS.md` and `PROGRESS.md` and untracked scratch/build/private files are intentionally preserved and excluded.
 - Before committing or pushing, inspect `git status`, `git diff`, and `git diff --cached`; stage explicit safe files only.
