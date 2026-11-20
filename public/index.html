@@ -2375,6 +2375,7 @@ function renderChess(container) {
   const modeMultiBtn = $('chessModeMulti');
   const multiUI = $('chessMultiplayerUI');
   const resignBtn = $('chessResign');
+  const undoBtn = $('chessUndo');
   
   function setChessMode(mode) {
     chessMode = mode;
@@ -2384,6 +2385,8 @@ function renderChess(container) {
     modeMultiBtn.classList.toggle('secondary', mode !== 'multi');
     multiUI.classList.toggle('hidden', mode !== 'multi');
     resignBtn.style.display = mode === 'multi' ? 'inline-block' : 'none';
+    undoBtn.disabled = mode === 'multi';
+    undoBtn.title = mode === 'multi' ? 'Undo is only available in solo games' : 'Undo the last move';
     if (mode === 'solo' && gameId) {
       leaveGame();
     }
@@ -2423,7 +2426,8 @@ function renderChess(container) {
     if (msg.gameType !== 'chess') return;
     gameId = msg.gameId;
     opponentUsername = msg.players.find(p => p.username !== me.username)?.username;
-    myColor = msg.players.find(p => p.username === me.username)?.color || 'w';
+    const ownPlayer = msg.players.find(p => p.username === me.username);
+    myColor = ownPlayer?.color === 'black' ? 'b' : 'w';
     if (msg.state === 'playing') {
       syncFromServer(msg.gameData);
       startTimers();
@@ -2463,7 +2467,7 @@ function renderChess(container) {
     if (gameData.currentTurn) currentTurn = gameData.currentTurn;
     if (gameData.whiteTime !== undefined) whiteTime = gameData.whiteTime;
     if (gameData.blackTime !== undefined) blackTime = gameData.blackTime;
-    if (gameData.moveHistory) moveHistory = gameData.moveHistory.map(m => ({...m, board: m.board.map(row => [...row])}));
+    if (gameData.moveHistory) moveHistory = gameData.moveHistory.map(m => ({...m, board: Array.isArray(m.board) ? m.board.map(row => [...row]) : null}));
     if (gameData.timersRunning !== undefined) timersRunning = gameData.timersRunning;
     updateStatus();
     updateTimers();
@@ -2472,7 +2476,11 @@ function renderChess(container) {
   
   function sendMoveToServer(fromRow, fromCol, toRow, toCol) {
     if (!gameId || chessMode !== 'multi') return;
-    send({ type: 'game_action', gameId, action: { type: 'move', from: { row: fromRow, col: fromCol }, to: { row: toRow, col: toCol } } });
+    const piece = board[fromRow]?.[fromCol];
+    const promotion = piece?.[1] === 'p' && (toRow === 0 || toRow === 7) ? 'q' : undefined;
+    const action = { type: 'move', from: { row: fromRow, col: fromCol }, to: { row: toRow, col: toCol } };
+    if (promotion) action.promotion = promotion;
+    send({ type: 'game_action', gameId, action });
   }
   
   function leaveGame() {
@@ -2613,6 +2621,10 @@ function renderChess(container) {
   }
   
   function makeMove(fromRow, fromCol, toRow, toCol) {
+    if (chessMode === 'multi' && gameId) {
+      sendMoveToServer(fromRow, fromCol, toRow, toCol);
+      return;
+    }
     const piece = board[fromRow][fromCol];
     const target = board[toRow][toCol];
     
@@ -2636,15 +2648,12 @@ function renderChess(container) {
     updateStatus();
     draw();
     
-    // Send move to server in multiplayer mode
-    if (chessMode === 'multi' && gameId) {
-      sendMoveToServer(fromRow, fromCol, toRow, toCol);
-    }
   }
   
   function undoMove() {
     if (moveHistory.length === 0) return;
     const last = moveHistory.pop();
+    if (!Array.isArray(last.board)) return;
     board = last.board.map(row => [...row]);
     currentTurn = last.turn;
     updateStatus();

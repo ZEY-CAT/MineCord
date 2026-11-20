@@ -347,10 +347,18 @@ function processGameAction(session, player, action) {
 }
 
 function processChessAction(session, player, action) {
+  if (!action || typeof action !== 'object' || Array.isArray(action)) {
+    return { error: 'Invalid chess move.' };
+  }
   const { type, from, to, promotion } = action;
   const gameData = session.gameData;
 
   if (type === 'move') {
+    const validSquare = square => Number.isInteger(square?.row) && Number.isInteger(square?.col) &&
+      square.row >= 0 && square.row < 8 && square.col >= 0 && square.col < 8;
+    if (!validSquare(from) || !validSquare(to) || (from.row === to.row && from.col === to.col)) {
+      return { error: 'Move coordinates are invalid.' };
+    }
     const piece = gameData.board[from.row][from.col];
     if (!piece) return { error: 'No piece at source square.' };
     const pieceColor = piece[0];
@@ -362,12 +370,13 @@ function processChessAction(session, player, action) {
     if (!valid) return { error: 'Invalid move.' };
 
     const captured = gameData.board[to.row][to.col];
-    gameData.board[to.row][to.col] = piece;
-    gameData.board[from.row][from.col] = null;
-
-    if (type === 'promotion' && promotion) {
-      gameData.board[to.row][to.col] = pieceColor + promotion;
+    const reachesPromotionRank = piece[1] === 'p' && (to.row === 0 || to.row === 7);
+    const promotionTypes = ['q', 'r', 'b', 'n'];
+    if (reachesPromotionRank && promotion && !promotionTypes.includes(promotion)) {
+      return { error: 'Invalid pawn promotion piece.' };
     }
+    gameData.board[to.row][to.col] = reachesPromotionRank ? pieceColor + (promotion || 'q') : piece;
+    gameData.board[from.row][from.col] = null;
 
     gameData.moveHistory.push({ from, to, piece, captured, promotion });
     gameData.currentTurn = expectedColor === 'w' ? 'b' : 'w';
@@ -438,8 +447,8 @@ function isPathClear(board, from, to) {
 }
 
 function checkChessGameEnd(gameData) {
-  const whiteKing = findKing(gameData, 'w');
-  const blackKing = findKing(gameData, 'b');
+  const whiteKing = findKing(gameData.board, 'w');
+  const blackKing = findKing(gameData.board, 'b');
   if (!whiteKing) return 'black';
   if (!blackKing) return 'white';
   return null;
