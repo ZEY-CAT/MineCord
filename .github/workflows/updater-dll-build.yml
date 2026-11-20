@@ -1,4 +1,4 @@
-﻿name: MineCordUpdater DLL Build
+name: MineCordUpdater DLL Build
 
 on:
   workflow_dispatch:
@@ -32,7 +32,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup CMake
         uses: jwlawson/actions-setup-cmake@v2
@@ -45,7 +45,7 @@ jobs:
         shell: pwsh
 
       - name: Cache CMake build
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             updater/build
@@ -202,7 +202,7 @@ jobs:
         shell: pwsh
 
       - name: Upload MineCordUpdater.dll
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mincord-updater-dll
           path: updater/build/Release/MineCordUpdater.dll
@@ -210,7 +210,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload MineCordUpdaterSetup.exe
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mincord-updater-installer
           path: dist/MineCordUpdaterSetup.exe
@@ -263,22 +263,22 @@ jobs:
     needs: build-updater-dll
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: 'npm'
 
       - name: Download MineCordUpdater.dll
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: mincord-updater-dll
           path: updater/build/Release
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Generate edition config (Electron Full)
         run: node scripts/generate-edition.js electron
@@ -329,7 +329,7 @@ jobs:
         shell: pwsh
 
       - name: Upload Windows Electron artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mincord-windows-electron
           path: |
@@ -347,7 +347,7 @@ jobs:
       contents: write
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: artifacts
 

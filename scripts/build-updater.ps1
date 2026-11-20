@@ -75,15 +75,8 @@ $projectDllPath = Join-Path $projectRoot "MineCordUpdater.dll"
 Copy-Item $dllPath -Destination $projectDllPath -Force
 Write-Host "Copied to project root: $projectDllPath" -ForegroundColor Green
 
-# Also copy to updater/build/Release for electron-builder extraResources
-$electronDllPath = Join-Path (Join-Path $buildDir $Configuration) "MineCordUpdater.dll"
-if (-not (Test-Path (Split-Path $electronDllPath -Parent))) {
-    New-Item -ItemType Directory -Path (Split-Path $electronDllPath -Parent) -Force | Out-Null
-}
-if ($dllPath -ne $electronDllPath) {
-    Copy-Item $dllPath -Destination $electronDllPath -Force
-}
-Write-Host "Copied for electron-builder: $electronDllPath" -ForegroundColor Green
+# Keep the CMake output available for development and local updater tests.
+Write-Host "Updater DLL available for development: $dllPath" -ForegroundColor Green
 
 # Build NSIS installer if requested
 if ($BuildInstaller) {
