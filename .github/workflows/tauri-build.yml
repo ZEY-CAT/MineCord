@@ -260,16 +260,25 @@ jobs:
           fi
           for f in src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg; do
             if [ -f "$f" ]; then
-              mv "$f" "$(dirname "$f")/$target.dmg"
+              destination="$(dirname "$f")/$target.dmg"
+              if [ "$f" != "$destination" ]; then
+                mv "$f" "$destination"
+              fi
             fi
           done
           for app in src-tauri/target/${{ matrix.target }}/release/bundle/macos/*.app; do
             if [ -d "$app" ]; then
               dir=$(dirname "$app")
               base=$(basename "$app")
-              mv "$app" "$dir/$target.app"
-              [ -f "$dir/${base}.zip" ] && mv "$dir/${base}.zip" "$dir/$target.app.zip"
-              [ -f "$dir/${base}.tar.gz" ] && mv "$dir/${base}.tar.gz" "$dir/$target.app.tar.gz"
+              if [ "$base" != "$target.app" ]; then
+                mv "$app" "$dir/$target.app"
+              fi
+              if [ -f "$dir/${base}.zip" ] && [ "${base}.zip" != "$target.app.zip" ]; then
+                mv "$dir/${base}.zip" "$dir/$target.app.zip"
+              fi
+              if [ -f "$dir/${base}.tar.gz" ] && [ "${base}.tar.gz" != "$target.app.tar.gz" ]; then
+                mv "$dir/${base}.tar.gz" "$dir/$target.app.tar.gz"
+              fi
             fi
           done
 

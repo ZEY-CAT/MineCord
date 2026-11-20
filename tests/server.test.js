@@ -1871,12 +1871,18 @@ test('multiplayer game invitations, synchronized actions, and non-player rejecti
     sockets.push(alice.socket, bob.socket, carol.socket);
     await befriend(alice, bob, 'GameAlice', 'GameBob');
 
+    const unsupported = await sendAndWait(alice.socket, { type: 'game_invite', gameType: 'unknown-game', opponent: 'GameBob' }, message => message.type === 'error');
+    assert.match(unsupported.message, /unsupported game type/i);
+
     const bobInvited = waitFor(bob.socket, message => message.type === 'game_invite' && message.gameType === 'flappy');
     const inviteSent = await sendAndWait(alice.socket, { type: 'game_invite', gameType: 'flappy', opponent: 'GameBob' }, message => message.type === 'game_invite_sent' || message.type === 'error');
     assert.equal(inviteSent.type, 'game_invite_sent', inviteSent.message || 'game invite was rejected');
     const invitation = await bobInvited;
     assert.equal(invitation.inviteId, inviteSent.inviteId);
     assert.equal(invitation.from, 'GameAlice');
+
+    const unauthorizedDecline = await sendAndWait(carol.socket, { type: 'game_decline', inviteId: invitation.inviteId }, message => message.type === 'error');
+    assert.match(unauthorizedDecline.message, /not invited/i);
 
     const aliceStarted = waitFor(alice.socket, message => message.type === 'game_state' && message.gameId === invitation.gameId && message.state === 'playing');
     const bobStarted = await sendAndWait(bob.socket, { type: 'game_accept', inviteId: invitation.inviteId }, message => message.type === 'game_state' && message.gameId === invitation.gameId && message.state === 'playing');
@@ -1885,6 +1891,9 @@ test('multiplayer game invitations, synchronized actions, and non-player rejecti
     assert.ok(bobStarted.gameData.birds.GameAlice);
     assert.ok(bobStarted.gameData.birds.GameBob);
     assert.equal(aliceState.players.length, 2);
+
+    const duplicateAccept = await sendAndWait(bob.socket, { type: 'game_accept', inviteId: invitation.inviteId }, message => message.type === 'error');
+    assert.match(duplicateAccept.message, /no longer awaiting acceptance/i);
 
     const aliceFlap = waitFor(alice.socket, message => message.type === 'game_state' && message.lastAction?.by === 'GameAlice');
     const bobFlap = waitFor(bob.socket, message => message.type === 'game_state' && message.lastAction?.by === 'GameAlice');

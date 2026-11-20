@@ -72,6 +72,10 @@ function handleGameInvite(msg, context, username, send, toUser) {
     send({ type: 'error', message: 'Game type and opponent are required.' });
     return;
   }
+  if (!Object.values(GAME_TYPES).includes(gameType)) {
+    send({ type: 'error', message: 'Unsupported game type.' });
+    return;
+  }
   if (!data.users[opponent]) {
     send({ type: 'error', message: 'User not found.' });
     return;
@@ -131,6 +135,10 @@ function handleGameAccept(msg, context, username, send, toUser) {
     send({ type: 'error', message: 'You are not invited to this game.' });
     return;
   }
+  if (session.state !== GAME_STATES.WAITING || player.ready) {
+    send({ type: 'error', message: 'This game invitation is no longer awaiting acceptance.' });
+    return;
+  }
   player.ready = true;
   session.updatedAt = Date.now();
 
@@ -165,6 +173,14 @@ function handleGameDecline(msg, context, username, send, toUser) {
   }
   if (!session) {
     send({ type: 'error', message: 'Invite not found.' });
+    return;
+  }
+  if (session.state !== GAME_STATES.WAITING) {
+    send({ type: 'error', message: 'This game has already started.' });
+    return;
+  }
+  if (!session.players.some(p => p.username === username)) {
+    send({ type: 'error', message: 'You are not invited to this game.' });
     return;
   }
   for (const p of session.players) {
