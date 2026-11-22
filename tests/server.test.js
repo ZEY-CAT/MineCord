@@ -1953,3 +1953,19 @@ test('local account password change validates, persists, and revokes other sessi
     await stopServer(running.child);
   }
 });
+
+test('Eaglercraft extension download is assembled from current source and served as an attachment', { timeout: 30000 }, async () => {
+  const { createEaglercraftArchive } = require('../server/extension-archive');
+  const port = await availablePort();
+  const running = await startServer(port);
+  try {
+    const response = await fetch(`${running.origin}/eaglercraft-extension.zip`);
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('content-type'), 'application/zip');
+    assert.match(response.headers.get('content-disposition'), /attachment; filename="minecord-eaglercraft-extension\.zip"/);
+    assert.equal(response.headers.get('cache-control'), 'no-cache');
+    assert.deepEqual(Buffer.from(await response.arrayBuffer()), createEaglercraftArchive());
+  } finally {
+    await stopServer(running.child);
+  }
+});

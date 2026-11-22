@@ -26,6 +26,7 @@ const bans=require('./bans');
 const multiplayer=require('./games-multiplayer');
 const roles=require('./roles');
 const turnConfig=require('./turn-config');
+const {createEaglercraftArchive}=require('./extension-archive');
 const {requestTimingMiddleware, withDbTiming, withDbTimingAsync, withWsTiming, withWsTimingAsync, updateConnectionGauges, updateCacheGauges, metrics} = require('./metrics');
 const {
   userCache, serverCache, channelCache, messageCache, friendCache, activityCache,
@@ -206,6 +207,21 @@ app.get('/api/downloads',async(req,res)=>{
   }
 });
 
+app.get('/eaglercraft-extension.zip',(req,res)=>{
+ try{
+  const archive=createEaglercraftArchive();
+  res.status(200).set({
+   'Content-Type':'application/zip',
+   'Content-Disposition':'attachment; filename="minecord-eaglercraft-extension.zip"',
+   'Content-Length':String(archive.length),
+   'Cache-Control':'no-cache',
+   'X-Content-Type-Options':'nosniff'
+  }).send(archive);
+ }catch(error){
+  console.error('[extension-download] Could not package extension:',error.message);
+  res.status(503).json({error:'The Eaglercraft extension download is temporarily unavailable.'});
+ }
+});
 app.use(express.static(PUBLIC));
 function cookieToken(req){const raw=String(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('mc_session='));if(!raw)return '';try{return decodeURIComponent(raw.slice(11))}catch{return ''}}
 function authUser(req){const token=cookieToken(req);if(!token)return null;const session=database.findSession(crypto.createHash('sha256').update(token).digest('hex'));return session?Object.values(data.users).find(u=>u.id===session.user_id)||null:null}

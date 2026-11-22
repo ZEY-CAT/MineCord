@@ -9,6 +9,16 @@ test('settings modal can be closed with Escape', () => {
   assert.match(html, /show\('settingsModal', false\)/);
 });
 
+test('shared responsive MineCord theme loads with reduced-motion and touch adaptations', () => {
+  const html = readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+  const theme = readFileSync(path.join(__dirname, '..', 'public', 'app-theme.css'), 'utf8');
+  assert.match(html, /href="\/app-theme\.css"/);
+  assert.match(theme, /--canvas:\s*#101812/);
+  assert.match(theme, /@media\s*\(max-width:\s*768px\)/);
+  assert.match(theme, /@media\s*\(hover:\s*none\)/);
+  assert.match(theme, /prefers-reduced-motion:\s*reduce/);
+});
+
 test('settings modal has category navigation', () => {
   const html = readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
   assert.match(html, /id="settingsCategory"/);

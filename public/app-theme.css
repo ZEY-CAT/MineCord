@@ -1,0 +1,148 @@
+/* MineCord's shared visual refresh. Kept separate from the feature layout rules. */
+:root {
+  color-scheme: dark;
+  --font-ui: 'IBM Plex Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --ink: #edf5ef;
+  --muted: #aab9ae;
+  --canvas: #101812;
+  --side: #17231b;
+  --rail: #0d1510;
+  --panel: #1b2920;
+  --panel-border: #2b3e31;
+  --line: #2b3a30;
+  --hover: #26392c;
+  --input-bg: #111c15;
+  --input-border: #405947;
+  --blue: #70d593;
+  --green: #57c87a;
+  --red: #ef7373;
+  --yellow: #f1c76d;
+  color: var(--ink);
+  background: var(--canvas);
+  font-family: var(--font-ui);
+}
+
+body {
+  background:
+    radial-gradient(ellipse at 18% -10%, #31523b55, transparent 46%),
+    radial-gradient(ellipse at 100% 100%, #293f3050, transparent 40%),
+    var(--canvas);
+}
+
+button {
+  min-height: 38px;
+  border: 1px solid #ffffff12;
+  border-radius: 10px;
+  background: #26352a;
+  color: var(--ink);
+  box-shadow: 0 2px 7px #0002;
+  transition: background .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+button:hover { background: #334b39; border-color: #83d79b55; box-shadow: 0 5px 16px #0003; }
+button:active { transform: translateY(1px); }
+button.primary, .primary { background: #2d9b55; color: #fff; border-color: #73d49566; }
+button.primary:hover, .primary:hover { background: #38ad63; }
+button.danger, .danger { background: #9f3f42; border-color: #ef737366; }
+button.danger:hover, .danger:hover { background: #b74c4f; }
+
+.app { background: transparent; gap: 0; }
+.rail { background: linear-gradient(180deg, #111d15, var(--rail)); border-right: 1px solid #ffffff0b; }
+.serverIcon {
+  background: #1c2d21;
+  border: 1px solid #ffffff12;
+  box-shadow: 0 5px 14px #0003;
+  transition: transform .16s ease, background .16s ease, border-radius .16s ease;
+}
+.serverIcon:hover { transform: translateY(-2px); background: #31543a; }
+.serverIcon.active { background: #2d9b55; }
+.side, .right { background: #17231bed; }
+.side { border-right: 1px solid #ffffff0a; }
+.right { border-left: 1px solid #ffffff0a; }
+.sideHead, .top, .rightHead, .drawerHeader {
+  border-color: #ffffff12;
+  background: #1a2920;
+  font-family: var(--font-ui);
+  letter-spacing: .01em;
+}
+.sideHead { height: 56px; font-size: 15px; font-weight: 700; }
+.top { height: 58px; font-size: 16px; font-weight: 600; }
+.section, .rightHead { color: #95ab9a; letter-spacing: .09em; }
+.navItem, .friendRow, .person { border-radius: 10px; transition: background .15s ease, color .15s ease; }
+.navItem { min-height: 40px; padding: 10px 12px; }
+.navItem:hover, .friendRow:hover, .person:hover { background: #ffffff0a; }
+.navItem.active { background: #2b4933; color: #e5ffeb; box-shadow: inset 3px 0 #65ce83; }
+.userBar { background: #111b14; border-color: #ffffff12; padding: 12px; }
+.avatar { background: linear-gradient(145deg, #4bab69, #287244); }
+.main { background: #10181270; }
+.messages { gap: 5px; padding: 22px clamp(14px, 3vw, 34px); }
+.msg { padding: 8px 10px; border-radius: 12px; transition: background .14s ease; }
+.msg:hover { background: #ffffff05; }
+.bubble { background: #1c2a20; border: 1px solid #ffffff0c; border-radius: 4px 14px 14px 14px; padding: 10px 13px; line-height: 1.55; }
+.composer { padding: 8px clamp(12px, 3vw, 28px) 18px; }
+.composerBox { background: #17251b; border: 1px solid #354c39; border-radius: 14px; padding: 5px 6px 5px 12px; }
+.composerBox:focus-within { border-color: #69d08a; box-shadow: 0 0 0 4px #69d08a20; }
+.composer button { border-radius: 10px; }
+input[type="text"], input[type="password"], input[type="email"], input[type="url"], select, textarea {
+  border-radius: 10px;
+  background: var(--input-bg);
+}
+input:focus, select:focus, textarea:focus { border-color: #69d08a; box-shadow: 0 0 0 4px #69d08a20; }
+label { color: #bed0c2; }
+.card, .modalCard, .homeCard, .seasonalBanner {
+  border: 1px solid #ffffff14;
+  border-radius: 18px;
+  background: linear-gradient(145deg, #203026f5, #17221bf5);
+  box-shadow: 0 18px 50px #0004;
+}
+.modal, .modalOverlay { background: #061009bb; backdrop-filter: blur(8px); }
+.modalCard { max-width: 560px; }
+.modalHeader { border-color: #ffffff14; }
+.modalClose, .icon, .drawerClose { border: 0; background: transparent; box-shadow: none; }
+.toast, .incoming { border-radius: 18px; border-color: #73d49566; background: #1a2920f5; box-shadow: 0 18px 54px #0008; }
+.activityCard { border-radius: 12px; border-color: #69d08a26; background: #69d08a0c; padding: 12px; }
+.dot, .presenceDot { box-shadow: 0 0 0 3px #17231b; }
+.login { padding: clamp(22px, 5vw, 40px); border: 1px solid #ffffff18; border-radius: 22px; background: linear-gradient(145deg, #203026f7, #142018f7); box-shadow: 0 25px 80px #0007; }
+.login h1 { font-family: var(--font-ui); font-weight: 750; letter-spacing: -.04em; }
+.login input { border-radius: 11px; background: #111c15; }
+.login button { border-radius: 11px; }
+.login .primary { background: #2d9b55; box-shadow: 0 6px 20px #2d9b5540; }
+.login .secondary { border: 1px solid #ffffff19; }
+.homePage, .worldsPage { background: transparent; }
+.homeHeader h1, .seasonalTitle { font-family: var(--font-ui); font-weight: 700; letter-spacing: -.025em; }
+.homeCard { transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease; }
+.homeCard:hover { transform: translateY(-3px); border-color: #69d08a55; box-shadow: 0 20px 45px #0005; }
+.homeCard h3 { font-family: var(--font-ui); font-weight: 650; }
+.serverList li { border-radius: 13px; border-color: #ffffff12; background: #19271d; }
+.serverList li:hover { border-color: #69d08a77; }
+.count { background: #bc4f50; border-radius: 999px; }
+.incomingActions button { min-height: 44px; }
+
+@media (max-width: 768px) {
+  .app { background: #101812; }
+  .rail { background: #101a13; }
+  .top { height: 54px; }
+  .messages { padding: 12px 10px 92px; }
+  .composer { padding: 8px 10px max(10px, env(safe-area-inset-bottom)); background: #142018f2; }
+  .composerBox { border-radius: 16px; }
+  .modal { align-items: flex-end; padding: 10px; }
+  .modal .card, .modalCard { border-radius: 20px 20px 14px 14px; max-height: min(88dvh, 760px); overflow-y: auto; }
+  .login { width: min(100%, 480px); margin: auto; }
+}
+
+@media (max-width: 420px) {
+  .topTools { gap: 2px; }
+  .topTools button { padding: 7px; }
+  .topTools button span { display: none; }
+  .messages { padding-inline: 7px; }
+  .msg { gap: 7px; padding-inline: 5px; }
+  .composer button { padding-inline: 11px; }
+}
+
+@media (hover: none) {
+  button:hover, .homeCard:hover { transform: none; box-shadow: none; }
+  button { min-height: 42px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}

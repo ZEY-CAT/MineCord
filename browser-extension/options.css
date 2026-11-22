@@ -1,8 +1,8 @@
 :root {
   color-scheme: dark;
-  font: 14px/1.5 system-ui, sans-serif;
-  color: #f2f4f7;
-  background: #313338;
+  font: 14px/1.55 system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: #edf5ef;
+  background: #101812;
 }
 
 * {
@@ -11,17 +11,19 @@
 
 body {
   margin: 0;
+  min-height: 100vh;
   padding: 48px 20px;
+  background: radial-gradient(ellipse at 18% -10%, #31523b55, transparent 46%), #101812;
 }
 
 .settings {
   width: min(100%, 620px);
   margin: 0 auto;
   padding: 28px;
-  border: 1px solid #41434a;
-  border-radius: 12px;
-  background: #2b2d31;
-  box-shadow: 0 12px 40px #0003;
+  border: 1px solid #ffffff18;
+  border-radius: 20px;
+  background: linear-gradient(145deg, #203026f7, #142018f7);
+  box-shadow: 0 22px 64px #0007;
 }
 
 header {
@@ -29,14 +31,14 @@ header {
   align-items: center;
   gap: 14px;
   padding-bottom: 22px;
-  border-bottom: 1px solid #41434a;
+  border-bottom: 1px solid #ffffff16;
 }
 
 .icon {
   width: 32px;
   height: 32px;
   flex: none;
-  color: #57d98a;
+  color: #70d593;
 }
 
 h1,
@@ -57,7 +59,7 @@ h2 {
 header p,
 .description,
 .privacy p {
-  color: #b5bac1;
+  color: #aab9ae;
 }
 
 header p {
@@ -82,17 +84,17 @@ input {
   width: 100%;
   min-height: 42px;
   padding: 10px 12px;
-  border: 1px solid #4a4d53;
-  border-radius: 6px;
+  border: 1px solid #405947;
+  border-radius: 10px;
   outline: none;
-  background: #1e1f22;
+  background: #111c15;
   color: #f2f4f7;
   font: inherit;
 }
 
 input:focus {
-  border-color: #57d98a;
-  box-shadow: 0 0 0 2px #57d98a33;
+  border-color: #69d08a;
+  box-shadow: 0 0 0 4px #69d08a20;
 }
 
 .actions {
@@ -109,8 +111,8 @@ button {
   min-height: 40px;
   padding: 8px 14px;
   border: 0;
-  border-radius: 6px;
-  background: #248046;
+  border-radius: 10px;
+  background: #2d9b55;
   color: #fff;
   font: inherit;
   font-weight: 650;
@@ -118,17 +120,17 @@ button {
 }
 
 button:hover:not(:disabled) {
-  background: #2d9855;
+  background: #38ad63;
 }
 
 button.secondary {
-  border: 1px solid #555860;
+  border: 1px solid #ffffff24;
   background: transparent;
   color: #f2f4f7;
 }
 
 button.secondary:hover:not(:disabled) {
-  background: #3a3c42;
+  background: #26392c;
 }
 
 button:disabled {
@@ -144,22 +146,64 @@ button:disabled {
 .status {
   min-height: 22px;
   margin-top: 12px;
-  color: #b5bac1;
+  color: #aab9ae;
 }
 
 .status[data-state="success"] {
-  color: #57d98a;
+  color: #70d593;
 }
 
 .status[data-state="error"] {
-  color: #f28b82;
+  color: #ef8989;
 }
 
 .privacy {
   margin-top: 24px;
   padding: 16px;
-  border-radius: 8px;
-  background: #1e1f22;
+  border: 1px solid #ffffff0c;
+  border-radius: 12px;
+  background: #111c15;
+}
+
+body.popup {
+  width: 360px;
+  min-width: 320px;
+  min-height: 0;
+  padding: 0;
+}
+
+.settings.popup {
+  width: 100%;
+  margin: 0;
+  padding: 18px;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.popup header { gap: 11px; padding-bottom: 14px; }
+.popup .icon { width: 28px; height: 28px; }
+.popup h1 { font-size: 18px; }
+.popup header p { font-size: 12px; }
+.popup section { padding-top: 14px; }
+.popup .description { margin-bottom: 10px; font-size: 12px; }
+.popup label { margin: 10px 0 5px; font-size: 12px; }
+.popup input { min-height: 38px; font-size: 12px; }
+.popup .actions { gap: 8px; margin-top: 12px; }
+.popup button { flex: 1; padding: 7px 9px; font-size: 12px; }
+.popup .status { min-height: 32px; margin-top: 8px; font-size: 12px; }
+.popup .privacy { margin-top: 8px; padding: 10px; }
+.popup .privacy p { font-size: 11px; }
+.popup #options { display: inline-block; margin-top: 10px; color: #aab9ae; font-size: 12px; }
+.popup #options:hover { color: #70d593; }
+
+button:focus-visible, input:focus-visible, a:focus-visible {
+  outline: 2px solid #9ce9b2;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
 
 .privacy p {
