@@ -199,11 +199,11 @@ test('serves the app, download page, and separate developer portal routes', { ti
   try {
     const app = await fetch(`${running.origin}/app`);
     assert.equal(app.status, 200);
-    assert.match(await app.text(), /<title>MINECORD/);
+    assert.match(await app.text(), /<title>MineCord/);
 
     const downloads = await fetch(`${running.origin}/download`);
     assert.equal(downloads.status, 200);
-    assert.match(await downloads.text(), /Download MINECORD/);
+    assert.match(await downloads.text(), /Download MineCord/);
 
     const developerPortal = await fetch(`${running.origin}/dev`);
     assert.equal(developerPortal.status, 200);
@@ -226,12 +226,12 @@ test('accounts, server permissions, DM history, unread state, and reconnects', {
   try {
     const frontendResponse = await fetch(running.origin);
     assert.equal(frontendResponse.status, 200);
-    assert.match(await frontendResponse.text(), /<title>MINECORD — Minecraft Chat, Servers & Voice<\/title>/);
+    assert.match(await frontendResponse.text(), /<title>MineCord — Minecraft Chat, Servers & Voice<\/title>/);
     const appLoginPage = await fetch(`${running.origin}/app`);
     assert.match(await appLoginPage.text(), /Password \(8\+ characters\)/);
     const frontendScript = await fetch(`${running.origin}/features.js`);
     assert.equal(frontendScript.status, 200);
-    assert.match(await frontendScript.text(), /MINECORD Shop/);
+    assert.match(await frontendScript.text(), /MineCord Shop/);
     const licensedFont = await fetch(`${running.origin}/fonts/vt323.ttf`);
     assert.equal(licensedFont.status, 200);
     assert.ok((await licensedFont.arrayBuffer()).byteLength > 100000);

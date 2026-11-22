@@ -149,6 +149,64 @@
     });
   }
 
+  const loginButtons = [...document.querySelectorAll('#login button')];
+  const browserButton = loginButtons.find(button => button.textContent.includes('Sign in with website'));
+  const copyButton = loginButtons.find(button => button.textContent.includes('Copy sign-in link'));
+  if (browserButton && copyButton) {
+    const actions = document.createElement('div');
+    actions.className = 'loginBrowserActions';
+    actions.setAttribute('aria-label', 'Other sign-in options');
+    browserButton.before(actions);
+    actions.append(browserButton, copyButton);
+
+    browserButton.removeAttribute('onclick');
+    browserButton.id = 'browserSignIn';
+    browserButton.classList.remove('oauthButton');
+    browserButton.classList.add('secondary');
+    browserButton.textContent = 'Sign in with browser';
+    browserButton.addEventListener('click', async () => {
+      const appUrl = new URL('/app', location.origin).toString();
+      try {
+        const tauriOpener = window.__TAURI__?.opener?.openUrl;
+        if (typeof tauriOpener === 'function') await tauriOpener(appUrl);
+        else if (typeof window.minecordDesktop?.openAppInBrowser === 'function') {
+          await window.minecordDesktop.openAppInBrowser();
+        } else {
+          const opened = window.open(appUrl, '_blank', 'noopener,noreferrer');
+          if (!opened) location.assign(appUrl);
+        }
+        showLoginMessage('MineCord opened in your browser. Browser and app sessions are separate.');
+      } catch (error) {
+        showLoginMessage(error?.message || 'Could not open MineCord in your browser.');
+      }
+    });
+
+    copyButton.removeAttribute('onclick');
+    copyButton.id = 'copySignInLink';
+    copyButton.addEventListener('click', async () => {
+      const appUrl = new URL('/app', location.origin).toString();
+      try {
+        await navigator.clipboard.writeText(appUrl);
+      } catch {
+        const field = document.createElement('textarea');
+        field.value = appUrl;
+        field.setAttribute('readonly', '');
+        field.style.position = 'fixed';
+        field.style.opacity = '0';
+        document.body.appendChild(field);
+        field.select();
+        document.execCommand('copy');
+        field.remove();
+      }
+      showLoginMessage('MineCord sign-in link copied.');
+    });
+
+    const note = document.createElement('p');
+    note.className = 'loginSessionNote';
+    note.textContent = 'Use the same Google or Microsoft account to return to your MineCord account. Browser and app sessions are separate.';
+    actions.after(note);
+  }
+
   const tauriDeepLink = window.__TAURI__?.deepLink;
   if (tauriDeepLink) {
     Promise.resolve(tauriDeepLink.getCurrent?.()).then(urls => {

@@ -107,6 +107,15 @@ label { color: #bed0c2; }
 .login button { border-radius: 11px; }
 .login .primary { background: #2d9b55; box-shadow: 0 6px 20px #2d9b5540; }
 .login .secondary { border: 1px solid #ffffff19; }
+.loginBrowserActions {
+  display: grid;
+  gap: 13px;
+  margin: 20px 0 6px;
+  padding-top: 18px;
+  border-top: 1px solid #ffffff16;
+}
+.loginBrowserActions button { width: 100%; min-height: 48px; margin: 0; }
+.loginSessionNote { max-width: 360px; margin: 0 auto 6px; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .homePage, .worldsPage { background: transparent; }
 .homeHeader h1, .seasonalTitle { font-family: var(--font-ui); font-weight: 700; letter-spacing: -.025em; }
 .homeCard { transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease; }
@@ -116,6 +125,10 @@ label { color: #bed0c2; }
 .serverList li:hover { border-color: #69d08a77; }
 .count { background: #bc4f50; border-radius: 999px; }
 .incomingActions button { min-height: 44px; }
+.section, .rightHead, .featuredTag, .eventStatus, .callMediaBadge {
+  text-transform: none;
+  letter-spacing: .02em;
+}
 
 @media (max-width: 768px) {
   .app { background: #101812; }
@@ -126,7 +139,8 @@ label { color: #bed0c2; }
   .composerBox { border-radius: 16px; }
   .modal { align-items: flex-end; padding: 10px; }
   .modal .card, .modalCard { border-radius: 20px 20px 14px 14px; max-height: min(88dvh, 760px); overflow-y: auto; }
-  .login { width: min(100%, 480px); margin: auto; }
+  #login.modal { align-items: flex-start; padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)); }
+  #login .login { width: min(100%, 480px); max-height: calc(100vh - 24px); max-height: calc(100dvh - max(24px, env(safe-area-inset-top) + env(safe-area-inset-bottom))); margin: auto; overflow-y: auto; overscroll-behavior: contain; }
 }
 
 @media (max-width: 420px) {

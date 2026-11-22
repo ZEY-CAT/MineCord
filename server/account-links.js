@@ -42,6 +42,7 @@ function buildAuthorizationUrl(provider, state, redirectUri) {
     return `https://github.com/login/oauth/authorize?${query}`;
   }
   query.set('scope', 'openid email profile User.Read');
+  query.set('prompt', 'select_account');
   return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${query}`;
 }
 

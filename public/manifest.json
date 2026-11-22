@@ -1,33 +1,46 @@
 {
-  "name": "MINECORD",
-  "short_name": "MINECORD",
+  "name": "MineCord",
+  "short_name": "MineCord",
   "description": "Minecraft-focused chat, servers, DMs and voice",
   "start_url": "/app",
   "display": "standalone",
-  "background_color": "#313338",
-  "theme_color": "#5865f2",
-  "orientation": "portrait-primary",
+  "background_color": "#101812",
+  "theme_color": "#101812",
+  "orientation": "any",
+  "display_override": ["standalone", "minimal-ui"],
   "icons": [
     {
-      "src": "/icons/icon-192.png",
+      "src": "/icons/icon-192.png?v=icons-20261122",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "/icons/icon-512.png",
+      "src": "/icons/icon-512.png?v=icons-20261122",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/maskable-192.png?v=icons-20261122",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/maskable-512.png?v=icons-20261122",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "categories": ["social", "communication", "gaming"],
   "screenshots": [],
   "shortcuts": [
     {
-      "name": "Open Web App",
-      "short_name": "Web App",
-      "description": "Open the MINECORD web app",
+      "name": "Open MineCord",
+      "short_name": "MineCord",
+      "description": "Open the MineCord app",
       "url": "/app",
       "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     }

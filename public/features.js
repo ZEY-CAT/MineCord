@@ -106,7 +106,7 @@
   shopModal.className = 'modal featureModal hidden';
   shopModal.innerHTML = `
     <section class="card featureCard" role="dialog" aria-modal="true" aria-labelledby="shopTitle">
-      <header class="featureHead"><div><h2 id="shopTitle" style="margin:0">MINECORD Shop</h2><div class="muted">Demo items only. Demo Credits have no real-world value.</div></div><button id="closeShop" aria-label="Close shop">Close</button></header>
+      <header class="featureHead"><div><h2 id="shopTitle" style="margin:0">MineCord Shop</h2><div class="muted">Demo items only. Demo Credits have no real-world value.</div></div><button id="closeShop" aria-label="Close shop">Close</button></header>
       <div class="featureBody"><div id="shopStatus" class="muted" role="status">Loading shop…</div>
         <div id="shopContent" class="hidden"><div class="shopBalance"><svg class="shopCoin" aria-hidden="true"><use href="#icon-shop"></use></svg><div><b id="shopBalance"></b><div class="muted">TEST CURRENCY · NO REAL-WORLD VALUE</div></div></div>
           <div class="shopTabs" role="tablist"><button data-shop-tab="catalog" class="selected">Catalog</button><button data-shop-tab="inventory">My inventory</button><button data-shop-tab="transactions">Transactions</button></div>
@@ -126,7 +126,7 @@
   const onboardingModal = document.createElement('div');
   onboardingModal.id = 'onboardingModal';
   onboardingModal.className = 'modal hidden';
-  onboardingModal.innerHTML = `<section class="card" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle"><h2 id="onboardingTitle">Welcome to MINECORD</h2><p class="muted">Complete these steps to become a Member. New Members can explore, but shop purchases stay disabled until onboarding is done. You can reopen these steps any time from <b>Tips &amp; Guide</b>.</p><label for="onboardingDisplayName">Display name</label><input id="onboardingDisplayName" maxlength="32" autocomplete="nickname"><label class="row"><input id="onboardingGuidelines" type="checkbox" style="width:auto"> I agree to be respectful and follow community rules.</label><div class="row" style="flex-wrap:wrap;gap:8px"><button id="completeOnboarding" class="primary">Complete onboarding</button><button id="dismissOnboarding" class="secondary">Not now</button></div><p id="onboardingStatus" class="muted" role="status"></p></section>`;
+  onboardingModal.innerHTML = `<section class="card" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle"><h2 id="onboardingTitle">Welcome to MineCord</h2><p class="muted">Complete these steps to become a Member. New Members can explore, but shop purchases stay disabled until onboarding is done. You can reopen these steps any time from <b>Tips &amp; Guide</b>.</p><label for="onboardingDisplayName">Display name</label><input id="onboardingDisplayName" maxlength="32" autocomplete="nickname"><label class="row"><input id="onboardingGuidelines" type="checkbox" style="width:auto"> I agree to be respectful and follow community rules.</label><div class="row" style="flex-wrap:wrap;gap:8px"><button id="completeOnboarding" class="primary">Complete onboarding</button><button id="dismissOnboarding" class="secondary">Not now</button></div><p id="onboardingStatus" class="muted" role="status"></p></section>`;
   document.body.appendChild(onboardingModal);
 
   const shopState = { data: null, tab: 'catalog', category: 'All', selected: null };
@@ -495,7 +495,7 @@
     <h4>Merge two accounts you own</h4><p class="muted">First re-authenticate this destination account, then prove the source account with its password or a linked Google, Microsoft, or GitHub identity. Email matches alone are never accepted. Account merge is permanent.</p>
     <div class="mergeGrid"><div><label for="mergeTargetPassword">Destination account password</label><input id="mergeTargetPassword" type="password" autocomplete="current-password"><button id="verifyMergeTarget" class="primary">Re-authenticate destination</button></div>
     <div><label for="mergeProvider">OAuth provider for proof</label><select id="mergeProvider"><option value="google">Google</option><option value="microsoft">Microsoft</option><option value="github">GitHub</option></select><button id="verifyMergeTargetOAuth">Verify destination with OAuth</button></div></div>
-    <div class="mergeGrid"><div><label for="mergeSourceUsername">Source MINECORD username</label><input id="mergeSourceUsername" maxlength="24" autocomplete="username"><label for="mergeSourcePassword">Source account password</label><input id="mergeSourcePassword" type="password" autocomplete="current-password"><button id="verifyMergeSource" class="primary">Verify source and preview</button></div>
+    <div class="mergeGrid"><div><label for="mergeSourceUsername">Source MineCord username</label><input id="mergeSourceUsername" maxlength="24" autocomplete="username"><label for="mergeSourcePassword">Source account password</label><input id="mergeSourcePassword" type="password" autocomplete="current-password"><button id="verifyMergeSource" class="primary">Verify source and preview</button></div>
     <div><label for="mergeSourceProvider">OAuth provider linked to source</label><select id="mergeSourceProvider"><option value="google">Google</option><option value="microsoft">Microsoft</option><option value="github">GitHub</option></select><button id="verifyMergeSourceOAuth">Verify source with OAuth</button></div></div>
     <div id="mergePreview" class="mergePreview hidden"></div>
     <h4>Merged DM archives</h4><div id="mergeArchives" class="muted">Conversation archives are loaded when you open Settings.</div>`;
@@ -819,7 +819,7 @@
       };
 
       window.shareWorld = async function(serverId) {
-        const username = prompt('Friend\'s MINECORD username?');
+        const username = prompt('Friend\'s MineCord username?');
         if (!username) return;
         try {
           const res = await fetchJson('/api/games/servers/' + serverId + '/share', {

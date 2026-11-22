@@ -92,6 +92,22 @@ ipcMain.handle('minecord:open-external-auth', async (event, value) => {
   await shell.openExternal(url.toString());
 });
 
+ipcMain.handle('minecord:open-app-in-browser', async event => {
+  if (!mainWindow || event.sender !== mainWindow.webContents || !serverUrl) {
+    throw new Error('MINECORD could not open the app in your browser.');
+  }
+  let url;
+  try { url = new URL('/app', serverUrl); } catch {
+    throw new Error('MINECORD browser URL is invalid.');
+  }
+  const allowedOrigins = new Set(['https://minecord-8vg2.onrender.com']);
+  if (!app.isPackaged && /^http:\/\/(localhost|127\.0\.0\.1):3000$/.test(serverUrl)) allowedOrigins.add(serverUrl);
+  if (!allowedOrigins.has(url.origin) || url.pathname !== '/app' || url.username || url.password) {
+    throw new Error('MINECORD could not verify the browser destination.');
+  }
+  await shell.openExternal(url.toString());
+});
+
 // Initialize the native updater
 const updater = require('./updater-bridge');
 

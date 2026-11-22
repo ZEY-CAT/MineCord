@@ -38,3 +38,16 @@ test('Electron opens the canonical MineCord application route', () => {
   const main = read('desktop/main.js');
   assert.match(main, /win\.loadURL\(new URL\('\/app', serverUrl\)\.toString\(\)\)/);
 });
+
+test('browser sign-in opens only the canonical app path in the external browser', () => {
+  const main = read('desktop/main.js');
+  const preload = read('desktop/preload.js');
+  const frontend = read('public/native-oauth.js');
+  assert.match(main, /minecord:open-app-in-browser/);
+  assert.match(main, /new URL\('\/app', serverUrl\)/);
+  assert.match(main, /url\.pathname !== '\/app'/);
+  assert.match(preload, /openAppInBrowser: \(\) => ipcRenderer\.invoke\('minecord:open-app-in-browser'\)/);
+  assert.match(frontend, /window\.minecordDesktop\?\.openAppInBrowser/);
+  assert.match(frontend, /loginBrowserActions/);
+  assert.match(frontend, /Copy sign-in link/);
+});
