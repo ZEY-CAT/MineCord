@@ -166,6 +166,11 @@ function writeState(state, options = {}) {
     }
     const invalidated = [...new Set(options.invalidateSessionUserIds || [])];
     for (const userId of invalidated) run('DELETE FROM sessions WHERE user_id = ?', userId);
+    for (const entry of options.invalidateOtherSessions || []) {
+      if (typeof entry?.userId === 'string' && typeof entry?.keepTokenHash === 'string') {
+        run('DELETE FROM sessions WHERE user_id = ? AND token_hash <> ?', entry.userId, entry.keepTokenHash);
+      }
+    }
     const deleteUserIds = [...new Set(options.deleteUserIds || [])];
     for (const userId of deleteUserIds) run('DELETE FROM activity_pairings WHERE user_id = ?', userId);
     for (const userId of deleteUserIds) run('DELETE FROM activity_tokens WHERE user_id = ?', userId);

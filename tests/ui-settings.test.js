@@ -80,6 +80,21 @@ test('settings category persists to localStorage', () => {
   assert.match(html, /localStorage\.getItem\('settingsCategory'\)/);
 });
 
+test('account settings expose an accessible password-change form without storing credentials in the browser', () => {
+  const html = readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+  const client = readFileSync(path.join(__dirname, '..', 'public', 'password-settings.js'), 'utf8');
+  const server = readFileSync(path.join(__dirname, '..', 'server', 'server.js'), 'utf8');
+  assert.match(html, /id="passwordChangeForm"/);
+  assert.match(html, /autocomplete="current-password"/);
+  assert.match(html, /autocomplete="new-password"/);
+  assert.match(client, /newPassword !== confirmPassword/);
+  assert.match(client, /fetch\('\/api\/auth\/password\/change'/);
+  assert.doesNotMatch(client, /localStorage|sessionStorage/);
+  assert.match(server, /if\(!validPassword\(currentPassword,q\.minecordUser\)\)/);
+  assert.match(server, /localUser\(q\.minecordUser\.username,newPassword\)/);
+  assert.match(server, /invalidateOtherSessions:\[\{userId:q\.minecordUser\.id,keepTokenHash\}\]/);
+});
+
 
 
 

@@ -1915,3 +1915,41 @@ test('multiplayer game invitations, synchronized actions, and non-player rejecti
     await stopServer(running.child);
   }
 });
+
+test('local account password change validates, persists, and revokes other sessions', { timeout: 30000 }, async () => {
+  const port = await availablePort();
+  const running = await startServer(port);
+  try {
+    const currentCookie = await createAccount(running.origin, 'password_change_user');
+    const otherCookie = await loginAccount(running.origin, 'password_change_user');
+    const change = (cookie, body) => fetch(`${running.origin}/api/auth/password/change`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Origin: running.origin, Cookie: cookie },
+      body: JSON.stringify(body)
+    });
+
+    assert.equal((await change(currentCookie, { currentPassword: 'incorrect-passphrase', newPassword: 'Another-long-passphrase!' })).status, 401);
+    assert.equal((await change(currentCookie, { currentPassword: 'A-long-test-passphrase!', newPassword: 'short' })).status, 400);
+    assert.equal((await change(currentCookie, { currentPassword: 'A-long-test-passphrase!', newPassword: 'A-long-test-passphrase!' })).status, 400);
+    assert.equal((await fetch(`${running.origin}/api/auth/me`, { headers: { Cookie: otherCookie } })).status, 200);
+
+    const changed = await change(currentCookie, { currentPassword: 'A-long-test-passphrase!', newPassword: 'A-new-secure-passphrase!' });
+    assert.equal(changed.status, 200);
+    assert.equal((await changed.json()).ok, true);
+    assert.equal((await fetch(`${running.origin}/api/auth/me`, { headers: { Cookie: currentCookie } })).status, 200);
+    assert.equal((await fetch(`${running.origin}/api/auth/me`, { headers: { Cookie: otherCookie } })).status, 401);
+
+    const oldPasswordLogin = await fetch(`${running.origin}/api/auth/login`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Origin: running.origin },
+      body: JSON.stringify({ username: 'password_change_user', password: 'A-long-test-passphrase!' })
+    });
+    assert.equal(oldPasswordLogin.status, 401);
+    const newPasswordLogin = await fetch(`${running.origin}/api/auth/login`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Origin: running.origin },
+      body: JSON.stringify({ username: 'password_change_user', password: 'A-new-secure-passphrase!' })
+    });
+    assert.equal(newPasswordLogin.status, 200);
+  } finally {
+    await stopServer(running.child);
+  }
+});

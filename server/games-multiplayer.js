@@ -230,6 +230,8 @@ function handleGameAction(msg, context, username, send, toUser) {
       gameData: session.gameData,
       players: session.players,
       yourColor: p.color,
+      winner: session.winner || null,
+      reason: result.reason || null,
       lastAction: { by: username, action, result }
     });
   }
@@ -267,6 +269,10 @@ function initializeGameData(session) {
         ],
         currentTurn: 'w',
         moveHistory: [],
+        castlingRights: { wK: true, wQ: true, bK: true, bQ: true },
+        enPassantTarget: null,
+        halfmoveClock: 0,
+        positionCounts: {},
         whiteTime: 600,
         blackTime: 600,
         lastMoveTime: Date.now(),
@@ -274,6 +280,7 @@ function initializeGameData(session) {
         selectedSquare: null,
         boardFlipped: false
       };
+      session.gameData.positionCounts[chessPositionKey(session.gameData)] = 1;
       break;
     case GAME_TYPES.SNAKE:
       session.gameData = {
@@ -353,6 +360,20 @@ function processChessAction(session, player, action) {
   const { type, from, to, promotion } = action;
   const gameData = session.gameData;
 
+  if (type === 'claim_draw') {
+    const color = player.color === 'white' ? 'w' : 'b';
+    const currentKey = chessPositionKey(gameData);
+    if (gameData.currentTurn !== color || ((gameData.positionCounts?.[currentKey] || 0) < 3 && gameData.halfmoveClock < 100)) {
+      return { error: 'A threefold-repetition or fifty-move draw cannot be claimed now.' };
+    }
+    return { success: true, finished: true, winner: 'draw', reason: gameData.halfmoveClock >= 100 ? 'fifty-move rule' : 'threefold repetition' };
+  }
+
+  if (type === 'resign') {
+    const color = player.color === 'white' ? 'w' : 'b';
+    return { success: true, finished: true, winner: color === 'w' ? 'black' : 'white', reason: 'resignation' };
+  }
+
   if (type === 'move') {
     const validSquare = square => Number.isInteger(square?.row) && Number.isInteger(square?.col) &&
       square.row >= 0 && square.row < 8 && square.col >= 0 && square.col < 8;
@@ -366,31 +387,44 @@ function processChessAction(session, player, action) {
     if (pieceColor !== expectedColor) return { error: 'Not your piece.' };
     if (gameData.currentTurn !== expectedColor) return { error: 'Not your turn.' };
 
-    const valid = isValidChessMove(gameData.board, from, to, piece);
+    const valid = isValidChessMove(gameData.board, from, to, piece, gameData);
     if (!valid) return { error: 'Invalid move.' };
+    if (isKingInCheck(applyChessMove(gameData.board, from, to, piece, gameData).board, pieceColor)) {
+      return { error: 'That move would leave your king in check.' };
+    }
 
-    const captured = gameData.board[to.row][to.col];
-    const reachesPromotionRank = piece[1] === 'p' && (to.row === 0 || to.row === 7);
+    if (promotion !== undefined && !(piece[1] === 'p' && (to.row === 0 || to.row === 7))) {
+      return { error: 'Promotion is only valid when a pawn reaches its last rank.' };
+    }
     const promotionTypes = ['q', 'r', 'b', 'n'];
+    const reachesPromotionRank = piece[1] === 'p' && (to.row === 0 || to.row === 7);
     if (reachesPromotionRank && promotion && !promotionTypes.includes(promotion)) {
       return { error: 'Invalid pawn promotion piece.' };
     }
-    gameData.board[to.row][to.col] = reachesPromotionRank ? pieceColor + (promotion || 'q') : piece;
-    gameData.board[from.row][from.col] = null;
-
-    gameData.moveHistory.push({ from, to, piece, captured, promotion });
+    const applied = applyChessMove(gameData.board, from, to, piece, gameData, reachesPromotionRank ? pieceColor + (promotion || 'q') : piece);
+    gameData.board = applied.board;
+    updateCastlingRights(gameData, from, to, piece, applied.captured);
+    gameData.enPassantTarget = piece[1] === 'p' && Math.abs(to.row - from.row) === 2
+      ? { row: (from.row + to.row) / 2, col: from.col }
+      : null;
+    gameData.halfmoveClock = piece[1] === 'p' || applied.captured ? 0 : (gameData.halfmoveClock || 0) + 1;
+    gameData.moveHistory.push({ from, to, piece, captured: applied.captured, promotion: reachesPromotionRank ? (promotion || 'q') : null, enPassant: applied.enPassant, castle: applied.castle });
     gameData.currentTurn = expectedColor === 'w' ? 'b' : 'w';
     gameData.lastMoveTime = Date.now();
 
-    const winner = checkChessGameEnd(gameData);
-    if (winner) return { finished: true, winner };
+    const key = chessPositionKey(gameData);
+    gameData.positionCounts ||= {};
+    gameData.positionCounts[key] = (gameData.positionCounts[key] || 0) + 1;
+    const end = checkChessGameEnd(gameData);
+    if (end) return { finished: true, winner: end.winner, reason: end.reason };
 
     return { success: true };
   }
   return { error: 'Unknown action type' };
 }
 
-function isValidChessMove(board, from, to, piece) {
+function isValidChessMove(board, from, to, piece, gameData = {}) {
+  if (!Array.isArray(board) || board.length !== 8 || !piece || piece.length !== 2) return false;
   const target = board[to.row][to.col];
   const color = piece[0];
   const type = piece[1];
@@ -399,7 +433,20 @@ function isValidChessMove(board, from, to, piece) {
   const absDr = Math.abs(dr);
   const absDc = Math.abs(dc);
 
-  if (target && target[0] === color) return false;
+  if (target && (target[0] === color || target[1] === 'k')) return false;
+
+  if (type === 'k' && absDr === 0 && absDc === 2) {
+    const homeRow = color === 'w' ? 7 : 0;
+    const side = to.col > from.col ? 'K' : 'Q';
+    const right = `${color}${side}`;
+    const rookCol = side === 'K' ? 7 : 0;
+    const between = side === 'K' ? [5, 6] : [1, 2, 3];
+    if (from.row !== homeRow || from.col !== 4 || to.row !== homeRow || !gameData.castlingRights?.[right] || board[homeRow][rookCol] !== color + 'r') return false;
+    if (between.some(col => board[homeRow][col])) return false;
+    const enemy = color === 'w' ? 'b' : 'w';
+    if ([4, side === 'K' ? 5 : 3, side === 'K' ? 6 : 2].some(col => isSquareAttacked(board, homeRow, col, enemy))) return false;
+    return true;
+  }
 
   if (type === 'p') {
     const dir = color === 'w' ? -1 : 1;
@@ -409,6 +456,9 @@ function isValidChessMove(board, from, to, piece) {
       if (from.row === startRow && dr === 2 * dir && !board[from.row + dir][from.col] && !target) return true;
     }
     if (absDc === 1 && dr === dir && target && target[0] !== color) return true;
+    if (absDc === 1 && dr === dir && !target && gameData.enPassantTarget?.row === to.row && gameData.enPassantTarget?.col === to.col) {
+      return board[from.row][to.col] === (color === 'w' ? 'bp' : 'wp');
+    }
     return false;
   }
   if (type === 'r') {
@@ -426,11 +476,92 @@ function isValidChessMove(board, from, to, piece) {
     if (dr === 0 || dc === 0 || absDr === absDc) return isPathClear(board, from, to);
     return false;
   }
-  if (type === 'k') {
-    if (absDr <= 1 && absDc <= 1) return true;
-    return false;
+  if (type === 'k' && absDr <= 1 && absDc <= 1) {
+    return !isKingInCheck(applyChessMove(board, from, to, piece, gameData).board, color);
   }
   return false;
+}
+
+function applyChessMove(board, from, to, piece, gameData = {}, placedPiece = piece) {
+  const next = board.map(row => row.slice());
+  let captured = next[to.row][to.col];
+  const enPassant = piece[1] === 'p' && from.col !== to.col && !captured;
+  if (enPassant) {
+    captured = next[from.row][to.col];
+    next[from.row][to.col] = null;
+  }
+  next[from.row][from.col] = null;
+  next[to.row][to.col] = placedPiece;
+  const castle = piece[1] === 'k' && Math.abs(to.col - from.col) === 2;
+  if (castle) {
+    const rookFrom = to.col > from.col ? 7 : 0;
+    const rookTo = to.col > from.col ? 5 : 3;
+    next[from.row][rookTo] = next[from.row][rookFrom];
+    next[from.row][rookFrom] = null;
+  }
+  return { board: next, captured, enPassant, castle };
+}
+
+function isSquareAttacked(board, row, col, byColor) {
+  const pawnDirection = byColor === 'w' ? -1 : 1;
+  const pawnRow = row - pawnDirection;
+  for (const dc of [-1, 1]) if (board[pawnRow]?.[col + dc] === byColor + 'p') return true;
+  for (const [dr, dc] of [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]]) {
+    if (board[row + dr]?.[col + dc] === byColor + 'n') return true;
+  }
+  for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+    if (!dr && !dc) continue;
+    if (board[row + dr]?.[col + dc] === byColor + 'k') return true;
+  }
+  for (const [dr, dc, types] of [[-1,0,['r','q']],[1,0,['r','q']],[0,-1,['r','q']],[0,1,['r','q']],[-1,-1,['b','q']],[-1,1,['b','q']],[1,-1,['b','q']],[1,1,['b','q']]]) {
+    let r = row + dr, c = col + dc;
+    while (r >= 0 && r < 8 && c >= 0 && c < 8) {
+      const piece = board[r][c];
+      if (piece) { if (piece[0] === byColor && types.includes(piece[1])) return true; break; }
+      r += dr; c += dc;
+    }
+  }
+  return false;
+}
+
+function isKingInCheck(board, color) {
+  const king = findKing(board, color);
+  return !king || isSquareAttacked(board, king.row, king.col, color === 'w' ? 'b' : 'w');
+}
+
+function hasLegalChessMove(gameData, color) {
+  const board = gameData.board;
+  for (let fromRow = 0; fromRow < 8; fromRow++) for (let fromCol = 0; fromCol < 8; fromCol++) {
+    const piece = board[fromRow][fromCol];
+    if (!piece || piece[0] !== color) continue;
+    for (let toRow = 0; toRow < 8; toRow++) for (let toCol = 0; toCol < 8; toCol++) {
+      const from = { row: fromRow, col: fromCol }, to = { row: toRow, col: toCol };
+      if (!isValidChessMove(board, from, to, piece, gameData)) continue;
+      const simulated = applyChessMove(board, from, to, piece, gameData).board;
+      if (!isKingInCheck(simulated, color)) return true;
+    }
+  }
+  return false;
+}
+
+function chessPositionKey(gameData) {
+  const board = gameData.board || [];
+  const boardKey = board.map(row => row.map(piece => piece || '--').join('')).join('/');
+  const rights = ['wK','wQ','bK','bQ'].filter(key => gameData.castlingRights?.[key]).join('') || '-';
+  const ep = gameData.enPassantTarget ? `${gameData.enPassantTarget.row},${gameData.enPassantTarget.col}` : '-';
+  return `${boardKey} ${gameData.currentTurn || 'w'} ${rights} ${ep}`;
+}
+
+function updateCastlingRights(gameData, from, to, piece, captured) {
+  gameData.castlingRights ||= { wK: false, wQ: false, bK: false, bQ: false };
+  const color = piece[0];
+  if (piece[1] === 'k') { gameData.castlingRights[`${color}K`] = false; gameData.castlingRights[`${color}Q`] = false; }
+  const revokeRook = (rook, row, col) => {
+    const side = col === 7 ? 'K' : 'Q';
+    gameData.castlingRights[`${rook[0]}${side}`] = false;
+  };
+  if (piece[1] === 'r' && (from.row === 0 || from.row === 7) && (from.col === 0 || from.col === 7)) revokeRook(piece, from.row, from.col);
+  if (captured?.[1] === 'r' && (to.row === 0 || to.row === 7) && (to.col === 0 || to.col === 7)) revokeRook(captured, to.row, to.col);
 }
 
 function isPathClear(board, from, to) {
@@ -449,9 +580,31 @@ function isPathClear(board, from, to) {
 function checkChessGameEnd(gameData) {
   const whiteKing = findKing(gameData.board, 'w');
   const blackKing = findKing(gameData.board, 'b');
-  if (!whiteKing) return 'black';
-  if (!blackKing) return 'white';
+  if (!whiteKing) return { winner: 'black', reason: 'king missing' };
+  if (!blackKing) return { winner: 'white', reason: 'king missing' };
+  const color = gameData.currentTurn;
+  if (!hasLegalChessMove(gameData, color)) {
+    if (isKingInCheck(gameData.board, color)) return { winner: color === 'w' ? 'black' : 'white', reason: 'checkmate' };
+    return { winner: 'draw', reason: 'stalemate' };
+  }
+  if ((gameData.positionCounts?.[chessPositionKey(gameData)] || 0) >= 5) return { winner: 'draw', reason: 'fivefold repetition' };
+  if (gameData.halfmoveClock >= 150) return { winner: 'draw', reason: 'seventy-five-move rule' };
+  if (isInsufficientChessMaterial(gameData.board)) return { winner: 'draw', reason: 'insufficient material' };
   return null;
+}
+
+function isInsufficientChessMaterial(board) {
+  const pieces = [];
+  for (const row of board) for (const piece of row) if (piece && piece[1] !== 'k') pieces.push(piece);
+  if (pieces.length === 0) return true;
+  if (pieces.some(piece => piece[1] === 'p' || piece[1] === 'r' || piece[1] === 'q')) return false;
+  if (pieces.length === 1) return true;
+  if (pieces.every(piece => piece[1] === 'b')) {
+    const bishopSquares = [];
+    for (let r=0;r<8;r++) for (let c=0;c<8;c++) if (board[r][c]?.[1] === 'b') bishopSquares.push((r+c)%2);
+    return bishopSquares.every(square => square === bishopSquares[0]);
+  }
+  return false;
 }
 
 function findKing(board, color) {

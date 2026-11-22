@@ -18,15 +18,22 @@ test('state writes roll back completely when normalized persistence fails', () =
       messages: {}, friends: {}, invites: {}, oauthStates: {}, gameActivities: {}, dmRead: {}
     };
     database.writeState(state);
+    const expiresAt = Date.now() + 60_000;
+    database.createSession('keep-session', 'user-1', expiresAt);
+    database.createSession('revoke-session', 'user-1', expiresAt);
+    database.writeState(state, { invalidateOtherSessions: [{ userId: 'user-1', keepTokenHash: 'keep-session' }] });
     const sql = new DatabaseSync(process.env.DATABASE_URL);
     const beforeState = sql.prepare('SELECT value FROM app_state WHERE id = 1').get().value;
     const beforeServer = sql.prepare('SELECT name FROM servers WHERE id = ?').get('server-1').name;
+    assert.deepEqual(sql.prepare('SELECT token_hash FROM sessions WHERE user_id = ?').all('user-1').map(row => row.token_hash), ['keep-session']);
+    database.createSession('revoke-after-failure', 'user-1', expiresAt);
     const invalid = structuredClone(state);
     invalid.servers.push({ id: 'server-1', name: 'Duplicate', owner: 'alice', members: ['alice'], channels: [] });
-    assert.throws(() => database.writeState(invalid));
+    assert.throws(() => database.writeState(invalid, { invalidateOtherSessions: [{ userId: 'user-1', keepTokenHash: 'keep-session' }] }));
     assert.equal(sql.prepare('SELECT value FROM app_state WHERE id = 1').get().value, beforeState);
     assert.equal(sql.prepare('SELECT name FROM servers WHERE id = ?').get('server-1').name, beforeServer);
     assert.equal(sql.prepare('SELECT COUNT(*) AS count FROM servers').get().count, 1);
+    assert.deepEqual(sql.prepare('SELECT token_hash FROM sessions WHERE user_id = ? ORDER BY token_hash').all('user-1').map(row => row.token_hash), ['keep-session', 'revoke-after-failure']);
     sql.close();
   `], {
     cwd: path.resolve(__dirname, '..'),
