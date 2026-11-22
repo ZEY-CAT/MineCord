@@ -2,18 +2,9 @@ const { DatabaseSync } = require('node:sqlite');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
+const { resolveDatabasePath } = require('./database-config');
 
-function databasePath() {
-  const configured = process.env.DATABASE_URL;
-  if (!configured) return path.join(__dirname, 'minecord.sqlite');
-  if (configured.startsWith('sqlite:///')) return path.resolve(configured.slice('sqlite:///'.length));
-  if (/^[a-z]+:\/\//i.test(configured)) {
-    throw new Error('DATABASE_URL must be a SQLite file path or sqlite:/// URL.');
-  }
-  return path.resolve(configured);
-}
-
-const dbFile = databasePath();
+const dbFile = resolveDatabasePath(process.env, __dirname);
 fs.mkdirSync(path.dirname(dbFile), { recursive: true });
 const db = new DatabaseSync(dbFile);
 db.exec(`
