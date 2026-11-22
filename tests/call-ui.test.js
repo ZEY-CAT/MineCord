@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const vm = require('node:vm');
 const { readFileSync } = require('node:fs');
 const path = require('node:path');
 const { test } = require('node:test');
@@ -71,6 +72,51 @@ test('calls.js implements real media, negotiation, invitations, and cleanup', ()
   assert.match(calls, /function finishCall/);
   assert.match(calls, /function restartCallPeer/);
   assert.match(calls, /activeCall\.invited/);
+});
+
+test('call state updates are event-driven and stats sampling is bounded during group calls', () => {
+  const start = html.indexOf('function monitorPeer(');
+  const end = html.indexOf('\n}', start);
+  assert.ok(start >= 0 && end > start, 'expected the active app call monitor');
+  const monitorSource = html.slice(start, end + 2);
+  const statuses = [];
+  let intervalMs = 0;
+  let renderCount = 0;
+  let restartCount = 0;
+  const context = {
+    connectionStates: new Map(),
+    peerMonitorTimers: new Map(),
+    relayStates: new Map(),
+    speakingPeers: new Set(),
+    setVoiceStatus: (message, kind) => statuses.push({ message, kind }),
+    renderCallBar: () => { renderCount += 1; },
+    setInterval: (_callback, milliseconds) => { intervalMs = milliseconds; return 1; },
+    clearInterval: () => {},
+    console
+  };
+  const monitorPeer = vm.runInNewContext(`(${monitorSource})`, context);
+  const pc = {
+    connectionState: 'connecting',
+    iceConnectionState: 'checking',
+    getStats: async () => new Map()
+  };
+
+  monitorPeer(pc, 'peer', async () => { restartCount += 1; });
+  assert.equal(intervalMs, 2000);
+  assert.equal(context.connectionStates.get('peer'), 'connecting');
+
+  pc.connectionState = 'disconnected';
+  pc.onconnectionstatechange();
+  assert.equal(context.connectionStates.get('peer'), 'disconnected');
+  assert.match(statuses.at(-1).message, /interrupted; attempting to reconnect/);
+  assert.equal(renderCount, 2);
+
+  pc.connectionState = 'failed';
+  pc.oniceconnectionstatechange();
+  assert.equal(context.connectionStates.get('peer'), 'failed');
+  assert.equal(restartCount, 1);
+  assert.equal(statuses.at(-1).kind, 'error');
+  assert.equal(renderCount, 3);
 });
 
 test('voice-only calls render avatars instead of an empty video area', () => {
