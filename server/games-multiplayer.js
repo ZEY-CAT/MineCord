@@ -53,6 +53,24 @@ function deleteGameSession(id) {
   gameSessions.delete(id);
 }
 
+function broadcastGameState(session, extra = {}) {
+  if (typeof session.toUser !== 'function') return;
+  for (const player of session.players) {
+    session.toUser(player.username, {
+      type: 'game_state',
+      gameId: session.id,
+      gameType: session.gameType,
+      state: session.state,
+      gameData: session.gameData,
+      players: session.players,
+      yourColor: player.color,
+      winner: session.winner || null,
+      reason: session.finishReason || null,
+      ...extra
+    });
+  }
+}
+
 function cleanupOldSessions() {
   const now = Date.now();
   const maxAge = 24 * 60 * 60 * 1000;
@@ -95,6 +113,7 @@ function handleGameInvite(msg, context, username, send, toUser) {
   }
 
   const session = createGameSession(gameType, username, opponent);
+  session.toUser = toUser;
   const inviteId = 'invite-' + Date.now().toString(36);
 
   session.inviteId = inviteId;
@@ -141,6 +160,7 @@ function handleGameAccept(msg, context, username, send, toUser) {
   }
   player.ready = true;
   session.updatedAt = Date.now();
+  session.toUser = toUser;
 
   const allReady = session.players.every(p => p.ready);
   if (allReady) {
@@ -206,6 +226,7 @@ function handleGameAction(msg, context, username, send, toUser) {
     send({ type: 'error', message: 'You are not a player in this game.' });
     return;
   }
+  session.toUser = toUser;
   if (!action || typeof action !== 'object' || Array.isArray(action)) {
     send({ type: 'error', message: 'Invalid game action.' });
     return;
@@ -222,23 +243,11 @@ function handleGameAction(msg, context, username, send, toUser) {
   if (result.finished) {
     session.state = GAME_STATES.FINISHED;
     session.winner = result.winner;
+    session.finishReason = result.reason || null;
     session.finishedAt = Date.now();
   }
 
-  for (const p of session.players) {
-    toUser(p.username, {
-      type: 'game_state',
-      gameId: session.id,
-      gameType: session.gameType,
-      state: session.state,
-      gameData: session.gameData,
-      players: session.players,
-      yourColor: p.color,
-      winner: session.winner || null,
-      reason: result.reason || null,
-      lastAction: { by: username, action, result }
-    });
-  }
+  broadcastGameState(session, { lastAction: { by: username, action, result } });
 }
 
 function handleGameLeave(msg, context, username, send, toUser) {
@@ -711,7 +720,6 @@ function updateGameLoops() {
   const now = Date.now();
   for (const session of gameSessions.values()) {
     if (session.state !== GAME_STATES.PLAYING) continue;
-    session.updatedAt = now;
 
     if (session.gameType === GAME_TYPES.SNAKE) {
       updateSnakeLoop(session, now);
@@ -719,6 +727,12 @@ function updateGameLoops() {
       updateFlappyLoop(session, now);
     } else if (session.gameType === GAME_TYPES.PAINTBALL) {
       updatePaintballLoop(session, now);
+    }
+
+    if (session.state === GAME_STATES.FINISHED) {
+      session.finishReason ||= 'game over';
+      session.finishedAt ||= now;
+      broadcastGameState(session, { lastAction: null });
     }
   }
 }
@@ -976,6 +990,7 @@ module.exports = {
   getGameSession,
   getGameSessionsForUser,
   deleteGameSession,
+  updateGameLoops,
   handleGameInvite,
   handleGameAccept,
   handleGameDecline,

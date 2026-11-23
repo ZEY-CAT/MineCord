@@ -5,7 +5,8 @@ const {
   createGameSession,
   deleteGameSession,
   handleGameAccept,
-  handleGameAction
+  handleGameAction,
+  updateGameLoops
 } = require('../server/games-multiplayer');
 
 function startGame(gameType) {
@@ -13,9 +14,10 @@ function startGame(gameType) {
   session.inviteId = `test-${session.id}`;
   session.inviteExpires = Date.now() + 60_000;
   const context = { data: { users: { GameAlice: {}, GameBob: {} } }, users: {}, clients: new Map(), clean: value => value };
-  handleGameAccept({ inviteId: session.inviteId }, context, 'GameBob', () => {}, () => {});
+  const events = [];
+  handleGameAccept({ inviteId: session.inviteId }, context, 'GameBob', () => {}, (username, payload) => events.push({ username, payload }));
   assert.equal(session.state, 'playing');
-  return { session, context };
+  return { session, context, events };
 }
 
 function submit(session, context, username, action) {
@@ -95,5 +97,29 @@ test('Flappy and Paintball reject unsupported or malformed controls', () => {
     assert.equal(player.angle, Math.PI / 2);
   } finally {
     deleteGameSession(paintball.session.id);
+  }
+});
+
+test('server-tick game endings notify both players and stale games keep an activity-based expiry', () => {
+  const { session, events } = startGame(GAME_TYPES.SNAKE);
+  try {
+    events.length = 0;
+    const lastActionAt = session.updatedAt;
+    const snakes = session.gameData.snakes;
+    Object.assign(snakes.GameAlice, { body: [{ x: 0, y: 0 }], direction: 'up', nextDirection: 'up' });
+    Object.assign(snakes.GameBob, { body: [{ x: 29, y: 29 }], direction: 'down', nextDirection: 'down' });
+
+    updateGameLoops();
+    assert.equal(session.state, 'playing');
+    updateGameLoops();
+
+    assert.equal(session.state, 'finished');
+    assert.equal(session.updatedAt, lastActionAt, 'simulation ticks must not keep an idle session alive forever');
+    const ended = events.filter(event => event.payload.type === 'game_state' && event.payload.state === 'finished');
+    assert.deepEqual(ended.map(event => event.username).sort(), ['GameAlice', 'GameBob']);
+    assert.ok(ended.every(event => event.payload.winner === 'GameAlice'));
+    assert.ok(ended.every(event => event.payload.reason === 'game over'));
+  } finally {
+    deleteGameSession(session.id);
   }
 });
