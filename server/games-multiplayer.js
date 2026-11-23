@@ -206,6 +206,10 @@ function handleGameAction(msg, context, username, send, toUser) {
     send({ type: 'error', message: 'You are not a player in this game.' });
     return;
   }
+  if (!action || typeof action !== 'object' || Array.isArray(action)) {
+    send({ type: 'error', message: 'Invalid game action.' });
+    return;
+  }
 
   const result = processGameAction(session, player, action);
   if (result.error) {
@@ -623,11 +627,13 @@ function processSnakeAction(session, player, action) {
 
   if (action.type === 'direction') {
     const opposites = { up: 'down', down: 'up', left: 'right', right: 'left' };
+    if (!Object.hasOwn(opposites, action.direction)) return { error: 'Invalid snake direction.' };
     if (action.direction !== opposites[snake.direction]) {
       snake.nextDirection = action.direction;
     }
+    return { success: true };
   }
-  return { success: true };
+  return { error: 'Unknown snake action.' };
 }
 
 function processFlappyAction(session, player, action) {
@@ -635,9 +641,8 @@ function processFlappyAction(session, player, action) {
   const bird = gameData.birds[player.username];
   if (!bird || !bird.alive) return { error: 'You are not alive.' };
 
-  if (action.type === 'flap') {
-    bird.velocity = gameData.jumpForce;
-  }
+  if (action.type !== 'flap') return { error: 'Unknown Flappy action.' };
+  bird.velocity = gameData.jumpForce;
   return { success: true };
 }
 
@@ -648,6 +653,9 @@ function processPaintballAction(session, player, action) {
   const now = Date.now();
 
   if (action.type === 'move') {
+    if (['up', 'down', 'left', 'right'].some(key => action[key] !== undefined && typeof action[key] !== 'boolean')) {
+      return { error: 'Invalid movement input.' };
+    }
     const speed = 4;
     let nx = p.x, ny = p.y;
     if (action.up) ny -= speed;
@@ -670,6 +678,7 @@ function processPaintballAction(session, player, action) {
     p.x = nx;
     p.y = ny;
   } else if (action.type === 'aim') {
+    if (typeof action.angle !== 'number' || !Number.isFinite(action.angle)) return { error: 'Invalid aim angle.' };
     p.angle = action.angle;
   } else if (action.type === 'shoot') {
     if (p.ammo <= 0) return { error: 'No ammo.' };
@@ -692,6 +701,8 @@ function processPaintballAction(session, player, action) {
     if (p.ammo < 10 && now - p.lastShot > 2000) {
       p.ammo = 10;
     }
+  } else {
+    return { error: 'Unknown Paintball action.' };
   }
   return { success: true };
 }
