@@ -9,8 +9,8 @@ build/tauri.release.conf.json
 .env.*
 !.env.example
 
+# Local MineCord account, message, and runtime state must remain private.
 server/*.sqlite
-server/*.sqlite-shm
-server/*.sqlite-wal
+server/*.sqlite-*
 server/data.json
 DEV-LOGINS.json

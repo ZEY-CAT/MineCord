@@ -10,6 +10,7 @@
     "build:desktop": "npm run generate:icons && npm run build:updater && powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts\\generate-windows-icon.ps1 && electron-builder",
     "start": "node server/server.js",
     "dev": "node server/server.js",
+    "migrate:private-data": "node scripts/migrate-private-data.js",
     "electron": "electron .",
     "electron:serve": "concurrently -k \"node server/server.js\" \"electron .\"",
     "test": "node --test --test-concurrency=2 \"tests/**/*.test.js\"",

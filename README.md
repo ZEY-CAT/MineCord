@@ -22,7 +22,9 @@ Copy-Item .env.example .env
 npm start
 ```
 
-Open `http://localhost:3000` in a browser or run `npm run desktop` for the Electron client. The local server creates `server/minecord.sqlite`; it imports `server/data.json` only when no SQLite app state exists. Keep both files backed up and do not assume legacy records are disposable.
+Open `http://localhost:3000` in a browser or run `npm run desktop` for the Electron client. Local SQLite and legacy import data live outside the checkout: Windows defaults to `%LOCALAPPDATA%\MineCord\Data`, and Linux/macOS use `$XDG_DATA_HOME/minecord` or `~/.local/share/minecord`. Set an absolute `MINECORD_DATA_DIR` in `.env` to choose another private persistent directory; an explicit `DATABASE_URL` must also resolve outside the repository. The server never falls back to the tracked `server/data.json` path.
+
+For a checkout that still has legacy `server/data.json` and `server/minecord.sqlite`, stop the local server and run `npm run migrate:private-data -- "D:\MinecordPrivateData"` (or use another private location with enough space). The migration verifies the legacy file fingerprint, takes a SQLite online backup that includes committed WAL state, checks integrity and table row counts, writes byte-verified copies to a new private directory, and atomically switches `MINECORD_DATA_DIR` in `.env` only after verification. It never overwrites an existing destination. The source files remain available until the migrated app starts successfully; then move the old copies into the access-controlled migration backup before removing the tracked JSON path from Git. Keep the private rollback backup until persistence has been verified.
 
 Run `npm test` for isolated account, server-permission, DM persistence, unread-cursor, and reconnect coverage. The test uses a temporary SQLite database and does not read or modify the local app database or legacy data file.
 
@@ -36,13 +38,13 @@ New accounts receive only servers they are members of; registration does not cre
 
 ## 2. Database setup and backups
 
-SQLite is used by default. Set `DATABASE_URL` to a writable SQLite path, for example:
+SQLite is used by default in the OS-private MineCord data directory. Set `MINECORD_DATA_DIR` to select a private directory, or choose a specific SQLite path with `DATABASE_URL`, for example:
 
 ```env
-DATABASE_URL=./server/minecord.sqlite
+DATABASE_URL=C:\MINECORD\data\minecord.sqlite
 ```
 
-On Windows, a full path such as `DATABASE_URL=C:\MINECORD\data\minecord.sqlite` is also supported. Put the database on persistent storage and back it up before upgrades. For a consistent SQLite backup, stop the server first or use SQLite's online backup facility; retain the database and its WAL files together when copying a live instance. Do not delete `server/minecord.sqlite` or `server/data.json` during upgrades.
+Use private persistent storage and back up the database before upgrades. For a consistent SQLite backup, stop the server first or use SQLite's online backup facility; retain the database and its WAL state together when copying a live instance. Never add local user data or SQLite databases to Git.
 
 ## 3. OAuth setup
 
@@ -171,7 +173,9 @@ Deploy the new server code while retaining the same `DATABASE_URL` and persisten
 |---|---|---|
 | `PORT` | No (default `3000`) | HTTP server port |
 | `APP_URL` | Production | Public app origin; use HTTPS in production |
-| `DATABASE_URL` | No (default `server/minecord.sqlite`) | Persistent SQLite path |
+| `MINECORD_DATA_DIR` | No (OS-private default) | Absolute private runtime data directory outside the checkout |
+| `DATABASE_URL` | No (default `<MINECORD_DATA_DIR>/minecord.sqlite`) | SQLite path outside the checkout; on Render it must be inside the verified persistent disk |
+| `MINECORD_LEGACY_DATA_FILE` | No (default `legacy-data.json` beside the database) | Absolute private legacy JSON import file; never points into the repository |
 | `APP_OWNER_USER_ID` | Optional | Exact existing MINECORD user ID assigned the App Owner role |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Optional, as a pair | Google OAuth credentials |
 | `GOOGLE_CALLBACK_URL` | Optional | Google callback override |
@@ -180,7 +184,7 @@ Deploy the new server code while retaining the same `DATABASE_URL` and persisten
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | Optional, as a pair | GitHub OAuth credentials |
 | `GITHUB_CALLBACK_URL` | Optional | GitHub callback override |
 | `MINECORD_DEVELOPER_WORKSPACE_ROOT` | Optional | Isolated Developer Portal workspace directory outside the repository; use a verified persistent disk for retention |
-| `MINECORD_DEV_LOGINS_PATH` | Optional | Path to private `DEV-LOGINS.json`; use a file on persistent storage in production |
+| `MINECORD_DEV_LOGINS_PATH` | Optional | Path to private `DEV-LOGINS.json`; defaults inside `MINECORD_DATA_DIR`, use a file on persistent storage in production |
 | `MINECORD_DEV_VAULT_KEY` | Required for vault/OpenAI credentials | Private 32-byte key encoded as 64 hexadecimal characters; encrypts Developer Portal vault values with AES-256-GCM |
 | `OAUTH_ALLOWED_ORIGINS` | Optional | Comma-separated extra origins allowed to initiate OAuth, such as a LAN hostname |
 | `STUN_URL` | Optional | Additional comma-separated STUN/STUNS URLs |

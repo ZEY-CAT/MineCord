@@ -2,13 +2,24 @@ const assert = require('node:assert/strict');
 const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 const { test } = require('node:test');
-const { resolveDatabasePath } = require('../server/database-config');
+const { resolveDatabasePath, resolveLegacyDataPath, resolvePrivateDataDirectory, resolveDeveloperConfigPath } = require('../server/database-config');
 
 const baseDirectory = path.resolve('test-server-root');
 const renderUrl = 'https://minecord.example.onrender.com';
 
-test('local development keeps the existing SQLite default', () => {
-  assert.equal(resolveDatabasePath({}, baseDirectory), path.join(baseDirectory, 'minecord.sqlite'));
+test('local development stores SQLite outside the repository in the configured private data directory', () => {
+  const dataDirectory = path.join(require('node:os').tmpdir(), 'minecord-private-test-data');
+  assert.equal(resolveDatabasePath({ MINECORD_DATA_DIR: dataDirectory }, baseDirectory), path.join(dataDirectory, 'minecord.sqlite'));
+  assert.equal(resolvePrivateDataDirectory({ LOCALAPPDATA: dataDirectory }, baseDirectory), path.join(dataDirectory, 'MineCord', 'Data'));
+  assert.equal(resolveLegacyDataPath({ MINECORD_DATA_DIR: dataDirectory }, baseDirectory), path.join(dataDirectory, 'legacy-data.json'));
+  assert.equal(resolveDeveloperConfigPath({ MINECORD_DATA_DIR: dataDirectory }, baseDirectory), path.join(dataDirectory, 'DEV-LOGINS.json'));
+});
+
+test('local storage paths cannot point into the repository or use a relative private root', () => {
+  assert.throws(() => resolvePrivateDataDirectory({ MINECORD_DATA_DIR: 'private-data' }, baseDirectory), /must be an absolute path/i);
+  assert.throws(() => resolvePrivateDataDirectory({ MINECORD_DATA_DIR: path.join(repositoryRootForTest(), 'server', 'private') }, baseDirectory), /outside the repository/i);
+  assert.throws(() => resolveDatabasePath({ DATABASE_URL: path.join(repositoryRootForTest(), 'server', 'private.sqlite') }, baseDirectory), /outside the repository/i);
+  assert.throws(() => resolveDeveloperConfigPath({ MINECORD_DEV_LOGINS_PATH: path.join(repositoryRootForTest(), 'DEV-LOGINS.json') }, baseDirectory), /outside the repository/i);
 });
 
 test('Render refuses the ephemeral default SQLite location', () => {
@@ -53,3 +64,7 @@ test('Render accepts a SQLite database path inside the declared disk mount', () 
 test('database path continues to reject non-SQLite connection URLs', () => {
   assert.throws(() => resolveDatabasePath({ DATABASE_URL: 'postgres://example.invalid/database' }, baseDirectory), /SQLite file path/i);
 });
+
+function repositoryRootForTest() {
+  return path.resolve(__dirname, '..');
+}

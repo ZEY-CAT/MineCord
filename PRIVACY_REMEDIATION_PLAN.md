@@ -6,22 +6,24 @@
 - A read-only tree query shows `server/data.json` in the current public `main` tree.
 - GitHub's path history contains the initial public commit `21d88166174a46fd0449418904c97a621b7ace09` from 2026-10-08. The file's content was not fetched or inspected.
 - The protected local file remains present at SHA-256 `D62F36F549121DBC60C981008BDE49EC40100A60E6C4C2504F86E5424853830F`.
-- Existing local data, uncommitted edits, and databases must remain untouched. No history rewrite, force-push, or repository setting change has been made.
+- The owner has decided the repository must remain public. The working checkout's `server/data.json` and databases must be preserved byte-for-byte during a controlled private migration. No history rewrite, force-push, or repository setting change is authorized.
 
-## Owner decisions required
+## Owner decisions and required follow-up
 
-1. **Containment:** Decide whether to make the existing repository private now. Before changing visibility, confirm who and what currently depend on public clone access, public Pages/releases, and unauthenticated CI or deployment integrations. Private visibility limits future access to the repository; it cannot recall prior clones or downloads.
-2. **Content assessment:** An authorized owner/operator should inspect the protected file only in a controlled environment and classify whether it contains credentials, personal information, account records, messages, or other user data. Do not paste the contents into an issue, chat, CI log, or this handoff. If credentials are present, rotate/revoke them through their issuing services. If personal/private records are present, follow the operator's incident-response and retention obligations.
-3. **History disposition:** Decide explicitly whether existing history should remain available to authorized repository users, or whether a history rewrite is required. A rewrite is a high-impact operation and must not proceed without explicit authorization and an agreed ref/coordination plan.
+1. **Public-repository constraint:** Keep `ZEY-CAT/MineCord` public as explicitly directed. Removing the file from the current tree stops future tip exposure but does not remove prior public commits, cached blobs, clones, or downloads.
+2. **Content assessment and credential rotation:** An authorized owner/operator should inspect the protected file only in a controlled environment and classify whether it contains credentials, personal information, account records, messages, or other user data. Do not paste contents into an issue, chat, CI log, or handoff. Rotate/revoke any credentials that may have been included through their issuing services; maintain an internal record of which services were assessed without publishing secret values. Follow applicable incident-response and retention obligations for personal/private records.
+3. **History disposition:** History rewriting remains unapproved. If desired later, obtain separate explicit approval for the exact refs and publication method, coordinate with collaborators, and consider GitHub support for cached views. Never force-push under the current decision.
+
+Potential credential classes for the owner to assess, **not confirmed present in this file**: local account password hashes (prompt resets for affected accounts if hashes were public), active MineCord sessions/cookies, OAuth authorization or refresh tokens, Minecraft/Xbox tokens, Eaglercraft connector/pairing tokens, Developer Portal account hashes/invitations, and encrypted vault entries. Separately assess provider/API secrets (Google, Microsoft, GitHub, TURN/Metered, OpenAI), vault-encryption keys, deploy tokens, and signing credentials if they were stored in the affected history or reused there. Revoke sessions and one-time connector credentials from the exposure window; rotate only the provider credentials that the authorized assessment finds exposed. No credential value or protected file content was read for this handoff.
 
 ## Safe execution sequence after owner approval
 
-1. Preserve the current local file and its verified hash. Make a separate encrypted, access-controlled backup through the normal data-backup process; do not use Git or CI artifacts for this backup.
-2. Freeze pushes and release/deploy workflows while the owner assesses the data and chooses containment. Keep the current local branch and all uncommitted work intact.
-3. If a rewrite is explicitly approved, perform it in a separate disposable mirror clone, never in this working checkout. Enumerate branches and tags to be sanitized; remove the path from every approved ref, verify all rewritten trees and reachable commits without printing the file content, and coordinate with collaborators before publishing rewritten refs. A force-push is not authorized by this plan; obtain separate explicit approval if the chosen publication method requires one. Consider a new private sanitized repository if replacing history in place is not approved.
-4. Ask GitHub support about cached views where appropriate. Inform collaborators that existing clones and downloaded copies require their own handling; a rewritten repository cannot erase those copies.
-5. Add and verify a staging/CI guard so future source commits cannot include `server/data.json`, local databases, or secrets. A `.gitignore` entry alone is insufficient while a path is already tracked.
-6. Reopen pushes only after the owner confirms the selected repository visibility/history outcome and the sanitized refs have been independently verified.
+1. Keep the source and SQLite files untouched until a verified private backup and active copy exist. Keep backups access-controlled and outside Git/CI artifacts.
+2. Stop the local server, migrate JSON, SQLite (including WAL state), and Developer Portal config to a private directory, verify hashes/integrity, and retain a rollback copy.
+3. Start MineCord on the migrated database and verify account/message persistence without logging or exporting private content. Move the original files into the private rollback area only after startup succeeds; stage a Git deletion of the tracked JSON path only after the working copy is safely outside the checkout.
+4. Add and verify a staging/CI guard so future source commits cannot include `server/data.json`, local databases, or secrets. `.gitignore` alone does not untrack an already tracked file.
+5. A normal, non-rewriting commit can remove the path from the latest branch tree. This does not sanitize any existing public commit. Do not rewrite refs or force-push without a separate explicit authorization; do not change repository visibility.
+6. Ask GitHub support about cached views where appropriate. Inform collaborators that existing clones and downloads require separate handling; repository changes cannot erase those copies.
 
 ## Render persistence gate
 
@@ -36,4 +38,4 @@ The application startup guard checks declared paths but cannot prove Render actu
 
 ## Current status
 
-Waiting for owner decisions on repository visibility, data classification, and history disposition. No protected contents were inspected. No repository settings, remote history, Render environment, production database, or deployment was changed.
+Owner decision: keep repository public. Private migration is authorized; history rewriting is not. Source credential classification and rotation remain an owner/operator task because contents must not be exposed in this handoff. No Render disk or production database has been verified.

@@ -4,7 +4,8 @@ const {WebSocketServer}=require('ws');
 const oauthStateCookie=require('./oauth-state');
 const oauthOriginHelper=require('./oauth-origin');
 const devPortal=require('./dev-portal');
-const PORT=Number(process.env.PORT||3000),APP_URL=process.env.APP_URL||process.env.RENDER_EXTERNAL_URL||`http://localhost:${PORT}`,DATA=path.join(__dirname,'data.json');
+const {resolveLegacyDataPath,resolveDeveloperConfigPath}=require('./database-config');
+const PORT=Number(process.env.PORT||3000),APP_URL=process.env.APP_URL||process.env.RENDER_EXTERNAL_URL||`http://localhost:${PORT}`,DATA=resolveLegacyDataPath(process.env,__dirname);
 if(APP_URL.startsWith('https://')){const publicOrigin=APP_URL.replace(/\/+$/,'');process.env.GOOGLE_CALLBACK_URL=`${publicOrigin}/auth/google/callback`;process.env.GITHUB_CALLBACK_URL=`${publicOrigin}/auth/github/callback`}
 const OAUTH_ORIGIN_OPTIONS={appUrl:APP_URL,port:PORT};
 function oauthOrigin(req){return oauthOriginHelper.originFromHost(req,OAUTH_ORIGIN_OPTIONS)}
@@ -34,8 +35,6 @@ const {
   invalidateMessageCaches, invalidateDMCaches, getAllCacheStats
 } = require('./cache');
 let data=database.loadState(DATA,blank); for(const k in blank) if(data[k]===undefined)data[k]=blank[k];
-console.log('[STARTUP] Loaded friends:', Object.keys(data.friends||{}).length, 'entries');
-if(data.friends) console.log('[STARTUP] Friends:', JSON.stringify(data.friends, null, 2));
 bans.ensureBans(data);
 data.roleAudit ||= [];
 data.accountMergeAudit ||= [];
@@ -241,7 +240,7 @@ app.use('/dev',devPortal.createDevPortalRouter({
  publicDirectory:PUBLIC,
  repositoryRoot:path.resolve(__dirname,'..'),
  workspaceRoot:process.env.MINECORD_DEVELOPER_WORKSPACE_ROOT||path.join(require('node:os').tmpdir(),'minecord-dev-workspaces'),
- configPath:process.env.MINECORD_DEV_LOGINS_PATH?path.resolve(process.env.MINECORD_DEV_LOGINS_PATH):path.resolve(__dirname,'..','DEV-LOGINS.json'),
+ configPath:resolveDeveloperConfigPath(process.env,__dirname),
  originAllowed,
  audit:event=>console.info('[dev-portal]',JSON.stringify({...event,at:Date.now()}))
 }));

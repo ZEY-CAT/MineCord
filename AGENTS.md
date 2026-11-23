@@ -21,7 +21,9 @@
 
 ## Data and secrets protection
 
-- `server/data.json` is protected local user data. Never read its contents, modify it, regenerate it, restore it, copy it, stage it, commit it, upload it, or include it in an artifact. Its required SHA-256 is `D62F36F549121DBC60C981008BDE49EC40100A60E6C4C2504F86E5424853830F`.
+- Runtime databases, legacy imports, and Developer Portal configuration must live outside the checkout in private persistent storage. Never print or expose account, message, or credential contents. `server/data.json` is legacy private data: the owner has authorized a one-time verified migration preserving its exact bytes; do not otherwise inspect, regenerate, restore, stage, commit, upload, or include it in artifacts. Its required SHA-256 is `D62F36F549121DBC60C981008BDE49EC40100A60E6C4C2504F86E5424853830F`.
+- Run `npm run migrate:private-data -- "<absolute-private-directory>"` only against the local checkout after stopping MineCord. The migration verifies the legacy fingerprint, makes a SQLite online backup including WAL state, checks row counts and integrity, creates byte-verified private copies, and activates the configured path only after verification. Keep its private rollback backup until startup and persistence are verified. Never deploy the local migration against Render.
+- `.gitignore` does not untrack a file already in Git. Verify `server/data.json` is absent from the staged index before committing. A current-tree deletion does not erase public Git history; do not rewrite history, change repository visibility, or force-push without separate owner authorization.
 - Keep `.env`, `.env.txt`, `DEV-LOGINS.json`, SQLite databases and sidecars, OAuth/API secrets, signing keys, emulator images, `node_modules/`, `dist/`, `build/`, and `src-tauri/target/` out of Git and release artifacts.
 - Preserve all pre-existing tracked edits and untracked files. Never use `git reset --hard`, destructive `git clean`, or force-push. Stage explicit reviewed paths only.
 - Use temporary isolated databases for tests. Do not let tests depend on a developer's local account database or credentials.
