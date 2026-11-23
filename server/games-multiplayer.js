@@ -248,7 +248,9 @@ function handleGameAction(msg, context, username, send, toUser) {
     session.finishedAt = Date.now();
   }
 
-  broadcastGameState(session, { lastAction: { by: username, action, result } });
+  if (action.type !== 'controls' || session.gameType !== GAME_TYPES.PAINTBALL) {
+    broadcastGameState(session, { lastAction: { by: username, action, result } });
+  }
 }
 
 function handleGameLeave(msg, context, username, send, toUser) {
@@ -261,7 +263,7 @@ function handleGameLeave(msg, context, username, send, toUser) {
 
   for (const p of session.players) {
     if (p.username !== username) {
-      toUser(p.username, { type: 'game_left', gameId, by: username });
+      toUser(p.username, { type: 'game_leave', gameId, gameType: session.gameType, by: username });
     }
   }
   deleteGameSession(gameId);
@@ -326,6 +328,7 @@ function initializeGameData(session) {
       };
       break;
     case GAME_TYPES.PAINTBALL:
+      session.paintballControls = new Map();
       session.gameData = {
         players: {
           [session.players[0].username]: { x: 100, y: 100, angle: 0, hp: 100, ammo: 10, color: '#4ade80', score: 0, alive: true, lastShot: 0 },
@@ -344,12 +347,16 @@ function initializeGameData(session) {
 function generatePaintballObstacles() {
   const obstacles = [];
   for (let i = 0; i < 15; i++) {
-    obstacles.push({
+    const obstacle = {
       x: Math.random() * 700 + 50,
       y: Math.random() * 500 + 50,
       width: Math.random() * 80 + 40,
       height: Math.random() * 80 + 40
-    });
+    };
+    const blocksSpawn = [[100, 100], [700, 500]].some(([x, y]) =>
+      x > obstacle.x - 16 && x < obstacle.x + obstacle.width + 16 &&
+      y > obstacle.y - 16 && y < obstacle.y + obstacle.height + 16);
+    if (!blocksSpawn) obstacles.push(obstacle);
   }
   return obstacles;
 }
@@ -657,16 +664,32 @@ function processFlappyAction(session, player, action) {
   return { success: true };
 }
 
-function processPaintballAction(session, player, action) {
+function processPaintballAction(session, player, action, now = Date.now()) {
   const gameData = session.gameData;
   const p = gameData.players[player.username];
   if (!p || !p.alive) return { error: 'You are not alive.' };
-  const now = Date.now();
 
+  if (action.type === 'controls') {
+    const fields = ['up', 'down', 'left', 'right', 'shoot', 'reload'];
+    if (fields.some(key => action[key] !== undefined && typeof action[key] !== 'boolean') ||
+        !Number.isFinite(action.angle)) return { error: 'Invalid Paintball controls.' };
+    const previous = session.paintballControls.get(player.username);
+    const recent = previous && now - previous.receivedAt <= 250;
+    session.paintballControls.set(player.username, {
+      receivedAt: now,
+      angle: action.angle,
+      queuedShot: Boolean(action.shoot || (recent && previous.queuedShot)),
+      queuedReload: Boolean(action.reload || (recent && previous.queuedReload)),
+      ...Object.fromEntries(fields.map(key => [key, Boolean(action[key])]))
+    });
+    return { success: true };
+  }
   if (action.type === 'move') {
     if (['up', 'down', 'left', 'right'].some(key => action[key] !== undefined && typeof action[key] !== 'boolean')) {
       return { error: 'Invalid movement input.' };
     }
+    if (now - (p.lastMoveAt || 0) < 45) return { success: true };
+    p.lastMoveAt = now;
     const speed = 4;
     let nx = p.x, ny = p.y;
     if (action.up) ny -= speed;
@@ -733,6 +756,7 @@ function updateGameLoops(now = Date.now()) {
       if (session.state === GAME_STATES.PLAYING) broadcastGameState(session, { lastAction: null });
     } else if (session.gameType === GAME_TYPES.PAINTBALL) {
       updatePaintballLoop(session, now);
+      if (session.state === GAME_STATES.PLAYING) broadcastGameState(session, { lastAction: null });
     }
 
     if (session.state === GAME_STATES.FINISHED) {
@@ -851,6 +875,20 @@ function updatePaintballLoop(session, now) {
   let aliveCount = 0;
   let lastAlive = null;
 
+  for (const player of session.players) {
+    const controls = session.paintballControls.get(player.username);
+    const data = gameData.players[player.username];
+    if (!controls || now - controls.receivedAt > 250 || !data.alive) continue;
+    data.angle = controls.angle;
+    if (controls.up || controls.down || controls.left || controls.right) {
+      processPaintballAction(session, player, { ...controls, type: 'move' }, now);
+    }
+    if (controls.reload || controls.queuedReload) processPaintballAction(session, player, { type: 'reload' }, now);
+    if (controls.shoot || controls.queuedShot) processPaintballAction(session, player, { type: 'shoot' }, now);
+    controls.queuedReload = false;
+    controls.queuedShot = false;
+  }
+
   for (const proj of gameData.projectiles) {
     proj.x += Math.cos(proj.angle) * proj.speed;
     proj.y += Math.sin(proj.angle) * proj.speed;
@@ -861,6 +899,13 @@ function updatePaintballLoop(session, now) {
       proj.expired = true;
       continue;
     }
+    for (const obs of gameData.obstacles) {
+      if (proj.x > obs.x && proj.x < obs.x + obs.width && proj.y > obs.y && proj.y < obs.y + obs.height) {
+        proj.expired = true;
+        break;
+      }
+    }
+    if (proj.expired) continue;
     for (const [username, player] of Object.entries(gameData.players)) {
       if (!player.alive || username === proj.owner) continue;
       const dx = proj.x - player.x;
@@ -872,12 +917,6 @@ function updatePaintballLoop(session, now) {
           player.alive = false;
           gameData.players[proj.owner].score += 100;
         }
-        break;
-      }
-    }
-    for (const obs of gameData.obstacles) {
-      if (proj.x > obs.x && proj.x < obs.x + obs.width && proj.y > obs.y && proj.y < obs.y + obs.height) {
-        proj.expired = true;
         break;
       }
     }
@@ -900,7 +939,7 @@ function updatePaintballLoop(session, now) {
   if (aliveCount <= 1) {
     session.state = GAME_STATES.FINISHED;
     session.finishedAt = Date.now();
-    session.winner = lastAlive || Object.keys(gameData.players)[0];
+    session.winner = lastAlive;
   }
 }
 

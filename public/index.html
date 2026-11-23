@@ -3373,11 +3373,7 @@ function renderPaintball(container) {
   currentGame = 'paintball';
   container.innerHTML = `
     <div style="text-align:center;max-width:800px;width:100%">
-      <div id="paintballModeSelect" style="margin-bottom:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
-        <button class="secondary" id="paintballModeSolo" data-mode="solo">Solo (Practice)</button>
-        <button class="primary" id="paintballModeMulti" data-mode="multi">Multiplayer</button>
-      </div>
-      <div id="paintballMultiplayerUI" class="hidden" style="margin-bottom:12px;padding:12px;background:var(--panel);border:1px solid var(--panel-border);border-radius:8px">
+      <div id="paintballMultiplayerUI" style="margin-bottom:12px;padding:12px;background:var(--panel);border:1px solid var(--panel-border);border-radius:8px">
         <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:8px">
           <input type="text" id="paintballInviteUser" placeholder="Friend username" style="max-width:160px">
           <button class="primary" id="paintballInviteBtn">Invite to Match</button>
@@ -3385,25 +3381,9 @@ function renderPaintball(container) {
         <div id="paintballInviteStatus" class="muted" style="font-size:12px;min-height:16px"></div>
         <div id="paintballMatchStatus" class="muted" style="font-size:12px;min-height:16px;margin-top:8px"></div>
       </div>
-      <div style="position:relative;display:inline-block">
-        <canvas id="paintballCanvas" width="800" height="600" style="background:#2d2d2d;border:2px solid var(--panel-border);border-radius:8px;display:block;touch-action:none"></canvas>
-        <div id="paintballMobileControls" class="hidden" style="position:absolute;bottom:10px;left:10px;right:10px;pointer-events:none;z-index:10">
-          <div style="display:flex;justify-content:space-between;pointer-events:auto;padding:0 20px">
-            <div style="display:flex;flex-direction:column;align-items:flex-start;gap:8px">
-              <button id="pbMoveUp" class="mobileGameBtn" style="width:60px;height:60px;border-radius:50%;background:rgba(0,0,0,0.5);border:1px solid var(--panel-border);color:#fff;font-size:20px">▲</button>
-              <div style="display:flex;gap:8px">
-                <button id="pbMoveLeft" class="mobileGameBtn" style="width:60px;height:60px;border-radius:50%;background:rgba(0,0,0,0.5);border:1px solid var(--panel-border);color:#fff;font-size:20px">◄</button>
-                <button id="pbMoveDown" class="mobileGameBtn" style="width:60px;height:60px;border-radius:50%;background:rgba(0,0,0,0.5);border:1px solid var(--panel-border);color:#fff;font-size:20px">▼</button>
-                <button id="pbMoveRight" class="mobileGameBtn" style="width:60px;height:60px;border-radius:50%;background:rgba(0,0,0,0.5);border:1px solid var(--panel-border);color:#fff;font-size:20px">►</button>
-              </div>
-            </div>
-            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
-              <button id="pbShootBtn" class="mobileGameBtn" style="width:80px;height:80px;border-radius:50%;background:rgba(200,50,50,0.7);border:2px solid #ff6666;color:#fff;font-size:18px;font-weight:bold">SHOOT</button>
-              <button id="pbReloadBtn" class="mobileGameBtn" style="width:80px;height:50px;border-radius:8px;background:rgba(0,0,0,0.5);border:1px solid var(--panel-border);color:#fff;font-size:14px">RELOAD</button>
-            </div>
-          </div>
-        </div>
-        <div id="paintballAimIndicator" class="hidden" style="position:absolute;top:0;left:0;width:800px;height:600px;pointer-events:none;z-index:5"></div>
+      <div style="position:relative;width:100%">
+        <canvas id="paintballCanvas" width="800" height="600" style="background:#2d2d2d;border:2px solid var(--panel-border);border-radius:8px;display:block;width:100%;height:auto;touch-action:none"></canvas>
+
       </div>
       <div style="margin-top:12px;display:flex;gap:16px;justify-content:center;flex-wrap:wrap;font-family:var(--font-minecraft);font-size:16px">
         <div id="paintballMyStats" style="display:flex;gap:16px;align-items:center">
@@ -3416,382 +3396,181 @@ function renderPaintball(container) {
           <span>Score: <strong id="pbOppScore">0</strong></span>
         </div>
       </div>
-      <p class="muted" style="margin-top:8px;font-size:12px">WASD/Arrows to move, Mouse to aim, Click/Space to shoot, R to reload. Mobile: use on-screen controls.</p>
+      <div id="paintballMobileControls" class="hidden" style="margin-top:12px">
+        <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:8px">
+          <button type="button" data-paintball-control="left" aria-label="Move left">←</button>
+          <button type="button" data-paintball-control="up" aria-label="Move up">↑</button>
+          <button type="button" data-paintball-control="down" aria-label="Move down">↓</button>
+          <button type="button" data-paintball-control="right" aria-label="Move right">→</button>
+          <button type="button" data-paintball-control="shoot">Shoot</button>
+          <button type="button" data-paintball-control="reload">Reload</button>
+        </div>
+      </div>
+      <p class="muted" style="margin-top:8px;font-size:12px">Use WASD or the arrow keys to move, click or press Space to shoot, and press R to reload. On touch screens, tap the map to aim.</p>
     </div>
   `;
   
   const canvas = $('paintballCanvas');
   const ctx = canvas.getContext('2d');
-  const aimLayer = $('paintballAimIndicator');
-  const aimCtx = aimLayer.getContext('2d');
-  
-  // Game state
-  let paintballMode = 'solo';
+  const mapWidth = canvas.width;
+  const mapHeight = canvas.height;
+  const myColor = '#4ade80';
+  const oppColor = '#f87171';
   let gameId = null;
   let opponentUsername = null;
-  let myColor = '#4ade80';
-  let oppColor = '#f87171';
-  
-  // Local player state (authoritative for rendering)
-  let myPlayer = { x: 100, y: 100, angle: 0, hp: 100, ammo: 10, score: 0, alive: true };
-  let oppPlayer = { x: 700, y: 500, angle: Math.PI, hp: 100, ammo: 10, score: 0, alive: true };
+  let myPlayer = null;
+  let oppPlayer = null;
   let projectiles = [];
   let obstacles = [];
-  const mapWidth = 800;
-  const mapHeight = 600;
-  let lastServerUpdate = 0;
-  let pendingInput = { up: false, down: false, left: false, right: false, aimAngle: 0, shoot: false, reload: false };
-  let lastSentInput = 0;
-  
-  // Mobile touch state
-  let touchMove = { up: false, down: false, left: false, right: false };
-  let touchAim = { x: 400, y: 300, active: false };
-  
-  // Mode selection
-  const modeSoloBtn = $('paintballModeSolo');
-  const modeMultiBtn = $('paintballModeMulti');
-  const multiUI = $('paintballMultiplayerUI');
-  const oppStats = $('paintballOppStats');
-  const mobileControls = $('paintballMobileControls');
-  
-  function setPaintballMode(mode) {
-    paintballMode = mode;
-    modeSoloBtn.classList.toggle('primary', mode === 'solo');
-    modeSoloBtn.classList.toggle('secondary', mode !== 'solo');
-    modeMultiBtn.classList.toggle('primary', mode === 'multi');
-    modeMultiBtn.classList.toggle('secondary', mode !== 'multi');
-    multiUI.classList.toggle('hidden', mode !== 'multi');
-    oppStats.classList.toggle('hidden', mode !== 'multi');
-    mobileControls.classList.toggle('hidden', mode === 'multi' && !isMobile());
-    if (mode === 'solo' && gameId) {
-      leaveGame();
-    }
-    resetGame();
-  }
-  
-  modeSoloBtn.onclick = () => setPaintballMode('solo');
-  modeMultiBtn.onclick = () => setPaintballMode('multi');
-  
-  // Mobile detection
-  function isMobile() {
-    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
-  }
-  
-  // Invite friend
+  let aim = 0;
+  let timer = null;
+  let lastInput = '';
+  const controls = new Set();
+  const keyControls = new Map([
+    ['arrowup', 'up'], ['w', 'up'], ['arrowdown', 'down'], ['s', 'down'],
+    ['arrowleft', 'left'], ['a', 'left'], ['arrowright', 'right'], ['d', 'right'],
+    [' ', 'shoot'], ['r', 'reload']
+  ]);
+
   $('paintballInviteBtn').onclick = () => {
     const username = $('paintballInviteUser').value.trim();
-    const statusEl = $('paintballInviteStatus');
     if (!username) return;
-    if (!me || !online.includes(username)) {
-      statusEl.textContent = 'User not found or offline.';
+    const status = $('paintballInviteStatus');
+    if (!me || username === me.username || !online.includes(username)) {
+      status.textContent = 'Choose an online friend.';
       return;
     }
-    if (username === me.username) {
-      statusEl.textContent = 'Cannot invite yourself.';
-      return;
-    }
-    statusEl.textContent = `Inviting ${username}...`;
+    status.textContent = `Inviting ${username}...`;
     send({ type: 'game_invite', gameType: 'paintball', opponent: username });
   };
-  
+
   function handlePaintballInvite(msg) {
-    if (msg.gameType !== 'paintball') return;
-    if (confirm(`${msg.from} invited you to a Paintball match! Accept?`)) {
-      send({ type: 'game_accept', inviteId: msg.inviteId });
-    } else {
-      send({ type: 'game_decline', inviteId: msg.inviteId });
-    }
+    const accepted = confirm(`${msg.from} invited you to a Paintball match. Accept?`);
+    send({ type: accepted ? 'game_accept' : 'game_decline', inviteId: msg.inviteId });
   }
-  
+
   function handlePaintballState(msg) {
-    if (msg.gameType !== 'paintball') return;
-    gameId = msg.gameId;
-    lastServerUpdate = Date.now();
-    
-    // Determine which player is me
-    const mePlayer = msg.players.find(p => p.username === me.username);
-    const oppPlayerData = msg.players.find(p => p.username !== me.username);
-    opponentUsername = oppPlayerData?.username;
-    myColor = mePlayer?.color || '#4ade80';
-    oppColor = oppPlayerData?.color || '#f87171';
-    
-    if (msg.state === 'playing') {
-      // Sync game data from server (authoritative)
-      syncFromServer(msg.gameData);
-      startGameLoop();
-    } else if (msg.state === 'finished') {
-      gameOver(msg.winner === me.username);
-    } else if (msg.state === 'waiting') {
-      $('paintballMatchStatus').textContent = `Waiting for ${opponentUsername} to ready up...`;
+    if (!msg.gameData?.players || (!msg.started && msg.gameId !== gameId)) return;
+    if (msg.started) {
+      if (gameId && gameId !== msg.gameId) leaveGame();
+      controls.clear();
+      lastInput = '';
+      gameId = msg.gameId;
+      opponentUsername = msg.players.find(player => player.username !== me.username)?.username;
+      aim = msg.gameData.players[me.username].angle;
+      $('paintballInviteStatus').textContent = '';
+      $('paintballOppStats').classList.remove('hidden');
+      $('paintballMobileControls').classList.toggle('hidden', !matchMedia('(any-pointer: coarse)').matches);
+      timer ??= setInterval(sendControls, 50);
     }
-  }
-  
-  function handlePaintballAction(msg) {
-    if (msg.gameType !== 'paintball') return;
-    // Server sends authoritative state updates
-    syncFromServer(msg.gameData);
-  }
-  
-  function handlePaintballLeave(msg) {
-    if (msg.gameType !== 'paintball') return;
-    if (msg.by === opponentUsername) {
-      $('paintballMatchStatus').textContent = `${opponentUsername} left the match.`;
-    }
-    // Clean up local state
-    if (gameId) {
-      gameId = null;
-      opponentUsername = null;
-    }
-    if (gameLoopId) {
-      cancelAnimationFrame(gameLoopId);
-      gameLoopId = null;
-    }
-    resetGame();
-    draw();
-  }
-  
-  function syncFromServer(gameData) {
-    if (!gameData) return;
-    // Update obstacles (only need once)
-    if (gameData.obstacles && obstacles.length === 0) {
-      obstacles = gameData.obstacles;
-    }
-    // Update projectiles
-    if (gameData.projectiles) {
-      projectiles = gameData.projectiles;
-    }
-    // Update players
-    if (gameData.players) {
-      for (const [username, player] of Object.entries(gameData.players)) {
-        if (username === me.username) {
-          // Keep local position for smooth movement, but sync hp/ammo/score/alive
-          myPlayer.hp = player.hp;
-          myPlayer.ammo = player.ammo;
-          myPlayer.score = player.score;
-          myPlayer.alive = player.alive;
-          if (player.respawnAt) myPlayer.respawnAt = player.respawnAt;
-        } else {
-          oppPlayer.x = player.x;
-          oppPlayer.y = player.y;
-          oppPlayer.angle = player.angle;
-          oppPlayer.hp = player.hp;
-          oppPlayer.ammo = player.ammo;
-          oppPlayer.score = player.score;
-          oppPlayer.alive = player.alive;
-          if (player.respawnAt) oppPlayer.respawnAt = player.respawnAt;
-        }
-      }
-    }
-    updateStatsDisplay();
-  }
-  
-  function updateStatsDisplay() {
+    myPlayer = msg.gameData.players[me.username];
+    oppPlayer = msg.gameData.players[opponentUsername];
+    obstacles = msg.gameData.obstacles;
+    projectiles = msg.gameData.projectiles;
     $('pbMyHP').textContent = myPlayer.hp;
     $('pbMyAmmo').textContent = myPlayer.ammo;
     $('pbMyScore').textContent = myPlayer.score;
-    if (opponentUsername) {
-      $('pbOppHP').textContent = oppPlayer.hp;
-      $('pbOppScore').textContent = oppPlayer.score;
-    }
-  }
-  
-  function startGameLoop() {
-    if (gameLoopId) return;
-    resetGame();
-    gameLoop();
-  }
-  
-  function resetGame() {
-    myPlayer = { x: 100, y: 100, angle: 0, hp: 100, ammo: 10, score: 0, alive: true };
-    oppPlayer = { x: 700, y: 500, angle: Math.PI, hp: 100, ammo: 10, score: 0, alive: true };
-    projectiles = [];
-    lastServerUpdate = Date.now();
-    updateStatsDisplay();
-    draw();
-  }
-  
-  function leaveGame() {
-    if (gameId) {
-      send({ type: 'game_leave', gameId });
+    $('pbOppHP').textContent = oppPlayer.hp;
+    $('pbOppScore').textContent = oppPlayer.score;
+    const status = $('paintballMatchStatus');
+    if (msg.state === 'finished') {
+      stopControls();
       gameId = null;
-      opponentUsername = null;
+      status.textContent = msg.winner === null ? 'Draw' : msg.winner === me.username ? 'Victory!' : 'Defeat';
+    } else {
+      status.textContent = `Playing against ${opponentUsername}`;
     }
-    if (gameLoopId) {
-      cancelAnimationFrame(gameLoopId);
-      gameLoopId = null;
+    draw();
+  }
+
+  function stopControls() {
+    clearInterval(timer);
+    timer = null;
+    controls.clear();
+  }
+
+  function leaveGame() {
+    stopControls();
+    if (gameId) send({ type: 'game_leave', gameId });
+    gameId = null;
+  }
+
+  function sendControls() {
+    if (!gameId || !myPlayer?.alive) return;
+    const action = { type: 'controls', angle: aim };
+    for (const control of controls) action[control] = true;
+    const input = JSON.stringify(action);
+    if (controls.size || input !== lastInput) {
+      lastInput = input;
+      send({ type: 'game_action', gameId, action });
     }
   }
-  
-  // Input handling
-  const keys = { w: false, a: false, s: false, d: false, arrowup: false, arrowdown: false, arrowleft: false, arrowright: false, r: false, ' ': false };
-  
-  function keydownHandler(e) {
-    const key = e.key.toLowerCase();
-    if (keys.hasOwnProperty(key)) {
-      keys[key] = true;
-      e.preventDefault();
-    }
-  }
-  
-  function keyupHandler(e) {
-    const key = e.key.toLowerCase();
-    if (keys.hasOwnProperty(key)) {
-      keys[key] = false;
-      e.preventDefault();
-    }
-  }
-  
-  document.addEventListener('keydown', keydownHandler);
-  document.addEventListener('keyup', keyupHandler);
-  currentGameKeyHandler = keydownHandler; // For cleanup
-  
-  // Mouse aim
-  canvas.addEventListener('mousemove', (e) => {
+
+  function updateAim(event) {
+    if (!gameId || !myPlayer?.alive) return;
     const rect = canvas.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
-    myPlayer.angle = Math.atan2(my - myPlayer.y, mx - myPlayer.x);
+    const x = (event.clientX - rect.left) * canvas.width / rect.width;
+    const y = (event.clientY - rect.top) * canvas.height / rect.height;
+    aim = Math.atan2(y - myPlayer.y, x - myPlayer.x);
     draw();
-  });
-  
-  canvas.addEventListener('mousedown', (e) => {
-    if (e.button === 0) pendingInput.shoot = true;
-  });
-  
-  canvas.addEventListener('mouseup', (e) => {
-    if (e.button === 0) pendingInput.shoot = false;
-  });
-  
-  canvas.addEventListener('click', (e) => {
-    // Click to shoot (also handles mobile)
-    if (paintballMode === 'multi' && gameId && myPlayer.alive) {
-      attemptShoot();
+  }
+  canvas.addEventListener('pointermove', updateAim);
+  canvas.addEventListener('pointerdown', event => {
+    updateAim(event);
+    if (event.pointerType !== 'touch' && event.button === 0 && gameId && myPlayer?.alive) {
+      controls.add('shoot');
+      sendControls();
+      controls.delete('shoot');
     }
   });
-  
-  // Touch controls for mobile
-  function setupMobileControls() {
-    if (!isMobile()) return;
-    
-    const moveBtns = {
-      up: $('pbMoveUp'),
-      down: $('pbMoveDown'),
-      left: $('pbMoveLeft'),
-      right: $('pbMoveRight')
-    };
-    
-    for (const [dir, btn] of Object.entries(moveBtns)) {
-      if (!btn) continue;
-      btn.addEventListener('touchstart', (e) => { e.preventDefault(); touchMove[dir] = true; }, { passive: false });
-      btn.addEventListener('touchend', (e) => { e.preventDefault(); touchMove[dir] = false; }, { passive: false });
-      btn.addEventListener('mousedown', (e) => { e.preventDefault(); touchMove[dir] = true; });
-      btn.addEventListener('mouseup', (e) => { e.preventDefault(); touchMove[dir] = false; });
-      btn.addEventListener('mouseleave', (e) => { touchMove[dir] = false; });
+
+  function keydown(event) {
+    if (!gameId || event.target?.closest?.('input, textarea, button, [contenteditable]')) return;
+    const control = keyControls.get(event.key.toLowerCase());
+    if (!control) return;
+    event.preventDefault();
+    if (!event.repeat) {
+      controls.add(control);
+      sendControls();
     }
-    
-    const shootBtn = $('pbShootBtn');
-    if (shootBtn) {
-      shootBtn.addEventListener('touchstart', (e) => { e.preventDefault(); pendingInput.shoot = true; }, { passive: false });
-      shootBtn.addEventListener('touchend', (e) => { e.preventDefault(); pendingInput.shoot = false; }, { passive: false });
-      shootBtn.addEventListener('mousedown', (e) => { e.preventDefault(); pendingInput.shoot = true; });
-      shootBtn.addEventListener('mouseup', (e) => { e.preventDefault(); pendingInput.shoot = false; });
+  }
+
+  function keyup(event) {
+    const control = keyControls.get(event.key.toLowerCase());
+    if (controls.delete(control)) sendControls();
+  }
+
+  function clearControls() {
+    controls.clear();
+    sendControls();
+  }
+
+  document.addEventListener('keydown', keydown);
+  document.addEventListener('keyup', keyup);
+  window.addEventListener('blur', clearControls);
+  currentGameKeyHandler = keydown;
+
+  for (const button of container.querySelectorAll('[data-paintball-control]')) {
+    const control = button.dataset.paintballControl;
+    button.style.touchAction = 'none';
+    button.addEventListener('pointerdown', event => {
+      event.preventDefault();
+      button.setPointerCapture(event.pointerId);
+      controls.add(control);
+      sendControls();
+    });
+    for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+      button.addEventListener(type, () => {
+        controls.delete(control);
+        sendControls();
+      });
     }
-    
-    const reloadBtn = $('pbReloadBtn');
-    if (reloadBtn) {
-      reloadBtn.addEventListener('click', () => { pendingInput.reload = true; });
-    }
-    
-    // Touch aim on canvas
-    canvas.addEventListener('touchmove', (e) => {
-      e.preventDefault();
-      const touch = e.touches[0];
-      const rect = canvas.getBoundingClientRect();
-      const mx = touch.clientX - rect.left;
-      const my = touch.clientY - rect.top;
-      myPlayer.angle = Math.atan2(my - myPlayer.y, mx - myPlayer.x);
-      touchAim = { x: mx, y: my, active: true };
-      draw();
-    }, { passive: false });
-    
-    canvas.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      if (paintballMode === 'multi' && gameId && myPlayer.alive) {
-        attemptShoot();
-      }
-    }, { passive: false });
   }
-  
-  setupMobileControls();
-  
-  function attemptShoot() {
-    const now = Date.now();
-    if (myPlayer.ammo <= 0) return;
-    if (now - (myPlayer.lastShot || 0) < 500) return;
-    myPlayer.lastShot = now;
-    myPlayer.ammo--;
-    pendingInput.shoot = true;
-    updateStatsDisplay();
-  }
-  
-  // Send input to server at 20Hz
-  function sendInputLoop() {
-    if (!gameId || paintballMode !== 'multi') return;
-    const now = Date.now();
-    if (now - lastSentInput < 50) return; // 20Hz
-    lastSentInput = now;
-    
-    // Build input from keys/touch
-    pendingInput.up = keys.w || keys.arrowup || touchMove.up;
-    pendingInput.down = keys.s || keys.arrowdown || touchMove.down;
-    pendingInput.left = keys.a || keys.arrowleft || touchMove.left;
-    pendingInput.right = keys.d || keys.arrowright || touchMove.right;
-    pendingInput.reload = keys.r || pendingInput.reload;
-    
-    send({ type: 'game_action', gameId, action: { ...pendingInput } });
-    pendingInput.reload = false;
-    pendingInput.shoot = false;
-  }
-  
-  // Game loop
-  function gameLoop() {
-    if (!gameId || paintballMode !== 'multi') return;
-    
-    // Local prediction for smooth movement
-    const speed = 4;
-    if (pendingInput.up) myPlayer.y -= speed;
-    if (pendingInput.down) myPlayer.y += speed;
-    if (pendingInput.left) myPlayer.x -= speed;
-    if (pendingInput.right) myPlayer.x += speed;
-    
-    // Clamp to bounds
-    const margin = 16;
-    myPlayer.x = Math.max(margin, Math.min(mapWidth - margin, myPlayer.x));
-    myPlayer.y = Math.max(margin, Math.min(mapHeight - margin, myPlayer.y));
-    
-    // Check obstacle collision
-    for (const obs of obstacles) {
-      if (myPlayer.x > obs.x - margin && myPlayer.x < obs.x + obs.width + margin &&
-          myPlayer.y > obs.y - margin && myPlayer.y < obs.y + obs.height + margin) {
-        // Revert movement
-        if (pendingInput.up) myPlayer.y += speed;
-        if (pendingInput.down) myPlayer.y -= speed;
-        if (pendingInput.left) myPlayer.x += speed;
-        if (pendingInput.right) myPlayer.x -= speed;
-        break;
-      }
-    }
-    
-    sendInputLoop();
-    draw();
-    gameLoopId = requestAnimationFrame(gameLoop);
-  }
-  
+
   function draw() {
     // Clear
     ctx.fillStyle = '#2d2d2d';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    aimCtx.clearRect(0, 0, aimLayer.width, aimLayer.height);
     
     // Draw grid pattern
     ctx.strokeStyle = 'rgba(255,255,255,0.03)';
@@ -3843,60 +3622,11 @@ function renderPaintball(container) {
       ctx.fill();
     }
     
-    // Draw opponent
-    if (oppPlayer.alive) {
-      drawPlayer(oppPlayer, oppColor, opponentUsername || 'Opponent', true);
-    } else if (oppPlayer.respawnAt && Date.now() > oppPlayer.respawnAt) {
-      // Respawning soon - show ghost
-      drawPlayer(oppPlayer, oppColor + '80', opponentUsername || 'Opponent', true);
-    }
-    
-    // Draw me
-    if (myPlayer.alive) {
-      drawPlayer(myPlayer, myColor, me?.username || 'You', false);
-    } else if (myPlayer.respawnAt && Date.now() > myPlayer.respawnAt) {
-      drawPlayer(myPlayer, myColor + '80', me?.username || 'You', false);
-    }
-    
-    // Draw aim indicator for mobile
-    if (isMobile() && touchAim.active) {
-      aimCtx.strokeStyle = myColor;
-      aimCtx.lineWidth = 2;
-      aimCtx.setLineDash([10, 5]);
-      aimCtx.beginPath();
-      aimCtx.moveTo(myPlayer.x, myPlayer.y);
-      aimCtx.lineTo(touchAim.x, touchAim.y);
-      aimCtx.stroke();
-      aimCtx.setLineDash([]);
-      // Crosshair
-      const cs = 20;
-      aimCtx.beginPath();
-      aimCtx.moveTo(touchAim.x - cs, touchAim.y);
-      aimCtx.lineTo(touchAim.x + cs, touchAim.y);
-      aimCtx.moveTo(touchAim.x, touchAim.y - cs);
-      aimCtx.lineTo(touchAim.x, touchAim.y + cs);
-      aimCtx.stroke();
-    }
-    
-    // Dead overlay
-    if (!myPlayer.alive && paintballMode === 'multi') {
-      ctx.fillStyle = 'rgba(0,0,0,0.7)';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#fff';
-      ctx.font = 'bold 32px var(--font-minecraft)';
-      ctx.textAlign = 'center';
-      ctx.fillText('ELIMINATED', canvas.width / 2, canvas.height / 2 - 20);
-      ctx.font = '18px var(--font-minecraft)';
-      if (myPlayer.respawnAt) {
-        const wait = Math.ceil((myPlayer.respawnAt - Date.now()) / 1000);
-        ctx.fillText(`Respawning in ${wait}s...`, canvas.width / 2, canvas.height / 2 + 20);
-      } else {
-        ctx.fillText('Waiting to respawn...', canvas.width / 2, canvas.height / 2 + 20);
-      }
-    }
+    if (oppPlayer?.alive) drawPlayer(oppPlayer, oppColor, opponentUsername);
+    if (myPlayer?.alive) drawPlayer({ ...myPlayer, angle: aim }, myColor, me.username);
   }
-  
-  function drawPlayer(player, color, label, isOpponent) {
+
+  function drawPlayer(player, color, label) {
     // Body
     ctx.fillStyle = color;
     ctx.beginPath();
@@ -3948,36 +3678,23 @@ function renderPaintball(container) {
     ctx.strokeRect(barX, barY, barW, barH);
   }
   
-  function gameOver(won) {
-    if (gameLoopId) {
-      cancelAnimationFrame(gameLoopId);
-      gameLoopId = null;
-    }
-    document.removeEventListener('keydown', keydownHandler);
-    document.removeEventListener('keyup', keyupHandler);
-    currentGameKeyHandler = null;
-    alert(won ? 'Victory! You won the match!' : 'Defeat! Better luck next time.');
-    if (gameId) {
-      send({ type: 'game_leave', gameId });
-      gameId = null;
-    }
-    resetGame();
-    draw();
-  }
-  
-  // Initial draw
   draw();
-
-  // Register paintball handler for global dispatch
   registerGameHandler('paintball', {
     onGameInvite: handlePaintballInvite,
     onGameState: handlePaintballState,
-    onGameAction: handlePaintballAction,
-    onGameLeave: handlePaintballLeave
+    onGameLeave(msg) {
+      if (msg.gameId !== gameId) return;
+      stopControls();
+      gameId = null;
+    },
+    onClose() {
+      document.removeEventListener('keyup', keyup);
+      window.removeEventListener('blur', clearControls);
+      leaveGame();
+    }
   });
 }
 
-// Close game page handler
 function closeGamePage() {
   const gamePage = $('gamePage');
   if (gamePage) {

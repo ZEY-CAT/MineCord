@@ -273,3 +273,107 @@ test('the Flappy client sends flap input and displays the server score and outco
     deleteGameSession(session.id);
   }
 });
+
+test('Paintball applies fresh input, queues quick shots, and broadcasts authoritative results', () => {
+  const { session, context, events } = startGame(GAME_TYPES.PAINTBALL);
+  try {
+    const { players } = session.gameData;
+    session.gameData.obstacles = [];
+    players.GameBob.x = 140;
+    players.GameBob.y = 100;
+    players.GameBob.hp = 25;
+    const receive = action => handleGameAction({ gameId: session.id, action }, context, 'GameAlice',
+      message => assert.fail(message.message), (username, payload) => events.push({ username, payload }));
+    receive({ type: 'controls', angle: 0, right: true, shoot: true });
+    receive({ type: 'controls', angle: 0, right: true });
+    const tick = session.paintballControls.get('GameAlice').receivedAt;
+    events.length = 0;
+    updateGameLoops(tick);
+    assert.equal(players.GameAlice.x, 104);
+    assert.equal(players.GameAlice.ammo, 9);
+    assert.equal(events.length, 2);
+    updateGameLoops(tick + 50);
+    assert.equal(players.GameBob.alive, false);
+    assert.equal(session.winner, 'GameAlice');
+    assert.deepEqual(events.filter(event => event.payload.state === 'finished').map(event => event.username).sort(), ['GameAlice', 'GameBob']);
+  } finally {
+    deleteGameSession(session.id);
+  }
+});
+
+test('Paintball lets a remote player leave and ignores stale directional input', () => {
+  const { session, context, events } = startGame(GAME_TYPES.PAINTBALL);
+  try {
+    assert.equal(submit(session, context, 'GameAlice', { type: 'controls', angle: 0, right: true }).length, 0);
+    const tick = session.paintballControls.get('GameAlice').receivedAt;
+    const position = session.gameData.players.GameAlice.x;
+    updateGameLoops(tick + 251);
+    assert.equal(session.gameData.players.GameAlice.x, position);
+
+    events.length = 0;
+    const { handleGameLeave } = require('../server/games-multiplayer');
+    handleGameLeave({ gameId: session.id }, context, 'GameAlice', () => {},
+      (username, payload) => events.push({ username, payload }));
+    assert.deepEqual(events, [{
+      username: 'GameBob',
+      payload: { type: 'game_leave', gameId: session.id, gameType: 'paintball', by: 'GameAlice' }
+    }]);
+  } finally {
+    deleteGameSession(session.id);
+  }
+});
+
+test('Paintball uses the accepted spawn and sends scaled aim with keyboard controls', () => {
+  const html = readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
+  const start = html.indexOf('function renderPaintball(');
+  const end = html.indexOf('function closeGamePage(', start);
+  assert.ok(start >= 0 && end > start);
+  const nodes = new Map();
+  const sent = [];
+  const input = new Map();
+  const drawing = new Proxy({}, { get: () => () => {} });
+  let handler;
+  const canvas = {
+    getContext: () => drawing,
+    addEventListener: (type, listener) => input.set(type, listener),
+    getBoundingClientRect: () => ({ left: 10, top: 20, width: 400, height: 300 }),
+    width: 800,
+    height: 600
+  };
+  nodes.set('paintballCanvas', canvas);
+  vm.runInNewContext(html.slice(start, end) + '\nrenderPaintball({ querySelectorAll: () => [] });', {
+    me: { username: 'GameBob' },
+    cleanupGame() {},
+    document: {
+      addEventListener: (type, listener) => input.set(type, listener),
+      removeEventListener() {}
+    },
+    window: { addEventListener() {}, removeEventListener() {} },
+    matchMedia: () => ({ matches: false }),
+    registerGameHandler: (_game, callbacks) => { handler = callbacks; },
+    $: id => {
+      if (!nodes.has(id)) nodes.set(id, { classList: { toggle() {}, remove() {} } });
+      return nodes.get(id);
+    },
+    send: message => sent.push(JSON.parse(JSON.stringify(message))),
+    setInterval: () => 1,
+    clearInterval() {},
+    currentGameKeyHandler: null,
+    currentGame: null
+  });
+  const { session } = startGame(GAME_TYPES.PAINTBALL);
+  try {
+    const info = { gameType: 'paintball', gameId: session.id, state: 'playing', gameData: session.gameData, players: session.players };
+    handler.onGameState({ ...info, started: true });
+    // Bob spawns at (700, 500). This pointer is directly to his left on the scaled canvas.
+    input.get('pointermove')({ clientX: 160, clientY: 270 });
+    input.get('keydown')({ key: 'w', preventDefault() {} });
+    assert.deepEqual(sent[0].action, { type: 'controls', angle: Math.PI, up: true });
+    handler.onGameState({ ...info, state: 'finished', winner: 'GameBob' });
+    assert.equal(nodes.get('paintballMatchStatus').textContent, 'Victory!');
+    input.get('keydown')({ key: 'w', preventDefault() {} });
+    assert.equal(sent.length, 1);
+  } finally {
+    deleteGameSession(session.id);
+  }
+});

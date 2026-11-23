@@ -465,3 +465,9 @@ Recommended order if local builds are approved: (1) no installs for current web/
 
 - Both clients render the server's birds, pipes, scores, and result. Space or a canvas tap sends flap input, and leaving the game page leaves the match. Tied scores draw.
 - Eighteen multiplayer and Chess tests passed, including synchronized Flappy ticks/results and client input. Real two-device gameplay remains pending.
+
+## Multiplayer Paintball gameplay — 2026-11-22
+
+- Paintball sends validated movement, aim, and button state to the server. The server advances fresh input and projectiles, blocks shots at obstacles, and broadcasts positions, scores, and results. Game leave messages now reach the client handlers.
+- The responsive canvas uses scaled aim coordinates and working keyboard and touch controls. The previously nonfunctional Practice placeholder was removed.
+- Twenty-one multiplayer and Chess tests passed. Physical-device input and real two-device gameplay remain pending.
