@@ -471,3 +471,8 @@ Recommended order if local builds are approved: (1) no installs for current web/
 - Paintball sends validated movement, aim, and button state to the server. The server advances fresh input and projectiles, blocks shots at obstacles, and broadcasts positions, scores, and results. Game leave messages now reach the client handlers.
 - The responsive canvas uses scaled aim coordinates and working keyboard and touch controls. The previously nonfunctional Practice placeholder was removed.
 - Twenty-one multiplayer and Chess tests passed. Physical-device input and real two-device gameplay remain pending.
+
+## Mobile browser notifications — 2026-11-22
+
+- Browsers with an active service worker display private event notifications through that worker, allowing mobile browsers that lack an inline notification constructor to deliver them. Notification clicks target the app. Initial presence snapshots do not produce friend-arrival notifications.
+- Six companion, notification, and PWA tests passed. Delivery still depends on a running MineCord session, platform support, and notification permission. Closed-app push and physical-device verification remain pending.

@@ -107,3 +107,43 @@ test('the service worker refreshes stale shell assets and falls back on an offli
   assert.equal(request('/api/messages', 'cors'), undefined);
   assert.equal(request('/auth/google', 'navigate'), undefined);
 });
+
+test('mobile browsers show private notifications through the active service worker', async () => {
+  const notifications = [];
+  const loadPreferences = () => JSON.stringify({ enabled: true });
+  let sent;
+  const received = new Promise(resolve => { sent = resolve; });
+  function Notification() {
+    assert.fail('the mobile Notification constructor must not run');
+  }
+  Notification.permission = 'granted';
+  const window = { handle() {}, Notification, addEventListener() {} };
+  vm.runInNewContext(read('public/notifications.js'), {
+    window,
+    document: { getElementById: () => null, visibilityState: 'hidden' },
+    localStorage: { getItem: loadPreferences },
+    me: { username: 'Alice' },
+    friendsList: ['Bob'],
+    online: [],
+    Notification,
+    navigator: {
+      serviceWorker: {
+        getRegistration: async () => ({
+          active: true,
+          showNotification(title, options) {
+            notifications.push({ title, options });
+            sent();
+          }
+        })
+      }
+    },
+    location: { protocol: 'https:', hostname: 'minecord.test' }
+  });
+
+  window.handle({ type: 'ready', me: { id: 'one' }, online: ['Bob'] });
+  window.handle({ type: 'dm', message: { from: 'Bob', text: 'PRIVATE' } });
+  await received;
+  assert.equal(notifications.length, 1, 'the initial presence snapshot is not a friend arrival');
+  assert.equal(notifications[0].title, 'MineCord');
+  assert.equal(notifications[0].options.body, 'You have a new message in MineCord.');
+});
