@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const https = require('https');
 const dns = require('dns').promises;
 const net = require('net');
+const { listMineCordGameAccounts } = require('./minecraft-accounts');
 
 function validateEaglercraftUrl(url) {
   try {
@@ -386,82 +387,19 @@ function gamesRoutes(app, { data, save, requireAuth, createId, database, originA
 
   // Get user's game accounts
   app.get('/api/games/accounts', requireAuth, (req, res) => {
-    const userId = req.minecordUser.id;
-    const accounts = (data.gameAccounts || []).filter(a => a.owner === req.minecordUser.username);
-    res.json({ accounts: accounts.map(a => ({
-      edition: a.edition,
-      username: a.username,
-      uuid: a.uuid,
-      xuid: a.xuid,
-      linkedAt: a.linkedAt
-    })) });
+    res.json({ accounts: listMineCordGameAccounts(data, req.minecordUser) });
   });
 
-  // Link Minecraft Java account (via existing Microsoft OAuth flow)
+  // Legacy client-supplied identities are not proof of Minecraft ownership.
   app.post('/api/games/accounts/java', requireAuth, (req, res) => {
     if (!originAllowed(req)) return res.status(403).json({ error: 'Request origin is not allowed.' });
-    const username = clean(req.body?.username, 32);
-    const uuid = clean(req.body?.uuid, 80);
-    if (!username || !/^[A-Za-z0-9_]{1,16}$/.test(username)) {
-      return res.status(400).json({ error: 'Valid Minecraft username is required.' });
-    }
-    if (uuid && !/^[a-f0-9]{32}$/i.test(uuid)) {
-      return res.status(400).json({ error: 'Invalid UUID format.' });
-    }
-
-    const existing = (data.gameAccounts || []).find(a => a.owner === req.minecordUser.username && a.edition === 'java');
-    if (existing) {
-      existing.username = username;
-      existing.uuid = uuid || null;
-      existing.linkedAt = Date.now();
-      existing.rawData = JSON.stringify({ manuallyLinked: true });
-    } else {
-      (data.gameAccounts || []).push({
-        owner: req.minecordUser.username,
-        edition: 'java',
-        username,
-        uuid: uuid || null,
-        linkedAt: Date.now(),
-        rawData: JSON.stringify({ manuallyLinked: true })
-      });
-    }
-    save();
-    res.json({ account: { edition: 'java', username, uuid, linkedAt: Date.now() } });
+    return res.status(410).json({ error: 'Minecraft accounts must be linked through the verified Microsoft sign-in flow.' });
   });
 
-  // Link Minecraft Bedrock account
+  // Legacy client-supplied gamertags/XUIDs are not proof of Xbox ownership.
   app.post('/api/games/accounts/bedrock', requireAuth, (req, res) => {
     if (!originAllowed(req)) return res.status(403).json({ error: 'Request origin is not allowed.' });
-    const username = clean(req.body?.username, 32);
-    const xuid = clean(req.body?.xuid, 80);
-    if (!username || !/^[A-Za-z0-9_]{1,16}$/.test(username)) {
-      return res.status(400).json({ error: 'Valid Bedrock username (Xbox Gamertag) is required.' });
-    }
-    if (xuid && !/^[0-9]{16}$/.test(xuid)) {
-      return res.status(400).json({ error: 'XUID must be a 16-digit number.' });
-    }
-
-    // Ensure gameAccounts array exists
-    if (!Array.isArray(data.gameAccounts)) data.gameAccounts = [];
-
-    const existing = data.gameAccounts.find(a => a.owner === req.minecordUser.username && a.edition === 'bedrock');
-    if (existing) {
-      existing.username = username;
-      existing.xuid = xuid || null;
-      existing.linkedAt = Date.now();
-      existing.rawData = JSON.stringify({ manuallyLinked: true });
-    } else {
-      data.gameAccounts.push({
-        owner: req.minecordUser.username,
-        edition: 'bedrock',
-        username,
-        xuid: xuid || null,
-        linkedAt: Date.now(),
-        rawData: JSON.stringify({ manuallyLinked: true })
-      });
-    }
-    save();
-    res.json({ account: { edition: 'bedrock', username, xuid: xuid || null, linkedAt: Date.now() } });
+    return res.status(410).json({ error: 'Xbox accounts must be linked through the verified Microsoft sign-in flow.' });
   });
 
   // Link Eaglercraft URL

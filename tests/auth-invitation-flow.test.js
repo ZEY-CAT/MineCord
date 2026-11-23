@@ -4,7 +4,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { test } = require('node:test');
 
-const html = readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
+const html = readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8').replace(/\r\n/g, '\n');
 const marker = '(async()=>{\n  show(\'login\',true);';
 const start = html.indexOf(marker);
 if (start < 0) throw new Error('Could not find MineCord authentication startup.');

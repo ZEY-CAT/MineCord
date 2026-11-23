@@ -5,6 +5,7 @@ const oauthStateCookie=require('./oauth-state');
 const oauthOriginHelper=require('./oauth-origin');
 const devPortal=require('./dev-portal');
 const {resolveLegacyDataPath,resolveDeveloperConfigPath}=require('./database-config');
+const {linkVerifiedBedrockAccount}=require('./minecraft-accounts');
 const PORT=Number(process.env.PORT||3000),APP_URL=process.env.APP_URL||process.env.RENDER_EXTERNAL_URL||`http://localhost:${PORT}`,DATA=resolveLegacyDataPath(process.env,__dirname);
 if(APP_URL.startsWith('https://')){const publicOrigin=APP_URL.replace(/\/+$/,'');process.env.GOOGLE_CALLBACK_URL=`${publicOrigin}/auth/google/callback`;process.env.GITHUB_CALLBACK_URL=`${publicOrigin}/auth/github/callback`}
 const OAUTH_ORIGIN_OPTIONS={appUrl:APP_URL,port:PORT};
@@ -649,14 +650,11 @@ app.get('/auth/microsoft/callback',async(q,r)=>{
     if(!authenticated||authenticated.id!==state.userId)return r.status(401).send('Sign in to the same MINECORD account before linking Bedrock.');
     try{
       const profile=await finishBedrockLink(q.query.code,redirectUri);
-      const duplicate=Object.values(data.users).some(user=>user.id!==authenticated.id&&user.gameAccounts?.some(ga=>ga.edition==='bedrock'&&ga.xuid===profile.xuid));
-      if(duplicate)return redirectResult('bedrock_link_error','already_linked');
-      authenticated.gameAccounts=authenticated.gameAccounts||[];
-      authenticated.gameAccounts=authenticated.gameAccounts.filter(ga=>ga.edition!=='bedrock');
-      authenticated.gameAccounts.push({edition:'bedrock',username:profile.username,xuid:profile.xuid,linkedAt:profile.linkedAt,rawData:JSON.stringify({source:profile.source,verified:true})});
+      linkVerifiedBedrockAccount(data,authenticated,profile);
       save();
       return redirectResult('bedrock_link','success');
     }catch(error){
+      if(error.code==='BEDROCK_ACCOUNT_ALREADY_LINKED')return redirectResult('bedrock_link_error','already_linked');
       const reason=error.message.includes('XUID not found')?'no_xuid':error.message.includes('gamertag')?'no_gamertag':error.message.includes('invalid response')?'service_error':'link_failed';
       return redirectResult('bedrock_link_error',reason);
     }

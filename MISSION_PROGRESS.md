@@ -476,3 +476,13 @@ Recommended order if local builds are approved: (1) no installs for current web/
 
 - Browsers with an active service worker display private event notifications through that worker, allowing mobile browsers that lack an inline notification constructor to deliver them. Notification clicks target the app. Initial presence snapshots do not produce friend-arrival notifications.
 - Six companion, notification, and PWA tests passed. Delivery still depends on a running MineCord session, platform support, and notification permission. Closed-app push and physical-device verification remain pending.
+
+## Verified Minecraft account linking — 2026-11-22
+
+- Closed a confirmed fake-link path: authenticated clients could submit arbitrary Minecraft Java usernames/UUIDs or Bedrock gamertags/XUIDs to legacy APIs and receive successful “linked” records. Both write endpoints now return `410` and direct users to the existing Microsoft verification flow.
+- Fixed the verified Bedrock OAuth callback to store the returned Xbox profile in the shared `gameAccounts` state consumed by normalized SQLite persistence and `/api/games/accounts`, rather than attaching an unconsumed array to the user object. XUID uniqueness is checked across current normalized records and legacy user records. No provider or Xbox access tokens are stored.
+- Account listing now surfaces the verified Minecraft Services Java profile and includes an explicit `verified` flag. Older manual Java/Bedrock records remain preserved but are marked unverified; no account data was deleted.
+- Added isolated tests for verified Bedrock persistence, duplicate XUID rejection, malformed provider results, verified Java listing, and legacy manual records. Updated HTTP tests to prove both manual identity endpoints reject spoofed profiles.
+- Fixed a Windows-only test parsing issue by normalizing CRLF before extracting the login bootstrap script. Corrected the multiplayer leave integration test to wait for the actual `game_leave` event; the prior test incorrectly waited for nonexistent `game_left`.
+- Focused server/Minecraft tests: **29 passed, 0 failed**; Minecraft helper tests: **3 passed, 0 failed**; login bootstrap tests: **7 passed, 0 failed**. Full `npm test`: **201 passed, 0 failed, 0 cancelled, 0 skipped** (124.9 seconds).
+- Live Microsoft/Xbox OAuth remains unverified because no provider credentials/account were exercised; helper and route behavior are automated-test verified only. Continue next with another locally implementable item, then keep physical-device, two-device media, and Render persistence checks blocked until hardware/access is available.
