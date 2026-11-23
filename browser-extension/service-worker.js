@@ -17,6 +17,17 @@ function isSupportedGameUrl(value) {
   }
 }
 
+function normalizeMinecordServerOrigin(value) {
+  try {
+    const url = new URL(String(value || '').trim());
+    const localHost = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+    if (url.username || url.password || url.pathname !== '/' || url.search || url.hash) return null;
+    if (url.protocol === 'https:') return url.origin;
+    if (url.protocol === 'http:' && localHost) return url.origin;
+  } catch {}
+  return null;
+}
+
 async function readConfig() {
   return chrome.storage.local.get(['serverUrl', 'activityToken', 'activeTabs', 'activeFrames']);
 }
@@ -106,10 +117,9 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
   }
 
   if (message?.type === 'pair') {
-    const serverUrl = String(message.serverUrl || '').trim().replace(/\/+$/, '');
+    const serverUrl = normalizeMinecordServerOrigin(message.serverUrl);
     const code = String(message.code || '').trim();
-    if (!/^https?:\/\/[^/]+$/i.test(serverUrl) || code.length < 20 || code.length > 100 ||
-        (!serverUrl.startsWith('https://') && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(serverUrl))) {
+    if (!serverUrl || !/^[A-Za-z0-9_-]{20,100}$/.test(code)) {
       respond({ error: 'Enter the MINECORD server URL and the pairing code from Settings.' });
       return;
     }

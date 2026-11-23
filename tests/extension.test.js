@@ -7,6 +7,7 @@ const { test } = require('node:test');
 const extensionDir = path.resolve(__dirname, '..', 'browser-extension');
 const manifest = JSON.parse(fs.readFileSync(path.join(extensionDir, 'manifest.json'), 'utf8'));
 const detector = fs.readFileSync(path.join(extensionDir, 'detector.js'), 'utf8');
+const serviceWorker = fs.readFileSync(path.join(extensionDir, 'service-worker.js'), 'utf8');
 
 function contentScriptMatches(value) {
   const url = new URL(value);
@@ -78,6 +79,25 @@ test('extension popup uses the accessible responsive pairing interface and share
   assert.match(theme, /prefers-reduced-motion:\s*reduce/);
   assert.match(popupLogic, /requestOriginPermission/);
   assert.match(popupLogic, /serverOrigin/);
+});
+
+test('Eaglercraft pairing accepts only a credential-free server origin over HTTPS or local HTTP', () => {
+  const start = serviceWorker.indexOf('function normalizeMinecordServerOrigin(');
+  const end = serviceWorker.indexOf('\n}', start);
+  assert.ok(start >= 0 && end > start, 'expected the extension pairing origin validator');
+  const source = serviceWorker.slice(start, end + 2);
+  const normalize = runInNewContext(`(${source})`, { URL });
+
+  assert.equal(normalize('https://minecord.example/'), 'https://minecord.example');
+  assert.equal(normalize('https://minecord.example:8443/'), 'https://minecord.example:8443');
+  assert.equal(normalize('http://localhost:3000/'), 'http://localhost:3000');
+  assert.equal(normalize('http://127.0.0.1:3000/'), 'http://127.0.0.1:3000');
+  assert.equal(normalize('https://user:secret@minecord.example/'), null);
+  assert.equal(normalize('https://minecord.example/app'), null);
+  assert.equal(normalize('https://minecord.example/?next=https://attacker.example'), null);
+  assert.equal(normalize('http://minecord.example/'), null);
+  assert.equal(normalize('file:///tmp/minecord'), null);
+  assert.match(fs.readFileSync(path.join(extensionDir, 'popup.js'), 'utf8'), /url\.username \|\| url\.password/);
 });
 
 test('download archive is a valid ZIP containing the exact current extension sources', () => {

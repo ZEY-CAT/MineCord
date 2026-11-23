@@ -26,6 +26,7 @@ function serverOrigin(value) {
   } catch {
     throw new Error('Enter a valid MINECORD server URL.');
   }
+  if (url.username || url.password) throw new Error('Remove the username and password from the server URL.');
   const origin = url.origin;
   if (!origin.startsWith('https://') && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)) {
     throw new Error('Use HTTPS for an online server; HTTP is only allowed for localhost development.');
