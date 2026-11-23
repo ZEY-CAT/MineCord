@@ -316,6 +316,7 @@ function initializeGameData(session) {
         },
         pipes: [],
         frameCount: 0,
+        startsAt: session.updatedAt + 1500,
         gravity: 0.5,
         jumpForce: -8,
         pipeGap: 150,
@@ -727,7 +728,9 @@ function updateGameLoops(now = Date.now()) {
       updateSnakeLoop(session, now);
       if (session.state === GAME_STATES.PLAYING) broadcastGameState(session, { lastAction: null });
     } else if (session.gameType === GAME_TYPES.FLAPPY) {
+      if (now < session.gameData.startsAt) continue;
       updateFlappyLoop(session, now);
+      if (session.state === GAME_STATES.PLAYING) broadcastGameState(session, { lastAction: null });
     } else if (session.gameType === GAME_TYPES.PAINTBALL) {
       updatePaintballLoop(session, now);
     }
@@ -792,7 +795,6 @@ function findFreeSnakeCell({ snakes, gridSize }) {
 
 function updateFlappyLoop(session, now) {
   const gameData = session.gameData;
-  let anyAlive = false;
   gameData.frameCount++;
 
   if (gameData.frameCount % gameData.pipeSpawnInterval === 0) {
@@ -814,11 +816,10 @@ function updateFlappyLoop(session, now) {
 
   for (const [username, bird] of Object.entries(gameData.birds)) {
     if (!bird.alive) continue;
-    anyAlive = true;
     bird.velocity += gameData.gravity;
     bird.y += bird.velocity;
 
-    if (bird.y < 0 || bird.y > 600) {
+    if (bird.y - 15 < 0 || bird.y + 15 > 600) {
       bird.alive = false;
       continue;
     }
@@ -831,15 +832,17 @@ function updateFlappyLoop(session, now) {
       if (bird.x + 15 > pipe.x && bird.x - 15 < pipe.x + gameData.pipeWidth) {
         if (bird.y - 15 < pipe.topHeight || bird.y + 15 > pipe.bottomY) {
           bird.alive = false;
+          break;
         }
       }
     }
   }
-  if (!anyAlive) {
+  const birds = Object.entries(gameData.birds);
+  if (birds.every(([, bird]) => !bird.alive)) {
     session.state = GAME_STATES.FINISHED;
-    session.finishedAt = Date.now();
-    const scores = Object.entries(gameData.birds).map(([u,b])=>({username:u,score:b.score})).sort((a,b)=>b.score-a.score);
-    session.winner = scores[0].username;
+    session.finishedAt = now;
+    const [first, second] = birds.sort(([, a], [, b]) => b.score - a.score);
+    session.winner = first[1].score === second[1].score ? null : first[0];
   }
 }
 

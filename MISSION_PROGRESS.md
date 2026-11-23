@@ -460,3 +460,8 @@ Recommended order if local builds are approved: (1) no installs for current web/
 - The server advances Snake on fixed ticks, grows the snake safely when food is eaten, selects free food cells, and broadcasts state to both players. Tied scores end in a draw.
 - Players open the accepted match, render the same board, and send the server-compatible direction input with keyboard or touch. Leaving the page sends a match leave.
 - Sixteen multiplayer and Chess tests passed, including authoritative Snake food/ticks and the client control flow. Real two-device gameplay remains pending.
+
+## Multiplayer Flappy gameplay — 2026-11-22
+
+- Both clients render the server's birds, pipes, scores, and result. Space or a canvas tap sends flap input, and leaving the game page leaves the match. Tied scores draw.
+- Eighteen multiplayer and Chess tests passed, including synchronized Flappy ticks/results and client input. Real two-device gameplay remains pending.

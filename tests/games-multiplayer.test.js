@@ -202,3 +202,74 @@ test('Snake clients render the server board and send named directions from touch
     deleteGameSession(session.id);
   }
 });
+
+test('Flappy broadcasts the same authoritative simulation tick and tied result to both players', () => {
+  const { session, events } = startGame(GAME_TYPES.FLAPPY);
+  try {
+    events.length = 0;
+    const { birds, startsAt } = session.gameData;
+    updateGameLoops(startsAt - 1);
+    assert.equal(events.length, 0);
+    updateGameLoops(startsAt);
+    assert.equal(events.length, 2);
+    assert.ok(events.every(event => event.payload.state === 'playing'));
+    assert.ok(birds.GameAlice.y > 300);
+
+    birds.GameAlice.y = 5;
+    birds.GameBob.y = 595;
+    events.length = 0;
+    updateGameLoops(startsAt + 50);
+    assert.deepEqual(events.map(event => event.username).sort(), ['GameAlice', 'GameBob']);
+    assert.ok(events.every(event => event.payload.state === 'finished' && event.payload.winner === null));
+  } finally {
+    deleteGameSession(session.id);
+  }
+});
+
+test('the Flappy client sends flap input and displays the server score and outcome', () => {
+  const html = readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
+  const start = html.indexOf('function renderFlappyBird(');
+  const end = html.indexOf('function renderChess(', start);
+  assert.ok(start >= 0 && end > start);
+  const nodes = new Map();
+  const sent = [];
+  const input = new Map();
+  const drawing = new Proxy({}, { get: () => () => {} });
+  let handler;
+  vm.runInNewContext(html.slice(start, end) + '\nrenderFlappyBird({});', {
+    me: { username: 'GameBob' },
+    cleanupGame() {},
+    document: { addEventListener: (type, listener) => input.set(type, listener) },
+    localStorage: { getItem: () => null },
+    registerGameHandler: (_game, callbacks) => { handler = callbacks; },
+    $: id => {
+      if (!nodes.has(id)) nodes.set(id, {
+        classList: { toggle() {} },
+        getContext: () => drawing,
+        addEventListener() {},
+        width: 400,
+        height: 600
+      });
+      return nodes.get(id);
+    },
+    send: message => sent.push(JSON.parse(JSON.stringify(message))),
+    currentGameKeyHandler: null,
+    currentGame: null,
+    gameLoopId: null
+  });
+  const { session } = startGame(GAME_TYPES.FLAPPY);
+  try {
+    const info = { gameType: 'flappy', gameId: session.id, state: 'playing', gameData: session.gameData, players: session.players };
+    session.gameData.birds.GameBob.score = 2;
+    handler.onGameState({ ...info, started: true });
+    assert.equal(nodes.get('flappyScore').textContent, 2);
+    input.get('keydown')({ code: 'Space', preventDefault() {} });
+    assert.deepEqual(sent[0].action, { type: 'flap' });
+    handler.onGameState({ ...info, state: 'finished', winner: 'GameBob' });
+    assert.equal(nodes.get('flappyInviteStatus').textContent, 'You won!');
+    input.get('keydown')({ code: 'Space', preventDefault() {} });
+    assert.equal(sent.length, 1);
+  } finally {
+    deleteGameSession(session.id);
+  }
+});

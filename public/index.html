@@ -2032,12 +2032,13 @@ function renderFlappyBird(container) {
         </div>
         <div id="flappyInviteStatus" class="muted" style="font-size:12px;min-height:16px"></div>
       </div>
-      <canvas id="flappyCanvas" width="400" height="600" style="background:#70c5ce;border:2px solid var(--panel-border);border-radius:8px;display:block;margin:0 auto;touch-action:none"></canvas>
+      <canvas id="flappyCanvas" width="400" height="600" style="background:#70c5ce;border:2px solid var(--panel-border);border-radius:8px;display:block;margin:0 auto;max-width:100%;height:auto;touch-action:none"></canvas>
       <div style="margin-top:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
         <button class="primary" id="flappyStart">Start</button>
         <button class="secondary" id="flappyPause">Pause</button>
         <div class="muted" style="display:flex;align-items:center;gap:8px">Your Score: <strong id="flappyScore">0</strong></div>
-        <div id="flappyOpponentScore" class="hidden" class="muted" style="display:flex;align-items:center;gap:8px">Opponent: <strong id="flappyOppScore">0</strong></div>
+        <div class="muted" id="flappyBestScore">Best: <strong id="flappyBest">0</strong></div>
+        <div id="flappyOpponentScore" class="hidden muted" style="display:flex;align-items:center;gap:8px">Opponent: <strong id="flappyOppScore">0</strong></div>
       </div>
       <p class="muted" style="margin-top:8px;font-size:12px">Click or press Space to flap. Navigate through pipes!</p>
     </div>
@@ -2045,16 +2046,15 @@ function renderFlappyBird(container) {
   
   const canvas = $('flappyCanvas');
   const ctx = canvas.getContext('2d');
-  const bestScore = parseInt(localStorage.getItem('flappyBest') || '0');
+  let bestScore = parseInt(localStorage.getItem('flappyBest') || '0');
   $('flappyBest').textContent = bestScore;
   
   // Multiplayer state
   let flappyMode = 'solo'; // 'solo' or 'multi'
   let gameId = null;
   let opponentUsername = null;
-  let opponentScore = 0;
+  let localAlive = false;
   let opponentBird = null;
-  let pendingInvite = null;
   
   // Mode selection
   $('flappyModeSolo').onclick = () => setFlappyMode('solo');
@@ -2068,9 +2068,14 @@ function renderFlappyBird(container) {
     $('flappyModeMulti').classList.toggle('secondary', mode !== 'multi');
     $('flappyMultiplayerUI').classList.toggle('hidden', mode !== 'multi');
     $('flappyOpponentScore').classList.toggle('hidden', mode !== 'multi');
-    if (mode === 'solo' && gameId) {
-      leaveGame();
-    }
+    if (gameLoopId) cancelAnimationFrame(gameLoopId);
+    gameLoopId = null;
+    if (mode === 'solo') leaveGame();
+    $('flappyStart').hidden = mode === 'multi';
+    $('flappyPause').hidden = mode === 'multi';
+    $('flappyBestScore').hidden = mode === 'multi';
+    resetGame();
+    draw();
   }
   
   // Invite friend
@@ -2085,7 +2090,6 @@ function renderFlappyBird(container) {
       $('flappyInviteStatus').textContent = 'Cannot invite yourself.';
       return;
     }
-    pendingInvite = username;
     $('flappyInviteStatus').textContent = `Inviting ${username}...`;
     send({ type: 'game_invite', gameType: 'flappy', opponent: username });
   };
@@ -2099,26 +2103,43 @@ function renderFlappyBird(container) {
     }
   }
   
-  function handleGameState(msg) {
-    if (msg.gameType !== 'flappy') return;
-    gameId = msg.gameId;
-    opponentUsername = msg.players.find(p => p.username !== me.username)?.username;
-    if (msg.state === 'playing') {
-      startMultiplayerGame(msg.gameData);
-    } else if (msg.state === 'finished') {
-      gameOver(msg.winner === me.username);
+  function handleFlappyState(msg) {
+    if (!msg.gameData?.birds || (!msg.started && msg.gameId !== gameId)) return;
+    if (msg.started) {
+      if (gameId && gameId !== msg.gameId) leaveGame();
+      setFlappyMode('multi');
+      gameId = msg.gameId;
+      opponentUsername = msg.players.find(player => player.username !== me.username)?.username;
+      $('flappyInviteStatus').textContent = '';
     }
-  }
-  
-  function handleGameAction(msg) {
-    if (msg.gameType !== 'flappy') return;
-    if (msg.lastAction?.by === opponentUsername) {
-      opponentScore = msg.gameData.birds[opponentUsername]?.score || 0;
-      opponentBird = msg.gameData.birds[opponentUsername];
-      $('flappyOppScore').textContent = opponentScore;
+
+    const localBird = msg.gameData.birds[me.username];
+    bird = { ...localBird, radius: 15 };
+    localAlive = localBird.alive;
+    opponentBird = msg.gameData.birds[opponentUsername];
+    pipes = msg.gameData.pipes;
+    score = localBird.score;
+    $('flappyScore').textContent = score;
+    $('flappyOppScore').textContent = opponentBird?.score || 0;
+    gameState = msg.state === 'finished' ? 'gameover' : 'playing';
+    const status = $('flappyInviteStatus');
+    if (msg.state === 'finished') {
+      gameId = null;
+      status.textContent = msg.winner === null ? 'Draw' : msg.winner === me.username ? 'You won!' : 'Opponent won';
+    } else {
+      status.textContent = localAlive ? `Playing against ${opponentUsername}` : 'Waiting for the opponent to finish';
     }
+    draw();
   }
-  
+
+  function handleFlappyLeave(msg) {
+    if (msg.gameId !== gameId) return;
+    gameId = null;
+    opponentUsername = null;
+    resetGame();
+    draw();
+  }
+
   // Game state
   let bird = { x: 80, y: 300, velocity: 0, radius: 15 };
   let pipes = [];
@@ -2140,7 +2161,7 @@ function renderFlappyBird(container) {
     gameState = 'ready';
     $('flappyScore').textContent = '0';
     if (flappyMode === 'multi') {
-      opponentScore = 0;
+      localAlive = false;
       opponentBird = null;
       $('flappyOppScore').textContent = '0';
     }
@@ -2183,6 +2204,7 @@ function renderFlappyBird(container) {
         score++;
         $('flappyScore').textContent = score;
         if (score > bestScore) {
+          bestScore = score;
           localStorage.setItem('flappyBest', score);
           $('flappyBest').textContent = score;
         }
@@ -2223,21 +2245,9 @@ function renderFlappyBird(container) {
       clearTimeout(gameLoopId);
       gameLoopId = null;
     }
-    if (flappyMode === 'multi' && gameId) {
-      send({ type: 'game_action', gameId, action: { type: 'gameover', won } });
-    }
     alert(won ? 'You won!' : `Game Over! Score: ${score}`);
     resetGame();
     draw();
-  }
-  
-  function startMultiplayerGame(gameData) {
-    gameState = 'playing';
-    // Sync pipes from server
-    pipes = gameData.pipes.map(p => ({...p, passed: new Set(p.passed || [])}));
-    frameCount = gameData.frameCount || 0;
-    draw();
-    gameLoop();
   }
   
   function leaveGame() {
@@ -2266,6 +2276,13 @@ function renderFlappyBird(container) {
       ctx.fillRect(pipe.x - 5, pipe.bottomY, pipeWidth + 10, 20);
     }
     
+    if (flappyMode === 'multi' && opponentBird?.alive) {
+      ctx.fillStyle = '#9b59b6';
+      ctx.beginPath();
+      ctx.arc(opponentBird.x - 5, opponentBird.y, 15, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
     // Draw bird
     ctx.fillStyle = '#f1c40f';
     ctx.beginPath();
@@ -2302,6 +2319,10 @@ function renderFlappyBird(container) {
   
   // Event handlers
   function flap() {
+    if (flappyMode === 'multi') {
+      if (gameId && localAlive) send({ type: 'game_action', gameId, action: { type: 'flap' } });
+      return;
+    }
     if (gameState === 'ready') {
       gameState = 'playing';
       gameLoop();
@@ -2319,9 +2340,9 @@ function renderFlappyBird(container) {
   });
   
   currentGameKeyHandler = (e) => {
-    if (currentGame === 'flappy' && (e.code === 'Space' || e.key === ' ')) {
+    if (currentGame === 'flappy' && (e.code === 'Space' || e.key === ' ') && !e.target?.closest?.('button, input, textarea, [contenteditable]')) {
       e.preventDefault();
-      flap();
+      if (!e.repeat) flap();
     }
   };
   document.addEventListener('keydown', currentGameKeyHandler);
@@ -2349,8 +2370,13 @@ function renderFlappyBird(container) {
     }
   };
   
-  // Initial draw
   draw();
+  registerGameHandler('flappy', {
+    onGameInvite: handleGameInvite,
+    onGameState: handleFlappyState,
+    onGameLeave: handleFlappyLeave,
+    onClose: leaveGame
+  });
 }
 
 // ===== Chess =====
