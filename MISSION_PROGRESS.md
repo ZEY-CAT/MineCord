@@ -449,3 +449,8 @@ Recommended order if local builds are approved: (1) no installs for current web/
 
 - The service worker refreshes online shell assets, including call scripts, and falls back to its cached shell on network failure. Offline app navigation is limited to /app, and theme and password settings assets are precached.
 - Five companion, notification, and PWA tests passed. npm run build passed in an isolated snapshot built from tracked source and the reviewed worker change. Real browser update and offline launch remain to be verified.
+
+## Desktop Minecraft presence cleanup — 2026-11-22
+
+- Electron waits for in-flight Java and Bedrock activity updates before clearing presence on shutdown. Reports time out after three seconds, and unsigned-in reports do not advance the monitoring baseline.
+- Five desktop presence and native sign-in tests passed. Actual game process detection and presence in a running desktop client remain to be verified.

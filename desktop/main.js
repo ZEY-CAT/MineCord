@@ -115,13 +115,15 @@ async function reportActivity(activity) {
   if (!serverUrl) return;
   const cookies = await session.defaultSession.cookies.get({ url: serverUrl });
   const sessionCookie = cookies.find(cookie => cookie.name === 'mc_session');
-  if (!sessionCookie) return;
+  if (!sessionCookie) return false;
   const response = await fetch(`${serverUrl}/api/activity/presence`, {
     method: 'POST',
     headers: { Cookie: `mc_session=${encodeURIComponent(sessionCookie.value)}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(activity)
+    body: JSON.stringify(activity),
+    signal: AbortSignal.timeout(3000)
   });
-  if (!response.ok && response.status !== 401) throw new Error(`MINECORD activity update failed (${response.status}).`);
+  if (response.status === 401) return false;
+  if (!response.ok) throw new Error(`MINECORD activity update failed (${response.status}).`);
 }
 
 async function checkForUpdates() {
@@ -249,7 +251,13 @@ function createWindow() {
     win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent('<h2>MINECORD server is not configured</h2><p>Set MINECORD_SERVER_URL or update desktop/config.json before building.</p>'));
   } else {
     win.loadURL(new URL('/app', serverUrl).toString());
-    stopActivityMonitor = startActivityMonitor(reportActivity, message => console.warn(message));
+    const previousStop = stopActivityMonitor?.();
+    const monitor = startActivityMonitor(async activity => {
+      await previousStop;
+      return reportActivity(activity);
+    }, message => console.warn(message));
+    stopActivityMonitor = monitor;
+    win.once('closed', () => { void monitor(); });
   }
 
   win.webContents.setWindowOpenHandler(({ url }) => {
@@ -281,7 +289,6 @@ app.whenReady().then(async () => {
 
   win.on('closed', () => {
     if (mainWindow === win) mainWindow = null;
-    if (stopActivityMonitor) stopActivityMonitor();
   });
   win.webContents.on('did-finish-load', () => {
     if (pendingOAuthUrl) win.webContents.send('minecord:oauth-url', pendingOAuthUrl);
@@ -291,6 +298,15 @@ app.whenReady().then(async () => {
   win.webContents.on('update-available', (event, info) => {
     win.webContents.send('update-download-progress', { percent: 0 });
     downloadAndInstallUpdate(info).catch(console.error);
+  });
+});
+
+app.on('before-quit', event => {
+  if (!stopActivityMonitor) return;
+  event.preventDefault();
+  stopActivityMonitor().finally(() => {
+    stopActivityMonitor = null;
+    app.quit();
   });
 });
 
