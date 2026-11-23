@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 const { test } = require('node:test');
 
 const root = path.resolve(__dirname, '..');
@@ -59,4 +60,50 @@ test('PWA worker caches the app shell without caching auth, API, or message resp
   assert.doesNotMatch(notifications, /message\.message\.text/);
   assert.match(notifications, /requestPermission/);
   assert.match(notifications, /typeof friendsList !== 'undefined'/);
+});
+
+test('the service worker refreshes stale shell assets and falls back on an offline launch', async () => {
+  const handlers = new Map();
+  const entries = new Map([['/calls.js', new Response('old client')], ['/app', new Response('app shell')]]);
+  let offline = false;
+  let rejectWrites = false;
+  const cache = {
+    match: async path => entries.get(path)?.clone(),
+    put: async (path, response) => {
+      if (rejectWrites) throw new Error('Quota exceeded');
+      entries.set(path, response);
+    }
+  };
+  vm.runInNewContext(read('public/sw.js'), {
+    self: {
+      location: { origin: 'https://minecord.test' },
+      addEventListener: (type, listener) => handlers.set(type, listener)
+    },
+    caches: { open: async () => cache },
+    URL,
+    Response,
+    async fetch(_request, options) {
+      assert.equal(options.cache, 'no-cache');
+      if (offline) throw new Error('Offline');
+      return new Response('fresh client');
+    }
+  });
+  function request(path, mode) {
+    let result;
+    handlers.get('fetch')({
+      request: { method: 'GET', url: `https://minecord.test${path}`, mode },
+      respondWith: response => { result = response; }
+    });
+    return result;
+  }
+
+  assert.equal(await (await request('/calls.js', 'cors')).text(), 'fresh client');
+  rejectWrites = true;
+  assert.equal(await (await request('/password-settings.js', 'cors')).text(), 'fresh client');
+  offline = true;
+  assert.equal(await (await request('/calls.js', 'cors')).text(), 'fresh client');
+  assert.equal(await (await request('/app?view=home', 'navigate')).text(), 'app shell');
+  assert.equal(request('/privacy', 'navigate'), undefined);
+  assert.equal(request('/api/messages', 'cors'), undefined);
+  assert.equal(request('/auth/google', 'navigate'), undefined);
 });

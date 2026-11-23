@@ -1,31 +1,44 @@
-const CACHE_NAME = 'minecord-shell-v1';
-const SHELL = ['/app', '/manifest.json', '/calls.js', '/native-oauth.js', '/companion.js', '/companion.css', '/companion.html', '/notifications.js', '/sw.js', '/edition.js', '/features.js', '/desktop-updater.js', '/icons/icon-192.png', '/icons/icon-512.png'];
+const CACHE_NAME = 'minecord-shell-v2';
+const SHELL = ['/app', '/app-theme.css', '/password-settings.js', '/manifest.json', '/calls.js', '/native-oauth.js', '/companion.js', '/companion.css', '/companion.html', '/notifications.js', '/sw.js', '/edition.js', '/features.js', '/desktop-updater.js', '/icons/icon-192.png', '/icons/icon-512.png'];
 
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));
+  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(SHELL.map(path => new Request(path, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', event => {
   event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith('minecord-shell-') && key !== CACHE_NAME).map(key => caches.delete(key)))).then(() => self.clients.claim()));
 });
 
+async function fetchShell(request, path) {
+  let response;
+  try {
+    response = await fetch(request, { cache: 'no-cache' });
+  } catch {
+    try {
+      const cache = await caches.open(CACHE_NAME);
+      return (await cache.match(path)) || Response.error();
+    } catch {
+      return Response.error();
+    }
+  }
+  if (response.ok && !response.redirected) {
+    try {
+      const cache = await caches.open(CACHE_NAME);
+      await cache.put(path, response.clone());
+    } catch {
+      // A storage failure must not prevent the app from loading online.
+    }
+  }
+  return response;
+}
+
 self.addEventListener('fetch', event => {
   const request = event.request;
   const url = new URL(request.url);
   if (request.method !== 'GET' || url.origin !== self.location.origin || url.pathname.startsWith('/api/')
       || url.pathname.startsWith('/auth/') || url.pathname === '/ws' || url.pathname.startsWith('/download')) return;
-  if (request.mode === 'navigate') {
-    event.respondWith(fetch(request).then(response => {
-      if (response.ok && url.pathname === '/app') caches.open(CACHE_NAME).then(cache => cache.put('/app', response.clone()));
-      return response;
-    }).catch(async () => (await caches.match('/app')) || Response.error()));
-    return;
-  }
-  if (SHELL.includes(url.pathname)) {
-    event.respondWith(caches.match(request).then(cached => cached || fetch(request).then(response => {
-      if (response.ok) caches.open(CACHE_NAME).then(cache => cache.put(request, response.clone()));
-      return response;
-    })));
+  if (request.mode === 'navigate' ? url.pathname === '/app' : SHELL.includes(url.pathname)) {
+    event.respondWith(fetchShell(request, url.pathname));
   }
 });
 

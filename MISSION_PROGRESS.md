@@ -444,3 +444,8 @@ Recommended order if local builds are approved: (1) no installs for current web/
 
 - A camera enabled during an in-flight WebRTC offer now gets a follow-up offer when signaling is stable. Offers are serialized per peer and stale peer instances cannot send descriptions.
 - Camera regression and existing call UI tests: 8 passed. Full npm test: 188 passed. Live two-device camera and TURN verification remains pending.
+
+## Installed web app updates — 2026-11-22
+
+- The service worker refreshes online shell assets, including call scripts, and falls back to its cached shell on network failure. Offline app navigation is limited to /app, and theme and password settings assets are precached.
+- Five companion, notification, and PWA tests passed. npm run build passed in an isolated snapshot built from tracked source and the reviewed worker change. Real browser update and offline launch remain to be verified.
