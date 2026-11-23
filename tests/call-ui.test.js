@@ -143,3 +143,45 @@ test('server invitations stay separate from active-call invitations', () => {
   assert.match(calls, /openInviteModal/);
   assert.notEqual(html.indexOf('id="inviteModal"'), html.indexOf('id="callInviteModal"'));
 });
+
+test('adding a camera during a pending WebRTC offer renegotiates after the answer', async () => {
+  const messages = [];
+  const peer = {
+    signalingState: 'have-local-offer',
+    addTrack(track) { this.track = track; },
+    async createOffer() { return { type: 'offer', sdp: this.track.kind }; },
+    async setLocalDescription(description) {
+      this.localDescription = description;
+      this.signalingState = 'have-local-offer';
+    }
+  };
+  const track = { kind: 'video', readyState: 'live' };
+  const callContext = {
+    window: {},
+    activeCall: { id: 'call-one' },
+    me: { username: 'alice' },
+    callPeers: new Map([['bob', peer]]),
+    localStream: { getVideoTracks: () => [], addTrack() {} },
+    navigator: { mediaDevices: { getUserMedia: async () => ({ getVideoTracks: () => [track] }) } },
+    send: message => messages.push(message),
+    setRemoteDescription: async pc => { pc.signalingState = 'stable'; },
+    console
+  };
+  const startup = calls.lastIndexOf('  enhanceIncomingCall();');
+  assert.ok(startup > 0);
+  vm.runInNewContext(calls.slice(0, startup)
+    .replace('function renderCallBar() {', 'function unusedRenderCallBar() {') +
+    'function renderCallBar() {}\nObject.assign(window, { addCameraTrack, callSignal });\n})();', callContext);
+
+  await callContext.window.addCameraTrack();
+  assert.equal(messages.length, 0);
+  await callContext.window.callSignal({
+    callId: 'call-one',
+    from: 'bob',
+    data: { description: { type: 'answer' } }
+  });
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0].callId, 'call-one');
+  assert.equal(messages[0].to, 'bob');
+  assert.equal(messages[0].data.description.sdp, 'video');
+});

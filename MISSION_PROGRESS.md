@@ -439,3 +439,8 @@ Recommended order if local builds are approved: (1) no installs for current web/
 - Privacy milestone committed and pushed to `minecord-cloud-migration`: `0c86e6595141937a40297e70a3bd89a7600a842c`. `git ls-remote` and fetch verified the remote ref at this SHA. The remote branch's current tree no longer contains `server/data.json`; its existing public history still does. No history rewrite, force-push, merge to `main`, or visibility change occurred.
 - The local checkout still has unrelated pre-existing `PROGRESS.md`, generated Android, scratch, build, and SQLite fixture changes/untracked files. They were not staged, cleaned, or committed. Full suite and frontend build completed before the commit and remained unchanged after it.
 - Do not deploy until an operator verifies the existing Render disk mount, database path, and a current private backup. Real OAuth, physical-device Android startup, two-device audio/video/TURN, and real browser-extension UI tests remain external checks; automated test coverage is not substituted for those checks.
+
+## Video call camera renegotiation — 2026-11-22
+
+- A camera enabled during an in-flight WebRTC offer now gets a follow-up offer when signaling is stable. Offers are serialized per peer and stale peer instances cannot send descriptions.
+- Camera regression and existing call UI tests: 8 passed. Full npm test: 188 passed. Live two-device camera and TURN verification remains pending.

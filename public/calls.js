@@ -227,7 +227,8 @@
     localStream.addTrack(track);
     for (const [user, pc] of callPeers) {
       pc.addTrack(track, localStream);
-      await createCallOffer(user, pc).catch(error => console.warn('Could not renegotiate camera track:', error.message));
+      pc._cameraOfferPending = true;
+      await flushCameraOffer(user, pc);
     }
     callUi.cameraEnabled = true;
     callUi.mediaWarning = '';
@@ -299,17 +300,29 @@
   }
 
   async function createCallOffer(user, pc, options = {}) {
-    if (!activeCall || !callPeers.has(user) || !pc || pc.signalingState !== 'stable') return;
+    if (!activeCall || !pc || callPeers.get(user) !== pc || pc._makingOffer || pc.signalingState !== 'stable') return;
     const callId = activeCall.id;
     try {
       pc._makingOffer = true;
       const offer = await pc.createOffer(options);
       await pc.setLocalDescription(offer);
-      if (activeCall?.id === callId && pc.localDescription) {
+      if (activeCall?.id === callId && callPeers.get(user) === pc && pc.localDescription) {
         send({ type: 'call_signal', callId, to: user, data: { description: pc.localDescription } });
       }
     } finally {
       pc._makingOffer = false;
+      await flushCameraOffer(user, pc);
+    }
+  }
+
+  async function flushCameraOffer(user, pc) {
+    if (!pc._cameraOfferPending || !activeCall || callPeers.get(user) !== pc ||
+        pc._makingOffer || pc.signalingState !== 'stable') return;
+    pc._cameraOfferPending = false;
+    try {
+      await createCallOffer(user, pc);
+    } catch (error) {
+      console.warn('Could not renegotiate camera track:', error.message);
     }
   }
 
@@ -385,6 +398,7 @@
           send({ type: 'call_signal', callId: message.callId, to: message.from, data: { description: pc.localDescription } });
         }
       }
+      await flushCameraOffer(message.from, pc);
       return;
     }
     if (data.candidate) {
