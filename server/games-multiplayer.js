@@ -176,7 +176,8 @@ function handleGameAccept(msg, context, username, send, toUser) {
       state: session.state,
       gameData: session.gameData,
       players: session.players,
-      yourColor: p.color
+      yourColor: p.color,
+      started: allReady
     });
   }
 }
@@ -304,7 +305,7 @@ function initializeGameData(session) {
         food: { x: 15, y: 15 },
         gridSize: 30,
         cellSize: 16,
-        gameLoop: null
+        nextTickAt: session.updatedAt + 1500
       };
       break;
     case GAME_TYPES.FLAPPY:
@@ -716,13 +717,15 @@ function processPaintballAction(session, player, action) {
   return { success: true };
 }
 
-function updateGameLoops() {
-  const now = Date.now();
+function updateGameLoops(now = Date.now()) {
   for (const session of gameSessions.values()) {
     if (session.state !== GAME_STATES.PLAYING) continue;
 
     if (session.gameType === GAME_TYPES.SNAKE) {
+      if (now < session.gameData.nextTickAt) continue;
+      session.gameData.nextTickAt = now + 100;
       updateSnakeLoop(session, now);
+      if (session.state === GAME_STATES.PLAYING) broadcastGameState(session, { lastAction: null });
     } else if (session.gameType === GAME_TYPES.FLAPPY) {
       updateFlappyLoop(session, now);
     } else if (session.gameType === GAME_TYPES.PAINTBALL) {
@@ -739,10 +742,10 @@ function updateGameLoops() {
 
 function updateSnakeLoop(session, now) {
   const gameData = session.gameData;
-  let anyAlive = false;
-  for (const snake of Object.values(gameData.snakes)) {
+  const snakes = Object.entries(gameData.snakes);
+  let foodEaten = false;
+  for (const [, snake] of snakes) {
     if (!snake.alive) continue;
-    anyAlive = true;
     snake.direction = snake.nextDirection;
     const head = { ...snake.body[0] };
     switch (snake.direction) {
@@ -751,44 +754,40 @@ function updateSnakeLoop(session, now) {
       case 'left': head.x--; break;
       case 'right': head.x++; break;
     }
-    if (head.x < 0 || head.x >= gameData.gridSize || head.y < 0 || head.y >= gameData.gridSize) {
+    const eating = !foodEaten && head.x === gameData.food.x && head.y === gameData.food.y;
+    const occupied = eating ? snake.body : snake.body.slice(0, -1);
+    if (head.x < 0 || head.x >= gameData.gridSize || head.y < 0 || head.y >= gameData.gridSize ||
+        occupied.some(segment => segment.x === head.x && segment.y === head.y)) {
       snake.alive = false;
       continue;
     }
-    for (const seg of snake.body) {
-      if (seg.x === head.x && seg.y === head.y) {
-        snake.alive = false;
-        break;
-      }
-    }
-    if (!snake.alive) continue;
     snake.body.unshift(head);
-    if (head.x === gameData.food.x && head.y === gameData.food.y) {
+    if (eating) {
       snake.score += 10;
-      spawnFood(gameData, snake.body);
+      foodEaten = true;
     } else {
       snake.body.pop();
     }
   }
-  if (!anyAlive) {
+  if (foodEaten) gameData.food = findFreeSnakeCell(gameData);
+  if (!gameData.food || snakes.every(([, snake]) => !snake.alive)) {
     session.state = GAME_STATES.FINISHED;
-    session.finishedAt = Date.now();
-    const scores = Object.entries(gameData.snakes).map(([u,s])=>({username:u,score:s.score})).sort((a,b)=>b.score-a.score);
-    session.winner = scores[0].username;
+    session.finishedAt = now;
+    const [first, second] = snakes.sort(([, a], [, b]) => b.score - a.score);
+    session.winner = first[1].score === second[1].score ? null : first[0];
   }
 }
 
-function spawnFood(gameData, excludeBodies = []) {
-  let x, y, valid;
-  do {
-    x = Math.floor(Math.random() * gameData.gridSize);
-    y = Math.floor(Math.random() * gameData.gridSize);
-    valid = true;
-    for (const body of excludeBodies) {
-      if (body.some(seg => seg.x === x && seg.y === y)) { valid = false; break; }
-    }
-  } while (!valid);
-  gameData.food = { x, y };
+function findFreeSnakeCell({ snakes, gridSize }) {
+  const occupied = new Set(Object.values(snakes).flatMap(snake =>
+    snake.body.map(({ x, y }) => y * gridSize + x)));
+  const free = [];
+  for (let cell = 0; cell < gridSize * gridSize; cell++) {
+    if (!occupied.has(cell)) free.push(cell);
+  }
+  if (free.length === 0) return null;
+  const cell = free[Math.floor(Math.random() * free.length)];
+  return { x: cell % gridSize, y: Math.floor(cell / gridSize) };
 }
 
 function updateFlappyLoop(session, now) {

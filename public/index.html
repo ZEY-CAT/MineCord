@@ -841,6 +841,9 @@ function handleGameInvite(msg) {
 
 function handleGameState(msg) {
   if (!me) return;
+  if (msg.started && currentGame !== msg.gameType && Object.hasOwn(gameHandlers, msg.gameType)) {
+    openGame(msg.gameType);
+  }
   const handler = gameHandlers[msg.gameType];
   if (handler && handler.onGameState) {
     handler.onGameState(msg);
@@ -1940,7 +1943,6 @@ let currentGame = null;
 let gameLoopId = null;
 
 function switchGameTab(game) {
-  currentGame = game;
   // Update sidebar tabs
   ['Flappy', 'Chess', 'Snake', 'Paintball'].forEach(g => {
     const btn = $('gamesTab' + g);
@@ -1999,6 +2001,8 @@ function renderGame(game) {
 
 let currentGameKeyHandler = null;
 function cleanupGame() {
+  gameHandlers[currentGame]?.onClose?.();
+  if (currentGame) unregisterGameHandler(currentGame);
   if (gameLoopId) {
     cancelAnimationFrame(gameLoopId);
     clearTimeout(gameLoopId);
@@ -2922,20 +2926,29 @@ function renderSnake(container) {
         <div id="snakeInviteStatus" class="muted" style="font-size:12px;min-height:16px"></div>
         <div id="snakeMatchStatus" class="muted" style="font-size:12px;min-height:16px;margin-top:8px"></div>
       </div>
-      <canvas id="snakeCanvas" width="400" height="400" style="background:#1a1a2e;border:2px solid var(--panel-border);border-radius:8px;display:block;margin:0 auto;touch-action:none"></canvas>
+      <canvas id="snakeCanvas" width="400" height="400" style="background:#1a1a2e;border:2px solid var(--panel-border);border-radius:8px;display:block;margin:0 auto;max-width:100%;height:auto;touch-action:none"></canvas>
       <div style="margin-top:12px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
         <button class="primary" id="snakeStart">Start</button>
         <button class="secondary" id="snakePause">Pause</button>
         <div class="muted" style="display:flex;align-items:center;gap:8px">Score: <strong id="snakeScore">0</strong></div>
+        <div class="muted" id="snakeBestScore">Best: <strong id="snakeBest">0</strong></div>
         <div id="snakeOppScore" class="hidden" class="muted" style="display:flex;align-items:center;gap:8px">Opponent: <strong id="snakeOppScoreVal">0</strong></div>
       </div>
-      <p class="muted" style="margin-top:8px;font-size:12px">Use arrow keys or WASD to move. Eat food to grow!</p>
+      <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:12px">
+        <button type="button" data-snake-direction="left" aria-label="Move left">←</button>
+        <button type="button" data-snake-direction="up" aria-label="Move up">↑</button>
+        <button type="button" data-snake-direction="down" aria-label="Move down">↓</button>
+        <button type="button" data-snake-direction="right" aria-label="Move right">→</button>
+      </div>
     </div>
   `;
   
   const canvas = $('snakeCanvas');
   const ctx = canvas.getContext('2d');
   const gridSize = 20;
+  let multiplayerGridSize = 30;
+  let multiplayerAlive = false;
+  const directions = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
   const tileCount = canvas.width / gridSize;
   
   let snake = [{ x: 10, y: 10 }];
@@ -2943,8 +2956,8 @@ function renderSnake(container) {
   let dx = 0, dy = 0;
   let score = 0;
   let gameState = 'ready';
-  let gameSpeed = 100;
-  const bestScore = parseInt(localStorage.getItem('snakeBest') || '0');
+  const gameSpeed = 100;
+  let bestScore = parseInt(localStorage.getItem('snakeBest') || '0');
   $('snakeBest').textContent = bestScore;
   
   function resetGame() {
@@ -2965,12 +2978,9 @@ function renderSnake(container) {
   let snakeMode = 'solo';
   let gameId = null;
   let opponentUsername = null;
-  let myColor = '#2ecc71';
   let oppColor = '#e74c3c';
   let oppSnake = [];
   let oppScore = 0;
-  let oppFood = { x: 15, y: 15 };
-  let pendingInvite = null;
   
   // Mode selection
   const modeSoloBtn = $('snakeModeSolo');
@@ -2990,7 +3000,11 @@ function renderSnake(container) {
     if (mode === 'solo' && gameId) {
       leaveGame();
     }
+    $('snakeBestScore').hidden = mode === 'multi';
+    $('snakeStart').hidden = mode === 'multi';
+    $('snakePause').hidden = mode === 'multi';
     resetGame();
+    draw();
   }
   
   modeSoloBtn.onclick = () => setSnakeMode('solo');
@@ -3023,26 +3037,27 @@ function renderSnake(container) {
   }
   
   function handleSnakeState(msg) {
-    if (msg.gameType !== 'snake') return;
-    gameId = msg.gameId;
-    opponentUsername = msg.players.find(p => p.username !== me.username)?.username;
-    myColor = msg.players.find(p => p.username === me.username)?.color || '#2ecc71';
-    oppColor = msg.players.find(p => p.username !== me.username)?.color || '#e74c3c';
-    if (msg.state === 'playing') {
-      syncFromServer(msg.gameData);
-      startGameLoop();
-    } else if (msg.state === 'finished') {
-      gameOver(msg.winner === me.username);
-    } else if (msg.state === 'waiting') {
-      $('snakeMatchStatus').textContent = `Waiting for ${opponentUsername} to ready up...`;
+    if (msg.gameType !== 'snake' || !msg.gameData || (!msg.started && msg.gameId !== gameId)) return;
+    if (msg.started) {
+      if (gameId && gameId !== msg.gameId) leaveGame();
+      if (gameLoopId) clearTimeout(gameLoopId);
+      gameLoopId = null;
+      setSnakeMode('multi');
+      gameId = msg.gameId;
+      opponentUsername = msg.players.find(player => player.username !== me.username)?.username;
+      oppColor = msg.gameData.snakes[opponentUsername]?.color || '#e74c3c';
+    }
+    gameState = msg.state === 'finished' ? 'gameover' : 'playing';
+    syncFromServer(msg.gameData);
+    const status = $('snakeMatchStatus');
+    if (msg.state === 'finished') {
+      gameId = null;
+      status.textContent = msg.winner === null ? 'Draw' : msg.winner === me.username ? 'You won!' : 'Opponent won';
+    } else {
+      status.textContent = multiplayerAlive ? `Playing against ${opponentUsername}` : 'Waiting for the opponent to finish';
     }
   }
-  
-  function handleSnakeAction(msg) {
-    if (msg.gameType !== 'snake') return;
-    syncFromServer(msg.gameData);
-  }
-  
+
   function handleSnakeLeave(msg) {
     if (msg.gameType !== 'snake') return;
     if (msg.by === opponentUsername) {
@@ -3063,13 +3078,14 @@ function renderSnake(container) {
   
   function syncFromServer(gameData) {
     if (!gameData) return;
-    if (gameData.food) food = { ...gameData.food };
+    food = gameData.food;
+    multiplayerGridSize = gameData.gridSize;
     if (gameData.snakes) {
       for (const [username, snakeData] of Object.entries(gameData.snakes)) {
         if (username === me.username) {
           snake = snakeData.body.map(seg => ({...seg}));
-          dx = snakeData.direction.x || 0;
-          dy = snakeData.direction.y || 0;
+          [dx, dy] = directions[snakeData.direction];
+          multiplayerAlive = snakeData.alive;
           score = snakeData.score || 0;
         } else {
           oppSnake = snakeData.body.map(seg => ({...seg}));
@@ -3080,11 +3096,6 @@ function renderSnake(container) {
     $('snakeScore').textContent = score;
     oppScoreValEl.textContent = oppScore;
     draw();
-  }
-  
-  function sendInputToServer() {
-    if (!gameId || snakeMode !== 'multi') return;
-    send({ type: 'game_action', gameId, action: { type: 'direction', dx, dy } });
   }
   
   function leaveGame() {
@@ -3098,12 +3109,6 @@ function renderSnake(container) {
       clearTimeout(gameLoopId);
       gameLoopId = null;
     }
-  }
-  
-  function startGameLoop() {
-    if (gameLoopId) return;
-    resetGame();
-    gameLoop();
   }
   
   function spawnFood() {
@@ -3146,6 +3151,7 @@ function renderSnake(container) {
       score++;
       $('snakeScore').textContent = score;
       if (score > bestScore) {
+        bestScore = score;
         localStorage.setItem('snakeBest', score);
         $('snakeBest').textContent = score;
       }
@@ -3162,17 +3168,14 @@ function renderSnake(container) {
       clearTimeout(gameLoopId);
       gameLoopId = null;
     }
-    if (snakeMode === 'multi' && gameId) {
-      send({ type: 'game_action', gameId, action: { type: 'gameover' } });
-      showAlert('Game Over! Score: ' + score);
-    } else {
-      showAlert('Game Over! Score: ' + score);
-    }
+    showAlert('Game Over! Score: ' + score);
     resetGame();
     draw();
   }
   
   function draw() {
+    const cells = snakeMode === 'multi' ? multiplayerGridSize : tileCount;
+    const cellSize = canvas.width / cells;
     // Clear
     ctx.fillStyle = '#1a1a2e';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -3180,20 +3183,18 @@ function renderSnake(container) {
     // Grid lines (subtle)
     ctx.strokeStyle = 'rgba(255,255,255,0.03)';
     ctx.lineWidth = 1;
-    for (let i = 0; i <= tileCount; i++) {
+    for (let i = 0; i <= cells; i++) {
       ctx.beginPath();
-      ctx.moveTo(i * gridSize, 0);
-      ctx.lineTo(i * gridSize, canvas.height);
+      ctx.moveTo(i * cellSize, 0);
+      ctx.lineTo(i * cellSize, canvas.height);
       ctx.stroke();
       ctx.beginPath();
-      ctx.moveTo(0, i * gridSize);
-      ctx.lineTo(canvas.width, i * gridSize);
+      ctx.moveTo(0, i * cellSize);
+      ctx.lineTo(canvas.width, i * cellSize);
       ctx.stroke();
     }
     
-    // Draw food
-    ctx.fillStyle = '#e74c3c';
-    ctx.fillRect(food.x * gridSize + 2, food.y * gridSize + 2, gridSize - 4, gridSize - 4);
+
     
     // Draw opponent snake in multiplayer
     if (snakeMode === 'multi' && oppSnake.length > 0) {
@@ -3201,7 +3202,7 @@ function renderSnake(container) {
         const segment = oppSnake[i];
         const isHead = i === 0;
         ctx.fillStyle = isHead ? oppColor : '#c0392b';
-        ctx.fillRect(segment.x * gridSize + 1, segment.y * gridSize + 1, gridSize - 2, gridSize - 2);
+        ctx.fillRect(segment.x * cellSize + 1, segment.y * cellSize + 1, cellSize - 2, cellSize - 2);
         
         // Head eyes
         if (isHead) {
@@ -3209,8 +3210,8 @@ function renderSnake(container) {
           const eyeSize = 3;
           const eyeOffset = 5;
           // We don't have opponent's direction, so just draw simple eyes
-          ctx.fillRect(segment.x * gridSize + eyeOffset, segment.y * gridSize + eyeOffset, eyeSize, eyeSize);
-          ctx.fillRect(segment.x * gridSize + gridSize - eyeOffset - eyeSize, segment.y * gridSize + eyeOffset, eyeSize, eyeSize);
+          ctx.fillRect(segment.x * cellSize + eyeOffset, segment.y * cellSize + eyeOffset, eyeSize, eyeSize);
+          ctx.fillRect(segment.x * cellSize + cellSize - eyeOffset - eyeSize, segment.y * cellSize + eyeOffset, eyeSize, eyeSize);
         }
       }
     }
@@ -3220,7 +3221,7 @@ function renderSnake(container) {
       const segment = snake[i];
       const isHead = i === 0;
       ctx.fillStyle = isHead ? '#2ecc71' : '#27ae60';
-      ctx.fillRect(segment.x * gridSize + 1, segment.y * gridSize + 1, gridSize - 2, gridSize - 2);
+      ctx.fillRect(segment.x * cellSize + 1, segment.y * cellSize + 1, cellSize - 2, cellSize - 2);
       
       // Head eyes
       if (isHead) {
@@ -3228,24 +3229,25 @@ function renderSnake(container) {
         const eyeSize = 3;
         const eyeOffset = 5;
         if (dx === 1) { // Right
-          ctx.fillRect(segment.x * gridSize + gridSize - eyeOffset, segment.y * gridSize + eyeOffset, eyeSize, eyeSize);
-          ctx.fillRect(segment.x * gridSize + gridSize - eyeOffset, segment.y * gridSize + gridSize - eyeOffset - eyeSize, eyeSize, eyeSize);
+          ctx.fillRect(segment.x * cellSize + cellSize - eyeOffset, segment.y * cellSize + eyeOffset, eyeSize, eyeSize);
+          ctx.fillRect(segment.x * cellSize + cellSize - eyeOffset, segment.y * cellSize + cellSize - eyeOffset - eyeSize, eyeSize, eyeSize);
         } else if (dx === -1) { // Left
-          ctx.fillRect(segment.x * gridSize + eyeOffset - eyeSize, segment.y * gridSize + eyeOffset, eyeSize, eyeSize);
-          ctx.fillRect(segment.x * gridSize + eyeOffset - eyeSize, segment.y * gridSize + gridSize - eyeOffset - eyeSize, eyeSize, eyeSize);
+          ctx.fillRect(segment.x * cellSize + eyeOffset - eyeSize, segment.y * cellSize + eyeOffset, eyeSize, eyeSize);
+          ctx.fillRect(segment.x * cellSize + eyeOffset - eyeSize, segment.y * cellSize + cellSize - eyeOffset - eyeSize, eyeSize, eyeSize);
         } else if (dy === 1) { // Down
-          ctx.fillRect(segment.x * gridSize + eyeOffset, segment.y * gridSize + gridSize - eyeOffset, eyeSize, eyeSize);
-          ctx.fillRect(segment.x * gridSize + gridSize - eyeOffset - eyeSize, segment.y * gridSize + gridSize - eyeOffset, eyeSize, eyeSize);
+          ctx.fillRect(segment.x * cellSize + eyeOffset, segment.y * cellSize + cellSize - eyeOffset, eyeSize, eyeSize);
+          ctx.fillRect(segment.x * cellSize + cellSize - eyeOffset - eyeSize, segment.y * cellSize + cellSize - eyeOffset, eyeSize, eyeSize);
         } else { // Up
-          ctx.fillRect(segment.x * gridSize + eyeOffset, segment.y * gridSize + eyeOffset - eyeSize, eyeSize, eyeSize);
-          ctx.fillRect(segment.x * gridSize + gridSize - eyeOffset - eyeSize, segment.y * gridSize + eyeOffset - eyeSize, eyeSize, eyeSize);
+          ctx.fillRect(segment.x * cellSize + eyeOffset, segment.y * cellSize + eyeOffset - eyeSize, eyeSize, eyeSize);
+          ctx.fillRect(segment.x * cellSize + cellSize - eyeOffset - eyeSize, segment.y * cellSize + eyeOffset - eyeSize, eyeSize, eyeSize);
         }
       }
     }
     
-    // Draw food
-    ctx.fillStyle = '#e74c3c';
-    ctx.fillRect(food.x * gridSize + 2, food.y * gridSize + 2, gridSize - 4, gridSize - 4);
+    if (food) {
+      ctx.fillStyle = '#e74c3c';
+      ctx.fillRect(food.x * cellSize + 2, food.y * cellSize + 2, cellSize - 4, cellSize - 4);
+    }
     
     // Draw "Get Ready" text
     if (gameState === 'ready') {
@@ -3266,42 +3268,43 @@ function renderSnake(container) {
   function gameLoop() {
     update();
     draw();
-    if (snakeMode === 'multi' && gameId) {
-      sendInputToServer();
-    }
     if (gameState === 'playing') {
       gameLoopId = setTimeout(gameLoop, gameSpeed);
     }
   }
   
-  // Event handlers
-  currentGameKeyHandler = (e) => {
-    if (currentGame !== 'snake') return;
-    
-    const key = e.key;
-    const directionKey = key === 'ArrowUp' || key === 'ArrowDown' || key === 'ArrowLeft' || key === 'ArrowRight' || key === 'w' || key === 'a' || key === 's' || key === 'd';
-    if (gameState === 'ready' && directionKey) {
-      // Apply the chosen direction before the first tick so the snake does not self-collide.
-      if ((key === 'ArrowUp' || key === 'w') && dy !== 1) { dx = 0; dy = -1; }
-      else if ((key === 'ArrowDown' || key === 's') && dy !== -1) { dx = 0; dy = 1; }
-      else if ((key === 'ArrowLeft' || key === 'a') && dx !== 1) { dx = -1; dy = 0; }
-      else if ((key === 'ArrowRight' || key === 'd') && dx !== -1) { dx = 1; dy = 0; }
-      if (dx === 0 && dy === 0) { dx = 1; dy = 0; }
-      gameState = 'playing';
-      gameLoop();
+  function steer(direction) {
+    if (snakeMode === 'multi') {
+      if (gameId && multiplayerAlive) send({ type: 'game_action', gameId, action: { type: 'direction', direction } });
       return;
     }
-    
-    if (gameState !== 'playing') return;
-    
-    // Prevent reverse direction
-    if ((key === 'ArrowUp' || key === 'w') && dy !== 1) { dx = 0; dy = -1; }
-    else if ((key === 'ArrowDown' || key === 's') && dy !== -1) { dx = 0; dy = 1; }
-    else if ((key === 'ArrowLeft' || key === 'a') && dx !== 1) { dx = -1; dy = 0; }
-    else if ((key === 'ArrowRight' || key === 'd') && dx !== -1) { dx = 1; dy = 0; }
+    if (gameState !== 'ready' && gameState !== 'playing') return;
+    const [nextX, nextY] = directions[direction];
+    if (nextX === -dx && nextY === -dy) return;
+    dx = nextX;
+    dy = nextY;
+    if (gameState === 'ready') {
+      gameState = 'playing';
+      gameLoop();
+    }
+  }
+
+  const keyDirections = new Map([
+    ['ArrowUp', 'up'], ['w', 'up'], ['ArrowDown', 'down'], ['s', 'down'],
+    ['ArrowLeft', 'left'], ['a', 'left'], ['ArrowRight', 'right'], ['d', 'right']
+  ]);
+  currentGameKeyHandler = event => {
+    if (currentGame !== 'snake' || event.target?.closest?.('input, textarea, [contenteditable="true"]')) return;
+    const direction = keyDirections.get(event.key);
+    if (!direction) return;
+    event.preventDefault();
+    if (!event.repeat) steer(direction);
   };
   document.addEventListener('keydown', currentGameKeyHandler);
-  
+  for (const button of container.querySelectorAll('[data-snake-direction]')) {
+    button.onclick = () => steer(button.dataset.snakeDirection);
+  }
+
   $('snakeStart').onclick = () => {
     if (gameState === 'ready' || gameState === 'gameover') {
       resetGame();
@@ -3333,8 +3336,8 @@ function renderSnake(container) {
   registerGameHandler('snake', {
     onGameInvite: handleSnakeInvite,
     onGameState: handleSnakeState,
-    onGameAction: handleSnakeAction,
-    onGameLeave: handleSnakeLeave
+    onGameLeave: handleSnakeLeave,
+    onClose: leaveGame
   });
 }
 

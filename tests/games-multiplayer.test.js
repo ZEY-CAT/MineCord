@@ -1,5 +1,8 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
+const { readFileSync } = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
 const {
   GAME_TYPES,
   createGameSession,
@@ -106,12 +109,12 @@ test('server-tick game endings notify both players and stale games keep an activ
     events.length = 0;
     const lastActionAt = session.updatedAt;
     const snakes = session.gameData.snakes;
-    Object.assign(snakes.GameAlice, { body: [{ x: 0, y: 0 }], direction: 'up', nextDirection: 'up' });
+    Object.assign(snakes.GameAlice, { body: [{ x: 0, y: 0 }], direction: 'up', nextDirection: 'up', score: 10 });
     Object.assign(snakes.GameBob, { body: [{ x: 29, y: 29 }], direction: 'down', nextDirection: 'down' });
 
-    updateGameLoops();
+    updateGameLoops(session.gameData.nextTickAt - 1);
     assert.equal(session.state, 'playing');
-    updateGameLoops();
+    updateGameLoops(session.gameData.nextTickAt);
 
     assert.equal(session.state, 'finished');
     assert.equal(session.updatedAt, lastActionAt, 'simulation ticks must not keep an idle session alive forever');
@@ -119,6 +122,82 @@ test('server-tick game endings notify both players and stale games keep an activ
     assert.deepEqual(ended.map(event => event.username).sort(), ['GameAlice', 'GameBob']);
     assert.ok(ended.every(event => event.payload.winner === 'GameAlice'));
     assert.ok(ended.every(event => event.payload.reason === 'game over'));
+  } finally {
+    deleteGameSession(session.id);
+  }
+});
+
+test('Snake food consumption grows the snake and broadcasts the authoritative tick to both players', () => {
+  const { session, events } = startGame(GAME_TYPES.SNAKE);
+  try {
+    const { snakes, nextTickAt } = session.gameData;
+    session.gameData.food = { x: 6, y: 5 };
+    events.length = 0;
+
+    updateGameLoops(nextTickAt);
+    assert.deepEqual(snakes.GameAlice.body, [{ x: 6, y: 5 }, { x: 5, y: 5 }]);
+    assert.equal(snakes.GameAlice.score, 10);
+    for (const snake of Object.values(snakes)) {
+      assert.ok(!snake.body.some(cell => cell.x === session.gameData.food.x && cell.y === session.gameData.food.y));
+    }
+    assert.deepEqual(events.map(event => event.username).sort(), ['GameAlice', 'GameBob']);
+    assert.ok(events.every(event => event.payload.type === 'game_state' && event.payload.state === 'playing'));
+    updateGameLoops(nextTickAt + 50);
+    assert.equal(events.length, 2, 'no extra simulation step between Snake ticks');
+  } finally {
+    deleteGameSession(session.id);
+  }
+});
+
+test('Snake clients render the server board and send named directions from touch and keyboard', () => {
+  const html = readFileSync(path.join(__dirname, '../public/index.html'), 'utf8');
+  const start = html.indexOf('function renderSnake(');
+  const end = html.indexOf('function renderPaintball(', start);
+  assert.ok(start >= 0 && end > start);
+  const nodes = new Map();
+  const sent = [];
+  const pressed = [];
+  const touch = { dataset: { snakeDirection: 'left' } };
+  const drawing = new Proxy({}, { get: () => () => {} });
+  let handler;
+  const context = {
+    me: { username: 'GameBob' },
+    cleanupGame() {},
+    document: { addEventListener: (_type, listener) => pressed.push(listener) },
+    localStorage: { getItem: () => null },
+    registerGameHandler: (_game, callbacks) => { handler = callbacks; },
+    $: id => {
+      if (!nodes.has(id)) nodes.set(id, {
+        classList: { toggle() {} },
+        getContext: () => drawing,
+        width: 400,
+        height: 400
+      });
+      return nodes.get(id);
+    },
+    send: message => sent.push(JSON.parse(JSON.stringify(message))),
+    currentGameKeyHandler: null,
+    currentGame: null,
+    gameLoopId: null
+  };
+  vm.runInNewContext(html.slice(start, end), context);
+  context.renderSnake({ querySelectorAll: () => [touch] });
+  const { session } = startGame(GAME_TYPES.SNAKE);
+  try {
+    const info = { gameType: 'snake', gameId: session.id, state: 'playing', gameData: session.gameData, players: session.players };
+    handler.onGameState({ ...info, started: true });
+    assert.equal(nodes.get('snakeStart').hidden, true);
+    assert.equal(nodes.get('snakeMatchStatus').textContent, 'Playing against GameAlice');
+    touch.onclick();
+    pressed[0]({ key: 'ArrowUp', preventDefault() {} });
+    assert.deepEqual(sent.map(message => message.action), [
+      { type: 'direction', direction: 'left' },
+      { type: 'direction', direction: 'up' }
+    ]);
+    handler.onGameState({ ...info, state: 'finished', winner: null });
+    assert.equal(nodes.get('snakeMatchStatus').textContent, 'Draw');
+    touch.onclick();
+    assert.equal(sent.length, 2, 'a completed match should stop sending controls');
   } finally {
     deleteGameSession(session.id);
   }

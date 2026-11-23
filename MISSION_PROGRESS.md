@@ -454,3 +454,9 @@ Recommended order if local builds are approved: (1) no installs for current web/
 
 - Electron waits for in-flight Java and Bedrock activity updates before clearing presence on shutdown. Reports time out after three seconds, and unsigned-in reports do not advance the monitoring baseline.
 - Five desktop presence and native sign-in tests passed. Actual game process detection and presence in a running desktop client remain to be verified.
+
+## Multiplayer Snake gameplay — 2026-11-22
+
+- The server advances Snake on fixed ticks, grows the snake safely when food is eaten, selects free food cells, and broadcasts state to both players. Tied scores end in a draw.
+- Players open the accepted match, render the same board, and send the server-compatible direction input with keyboard or touch. Leaving the page sends a match leave.
+- Sixteen multiplayer and Chess tests passed, including authoritative Snake food/ticks and the client control flow. Real two-device gameplay remains pending.
