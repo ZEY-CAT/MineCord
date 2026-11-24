@@ -16,6 +16,10 @@ function assertOutsideRepository(candidate, baseDirectory, label) {
   }
 }
 
+function usesPostgres(env = process.env) {
+  return /^postgres(?:ql)?:\/\//i.test(env.DATABASE_URL || '');
+}
+
 function resolvePrivateDataDirectory(env = process.env, baseDirectory = __dirname) {
   let directory;
   const configured = String(env.MINECORD_DATA_DIR || '').trim();
@@ -24,7 +28,7 @@ function resolvePrivateDataDirectory(env = process.env, baseDirectory = __dirnam
       throw new Error('MINECORD_DATA_DIR must be an absolute path outside the repository checkout.');
     }
     directory = path.resolve(configured);
-  } else if (env.RENDER_EXTERNAL_URL) {
+  } else if (env.RENDER_EXTERNAL_URL && !usesPostgres(env)) {
     const persistentRoot = String(env.MINECORD_PERSISTENT_DATA_DIR || '').trim();
     if (!persistentRoot || !path.isAbsolute(persistentRoot)) {
       throw new Error('MineCord storage safety: set MINECORD_PERSISTENT_DATA_DIR to the verified absolute path of the mounted Render disk.');
@@ -75,6 +79,7 @@ function resolveDatabasePath(env = process.env, baseDirectory = __dirname) {
 
 function resolveLegacyDataPath(env = process.env, baseDirectory = __dirname) {
   const configured = String(env.MINECORD_LEGACY_DATA_FILE || '').trim();
+  if (!configured && usesPostgres(env)) return null;
   const legacyFile = configured
     ? path.resolve(configured)
     : path.join(path.dirname(resolveDatabasePath(env, baseDirectory)), 'legacy-data.json');
@@ -97,4 +102,4 @@ function resolveDeveloperConfigPath(env = process.env, baseDirectory = __dirname
   return configFile;
 }
 
-module.exports = { resolveDatabasePath, resolveLegacyDataPath, resolvePrivateDataDirectory, resolveDeveloperConfigPath };
+module.exports = { usesPostgres, resolveDatabasePath, resolveLegacyDataPath, resolvePrivateDataDirectory, resolveDeveloperConfigPath };

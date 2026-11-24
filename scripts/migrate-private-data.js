@@ -233,4 +233,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { migratePrivateData, tableSummary, setPrivateDirectoryPermissions, activatePrivateDataDirectory };
+module.exports = { migratePrivateData, createDatabaseBackup, tableSummary, setPrivateDirectoryPermissions, activatePrivateDataDirectory };

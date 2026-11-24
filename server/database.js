@@ -2,14 +2,19 @@ const { DatabaseSync } = require('node:sqlite');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
-const { resolveDatabasePath } = require('./database-config');
+const { resolveDatabasePath, usesPostgres } = require('./database-config');
 
-const dbFile = resolveDatabasePath(process.env, __dirname);
-fs.mkdirSync(path.dirname(dbFile), { recursive: true });
-const db = new DatabaseSync(dbFile);
-db.exec(`
-  PRAGMA foreign_keys = ON;
-  PRAGMA journal_mode = WAL;
+const postgres = usesPostgres();
+function openSqliteDatabase() {
+  const dbFile = resolveDatabasePath(process.env, __dirname);
+  fs.mkdirSync(path.dirname(dbFile), { recursive: true });
+  const database = new DatabaseSync(dbFile);
+  database.exec('PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;');
+  return database;
+}
+
+const db = postgres ? require('./postgres-database').openPostgresDatabase() : openSqliteDatabase();
+const schema = `
   CREATE TABLE IF NOT EXISTS app_state (id INTEGER PRIMARY KEY CHECK (id = 1), value TEXT NOT NULL);
   CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY, username TEXT NOT NULL UNIQUE, display_name TEXT NOT NULL,
@@ -132,8 +137,24 @@ db.exec(`
     id TEXT PRIMARY KEY, target_user_id TEXT NOT NULL, source_user_id TEXT NOT NULL,
     created_at INTEGER NOT NULL, summary TEXT NOT NULL
   );
-`);
-const userColumns = db.prepare('PRAGMA table_info(users)').all().map(column => column.name);
+`;
+if (postgres) {
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    db.exec('CREATE SCHEMA IF NOT EXISTS minecord; REVOKE ALL ON SCHEMA minecord FROM PUBLIC;');
+    db.exec(schema.replaceAll(/\bINTEGER\b/g, 'BIGINT')
+      .replace('CHECK (user_a < user_b)', 'CHECK (user_a COLLATE "C" < user_b COLLATE "C")'));
+    db.exec('COMMIT');
+  } catch (error) {
+    db.exec('ROLLBACK');
+    throw error;
+  }
+} else {
+  db.exec(schema);
+}
+const userColumns = postgres
+  ? db.prepare("SELECT column_name AS name FROM information_schema.columns WHERE table_schema = 'minecord' AND table_name = 'users'").all().map(column => column.name)
+  : db.prepare('PRAGMA table_info(users)').all().map(column => column.name);
 if (!userColumns.includes('show_game_activity')) {
   db.exec('ALTER TABLE users ADD COLUMN show_game_activity INTEGER NOT NULL DEFAULT 1');
 }
@@ -148,13 +169,24 @@ function run(sql, ...values) {
   return db.prepare(sql).run(...values);
 }
 
+let lastSavedState;
+
 function writeState(state, options = {}) {
   db.exec('BEGIN IMMEDIATE');
   try {
-    run('INSERT INTO app_state(id, value) VALUES(1, ?) ON CONFLICT(id) DO UPDATE SET value = excluded.value', JSON.stringify(state));
-    for (const table of ['messages', 'conversation_members', 'conversations', 'channels', 'server_members', 'invites', 'friends', 'oauth_identities', 'game_activity', 'role_audit', 'shop_transactions', 'shop_inventory', 'shop_wallets', 'account_merge_audit', 'game_servers', 'game_accounts', 'eaglercraft_links', 'servers']) {
-      db.exec(`DELETE FROM ${table}`);
+    if (postgres) {
+      const currentState = db.prepare('SELECT value FROM app_state WHERE id = 1').get()?.value;
+      if (currentState !== lastSavedState) {
+        // A rolling deployment can overlap with the previous process. A stale
+        // process must reload instead of replacing a newer persisted snapshot.
+        setImmediate(() => process.exit(1));
+        throw new Error('MineCord state changed in another process. Restarting to reload it.');
+      }
     }
+    const serialized = JSON.stringify(state);
+    run('INSERT INTO app_state(id, value) VALUES(1, ?) ON CONFLICT(id) DO UPDATE SET value = excluded.value', serialized);
+    const stateTables = ['messages', 'conversation_members', 'conversations', 'channels', 'server_members', 'invites', 'friends', 'oauth_identities', 'game_activity', 'role_audit', 'shop_transactions', 'shop_inventory', 'shop_wallets', 'account_merge_audit', 'game_servers', 'game_accounts', 'eaglercraft_links', 'servers'];
+    db.exec(stateTables.map(table => `DELETE FROM ${table};`).join(' '));
     const invalidated = [...new Set(options.invalidateSessionUserIds || [])];
     for (const userId of invalidated) run('DELETE FROM sessions WHERE user_id = ?', userId);
     for (const entry of options.invalidateOtherSessions || []) {
@@ -212,7 +244,7 @@ function writeState(state, options = {}) {
       }
     }
 
-    const friendInsert = db.prepare('INSERT OR REPLACE INTO friends(user_a, user_b, status, requested_by) VALUES(?, ?, ?, ?)');
+    const friendInsert = db.prepare('INSERT INTO friends(user_a, user_b, status, requested_by) VALUES(?, ?, ?, ?) ON CONFLICT(user_a, user_b) DO UPDATE SET status = excluded.status, requested_by = excluded.requested_by');
     for (const friendship of Object.values(state.friends || {})) {
       const a = userIds.get(friendship?.a), b = userIds.get(friendship?.b), requester = userIds.get(friendship?.by);
       if (a && b && requester && a !== b) friendInsert.run(a < b ? a : b, a < b ? b : a, friendship.status === 'accepted' ? 'accepted' : 'pending', requester);
@@ -220,7 +252,16 @@ function writeState(state, options = {}) {
 
     const conversationInsert = db.prepare('INSERT OR IGNORE INTO conversations(id, created_at) VALUES(?, ?)');
     const conversationMemberInsert = db.prepare('INSERT OR IGNORE INTO conversation_members(conversation_id, user_id) VALUES(?, ?)');
-    const messageInsert = db.prepare('INSERT OR IGNORE INTO messages(id, sender_id, server_id, channel_id, conversation_id, text, created_at) VALUES(?, ?, ?, ?, ?, ?, ?)');
+    const messageColumns = '(id, sender_id, server_id, channel_id, conversation_id, text, created_at)';
+    const messageValues = '(?, ?, ?, ?, ?, ?, ?)';
+    const messageInsert = postgres ? null : db.prepare(`INSERT OR IGNORE INTO messages${messageColumns} VALUES${messageValues}`);
+    const pendingMessages = [];
+    function flushMessages() {
+      if (!pendingMessages.length) return;
+      const placeholders = pendingMessages.map(() => messageValues).join(', ');
+      run(`INSERT INTO messages${messageColumns} VALUES${placeholders} ON CONFLICT DO NOTHING`, ...pendingMessages.flat());
+      pendingMessages.length = 0;
+    }
     for (const [scope, entries] of Object.entries(state.messages || {})) {
       const isDm = scope.startsWith('dm:');
       let conversationId = null, serverId = null, channelId = null;
@@ -242,9 +283,17 @@ function writeState(state, options = {}) {
       for (const message of entries || []) {
         const senderId = userIds.get(message?.from);
         if (!senderId || typeof message?.text !== 'string') continue;
-        messageInsert.run(String(message.id || `legacy-${Date.now()}`), senderId, serverId, channelId, conversationId, message.text, Number(message.at) || Date.now());
+        const values = [String(message.id || `legacy-${Date.now()}`), senderId, serverId, channelId, conversationId, message.text, Number(message.at) || Date.now()];
+        if (messageInsert) {
+          messageInsert.run(...values);
+        } else {
+          pendingMessages.push(values);
+          if (pendingMessages.length >= 500) flushMessages();
+        }
       }
     }
+
+    flushMessages();
 
     const inviteInsert = db.prepare('INSERT OR IGNORE INTO invites(code, server_id, created_by, expires) VALUES(?, ?, ?, ?)');
     for (const [code, invite] of Object.entries(state.invites || {})) {
@@ -312,6 +361,7 @@ function writeState(state, options = {}) {
     }
 
     db.exec('COMMIT');
+    if (postgres) lastSavedState = serialized;
   } catch (error) {
     db.exec('ROLLBACK');
     throw error;
@@ -325,12 +375,13 @@ function writeState(state, options = {}) {
 
 function loadState(legacyFile, fallback) {
   const saved = db.prepare('SELECT value FROM app_state WHERE id = 1').get();
+  if (postgres) lastSavedState = saved?.value;
   let state;
   if (saved) {
     state = JSON.parse(saved.value);
   } else {
     state = fallback;
-    if (fs.existsSync(legacyFile)) {
+    if (legacyFile && fs.existsSync(legacyFile)) {
       state = JSON.parse(fs.readFileSync(legacyFile, 'utf8'));
       for (const key of Object.keys(fallback)) if (state[key] === undefined) state[key] = fallback[key];
     }
