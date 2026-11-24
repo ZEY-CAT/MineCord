@@ -2,15 +2,16 @@ const assert = require('node:assert/strict');
 const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 const { test } = require('node:test');
-const { resolveDatabasePath, resolveLegacyDataPath, resolvePrivateDataDirectory, resolveDeveloperConfigPath } = require('../server/database-config');
+const { usesPostgres, resolvePostgresUrl, resolveDatabasePath, resolveLegacyDataPath, resolvePrivateDataDirectory, resolveDeveloperConfigPath } = require('../server/database-config');
 
 const baseDirectory = path.resolve('test-server-root');
 const renderUrl = 'https://minecord.example.onrender.com';
+const renderDisk = path.resolve(path.parse(baseDirectory).root, 'var', 'data');
 
 test('local development stores SQLite outside the repository in the configured private data directory', () => {
   const dataDirectory = path.join(require('node:os').tmpdir(), 'minecord-private-test-data');
   assert.equal(resolveDatabasePath({ MINECORD_DATA_DIR: dataDirectory }, baseDirectory), path.join(dataDirectory, 'minecord.sqlite'));
-  assert.equal(resolvePrivateDataDirectory({ LOCALAPPDATA: dataDirectory }, baseDirectory), path.join(dataDirectory, 'MineCord', 'Data'));
+  assert.equal(resolvePrivateDataDirectory({ LOCALAPPDATA: dataDirectory, XDG_DATA_HOME: dataDirectory }, baseDirectory), path.join(dataDirectory, ...(process.platform === 'win32' ? ['MineCord', 'Data'] : ['minecord'])));
   assert.equal(resolveLegacyDataPath({ MINECORD_DATA_DIR: dataDirectory }, baseDirectory), path.join(dataDirectory, 'legacy-data.json'));
   assert.equal(resolveDeveloperConfigPath({ MINECORD_DATA_DIR: dataDirectory }, baseDirectory), path.join(dataDirectory, 'DEV-LOGINS.json'));
 });
@@ -49,21 +50,34 @@ test('Render rejects a database path outside the declared persistent-disk root',
   assert.throws(() => resolveDatabasePath({
     RENDER_EXTERNAL_URL: renderUrl,
     DATABASE_URL: '/opt/render/project/src/server/minecord.sqlite',
-    MINECORD_PERSISTENT_DATA_DIR: '/var/data'
+    MINECORD_PERSISTENT_DATA_DIR: renderDisk
   }, baseDirectory), /must be a file inside/i);
 });
 
 test('Render accepts a SQLite database path inside the declared disk mount', () => {
   assert.equal(resolveDatabasePath({
     RENDER_EXTERNAL_URL: renderUrl,
-    DATABASE_URL: 'sqlite:////var/data/minecord.sqlite',
-    MINECORD_PERSISTENT_DATA_DIR: '/var/data'
-  }, baseDirectory), path.resolve('/var/data/minecord.sqlite'));
+    DATABASE_URL: 'sqlite:///' + path.join(renderDisk, 'minecord.sqlite'),
+    MINECORD_PERSISTENT_DATA_DIR: renderDisk
+  }, baseDirectory), path.join(renderDisk, 'minecord.sqlite'));
 });
 
 test('database path continues to reject non-SQLite connection URLs', () => {
   assert.throws(() => resolveDatabasePath({ DATABASE_URL: 'postgres://example.invalid/database' }, baseDirectory), /SQLite file path/i);
 });
+
+for (const scheme of ['postgres', 'postgresql']) {
+  test(scheme + ' URLs select PostgreSQL on Render even with pasted spaces or quotes', () => {
+    const url = scheme + '://test-user@pooler.example.invalid:5432/test-database?sslmode=require';
+    for (const value of [url, '  ' + url + '  ', '"' + url + '"', "'" + url + "'"]) {
+      const env = { DATABASE_URL: value, RENDER_EXTERNAL_URL: renderUrl };
+      assert.equal(resolvePostgresUrl(env), url);
+      assert.equal(usesPostgres(env), true);
+      assert.equal(resolveLegacyDataPath(env, baseDirectory), null);
+      assert.throws(() => resolveDatabasePath(env, baseDirectory), /SQLite file path/i);
+    }
+  });
+}
 
 function repositoryRootForTest() {
   return path.resolve(__dirname, '..');

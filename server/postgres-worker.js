@@ -1,5 +1,6 @@
 const { workerData } = require('node:worker_threads');
 const { Client, types } = require('pg');
+const { resolvePostgresUrl } = require('./database-config');
 
 const { port, signal } = workerData;
 types.setTypeParser(types.builtins.INT8, value => {
@@ -9,7 +10,7 @@ types.setTypeParser(types.builtins.INT8, value => {
 });
 
 async function connect() {
-  const url = new URL(process.env.DATABASE_URL);
+  const url = new URL(resolvePostgresUrl());
   const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
   const allowLocalPlaintext = local && !process.env.RENDER_EXTERNAL_URL && url.searchParams.get('sslmode') === 'disable';
   for (const parameter of ['sslmode', 'ssl', 'sslcert', 'sslkey', 'sslrootcert', 'uselibpqcompat']) {

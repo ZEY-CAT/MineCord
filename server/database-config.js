@@ -16,8 +16,14 @@ function assertOutsideRepository(candidate, baseDirectory, label) {
   }
 }
 
+function resolvePostgresUrl(env = process.env) {
+  const value = String(env.DATABASE_URL || '').trim();
+  const unquoted = value.replace(/^(['"])(.*)\1$/, '$2').trim();
+  return /^postgres(?:ql)?:\/\//i.test(unquoted) ? unquoted : null;
+}
+
 function usesPostgres(env = process.env) {
-  return /^postgres(?:ql)?:\/\//i.test(env.DATABASE_URL || '');
+  return resolvePostgresUrl(env) !== null;
 }
 
 function resolvePrivateDataDirectory(env = process.env, baseDirectory = __dirname) {
@@ -58,6 +64,9 @@ function configuredPath(value, env, baseDirectory) {
 }
 
 function resolveDatabasePath(env = process.env, baseDirectory = __dirname) {
+  if (usesPostgres(env)) {
+    throw new Error('DATABASE_URL must be a SQLite file path or sqlite:/// URL for this operation.');
+  }
   const databaseFile = configuredPath(env.DATABASE_URL, env, baseDirectory);
   assertOutsideRepository(databaseFile, baseDirectory, 'DATABASE_URL');
   if (!env.RENDER_EXTERNAL_URL) return databaseFile;
@@ -102,4 +111,4 @@ function resolveDeveloperConfigPath(env = process.env, baseDirectory = __dirname
   return configFile;
 }
 
-module.exports = { usesPostgres, resolveDatabasePath, resolveLegacyDataPath, resolvePrivateDataDirectory, resolveDeveloperConfigPath };
+module.exports = { resolvePostgresUrl, usesPostgres, resolveDatabasePath, resolveLegacyDataPath, resolvePrivateDataDirectory, resolveDeveloperConfigPath };
