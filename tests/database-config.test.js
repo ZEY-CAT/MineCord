@@ -69,7 +69,10 @@ test('database path continues to reject non-SQLite connection URLs', () => {
 for (const scheme of ['postgres', 'postgresql']) {
   test(scheme + ' URLs select PostgreSQL on Render even with pasted spaces or quotes', () => {
     const url = scheme + '://test-user@pooler.example.invalid:5432/test-database?sslmode=require';
-    for (const value of [url, '  ' + url + '  ', '"' + url + '"', "'" + url + "'"]) {
+    for (const value of [
+      url, '  ' + url + '  ', '"' + url + '"', "'" + url + "'",
+      'DATABASE_URL=' + url, '  DATABASE_URL = "' + url + '"  '
+    ]) {
       const env = { DATABASE_URL: value, RENDER_EXTERNAL_URL: renderUrl };
       assert.equal(resolvePostgresUrl(env), url);
       assert.equal(usesPostgres(env), true);
@@ -78,6 +81,26 @@ for (const scheme of ['postgres', 'postgresql']) {
     }
   });
 }
+
+test('Render server startup sends a pasted PostgreSQL assignment to the PostgreSQL worker', () => {
+  const result = spawnSync(process.execPath, ['server/server.js'], {
+    cwd: path.resolve(__dirname, '..'),
+    env: {
+      ...process.env,
+      RENDER_EXTERNAL_URL: renderUrl,
+      DATABASE_URL: 'DATABASE_URL="postgresql://synthetic@127.0.0.1:1/minecord?sslmode=disable"',
+      MINECORD_LEGACY_DATA_FILE: '',
+      MINECORD_DEV_LOGINS_PATH: '',
+      MINECORD_DATA_DIR: ''
+    },
+    encoding: 'utf8',
+    timeout: 15000
+  });
+  assert.ifError(result.error);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /MineCord PostgreSQL operation failed \((?:ECONNREFUSED|EACCES|EPERM)\)/);
+  assert.doesNotMatch(result.stderr, /postgresql:\/\/|synthetic|MineCord storage safety/);
+});
 
 function repositoryRootForTest() {
   return path.resolve(__dirname, '..');

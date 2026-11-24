@@ -17,7 +17,9 @@ function assertOutsideRepository(candidate, baseDirectory, label) {
 }
 
 function resolvePostgresUrl(env = process.env) {
-  const value = String(env.DATABASE_URL || '').trim();
+  // A dashboard value can contain the entire assignment copied from an env file.
+  // Strip the key only for PostgreSQL detection and leave SQLite paths untouched.
+  const value = String(env.DATABASE_URL || '').trim().replace(/^DATABASE_URL\s*=\s*/, '');
   const unquoted = value.replace(/^(['"])(.*)\1$/, '$2').trim();
   return /^postgres(?:ql)?:\/\//i.test(unquoted) ? unquoted : null;
 }
