@@ -130,6 +130,24 @@ test('Render startup requires PostgreSQL TLS and reports a driver failure withou
   });
 });
 
+test('an unreadable PostgreSQL CA file fails closed without disclosing its path', () => {
+  const result = spawnSync(process.execPath, ['-e', "require('./server/database')"], {
+    cwd: path.resolve(__dirname, '..'),
+    env: {
+      ...process.env,
+      RENDER_EXTERNAL_URL: renderUrl,
+      DATABASE_URL: 'postgresql://synthetic:secret-marker@127.0.0.1:1/minecord',
+      MINECORD_POSTGRES_CA_FILE: path.join(__dirname, 'nonexistent-private-ca-marker', 'ca.pem')
+    },
+    encoding: 'utf8',
+    timeout: 15000
+  });
+  assert.ifError(result.error);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /MineCord PostgreSQL operation failed \(configuration: ca-file-unreadable\)/);
+  assert.doesNotMatch(result.stderr, /postgresql:\/\/|secret-marker|nonexistent-private-ca-marker/);
+});
+
 function repositoryRootForTest() {
   return path.resolve(__dirname, '..');
 }

@@ -1,3 +1,4 @@
+const { readFileSync } = require('node:fs');
 const { workerData } = require('node:worker_threads');
 const { Client, types } = require('pg');
 const { resolvePostgresUrl } = require('./database-config');
@@ -23,6 +24,7 @@ const diagnosticCodes = new Map([
   ['XX000', 'server']
 ]);
 const driverMessages = new Map([
+  ['Cannot read MINECORD_POSTGRES_CA_FILE', 'ca-file-unreadable'],
   ['timeout expired', 'timeout'],
   ['The server does not support SSL connections', 'tls'],
   ['There was an error establishing an SSL connection', 'tls'],
@@ -52,9 +54,18 @@ async function connect() {
   for (const parameter of ['sslmode', 'ssl', 'sslcert', 'sslkey', 'sslrootcert', 'uselibpqcompat']) {
     url.searchParams.delete(parameter);
   }
+  const ssl = allowLocalPlaintext ? false : { rejectUnauthorized: true };
+  const caFile = process.env.MINECORD_POSTGRES_CA_FILE;
+  if (ssl && caFile) {
+    try {
+      ssl.ca = readFileSync(caFile, 'utf8');
+    } catch {
+      throw new Error('Cannot read MINECORD_POSTGRES_CA_FILE');
+    }
+  }
   const client = new Client({
     connectionString: url.href,
-    ssl: allowLocalPlaintext ? false : { rejectUnauthorized: true },
+    ssl,
     connectionTimeoutMillis: 8000,
     statement_timeout: 20000,
     application_name: 'MineCord'
