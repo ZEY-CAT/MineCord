@@ -141,12 +141,16 @@ const schema = `
 if (postgres) {
   db.exec('BEGIN IMMEDIATE');
   try {
-    db.exec('CREATE SCHEMA IF NOT EXISTS minecord; REVOKE ALL ON SCHEMA minecord FROM PUBLIC;');
+    db.exec('CREATE SCHEMA IF NOT EXISTS minecord; REVOKE ALL ON SCHEMA minecord FROM PUBLIC;', 'schema access');
     db.exec(schema.replaceAll(/\bINTEGER\b/g, 'BIGINT')
-      .replace('CHECK (user_a < user_b)', 'CHECK (user_a COLLATE "C" < user_b COLLATE "C")'));
-    db.exec('COMMIT');
+      .replace('CHECK (user_a < user_b)', 'CHECK (user_a COLLATE "C" < user_b COLLATE "C")'), 'schema creation');
+    db.exec('COMMIT', 'schema commit');
   } catch (error) {
-    db.exec('ROLLBACK');
+    try {
+      db.exec('ROLLBACK');
+    } catch {
+      // Preserve the startup error if the connection also failed during cleanup.
+    }
     throw error;
   }
 } else {

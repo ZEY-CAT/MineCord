@@ -15,14 +15,14 @@ function openPostgresDatabase() {
   port1.unref();
   let failed = false;
 
-  function query(sql, values) {
+  function query(sql, values, operation = 'query') {
     if (failed) throw new Error('MineCord PostgreSQL connection requires a process restart.');
     Atomics.store(signal, 0, 0);
-    port1.postMessage({ sql, values });
+    port1.postMessage({ sql, values, operation });
     if (Atomics.wait(signal, 0, 0, timeoutMs) === 'timed-out') {
       failed = true;
       void worker.terminate();
-      throw new Error('MineCord PostgreSQL operation timed out.');
+      throw new Error('MineCord PostgreSQL operation timed out (' + operation + ': worker timeout).');
     }
     const { message } = receiveMessageOnPort(port1);
     if (message.error) throw new Error(message.error);
@@ -30,11 +30,11 @@ function openPostgresDatabase() {
   }
 
   return {
-    exec(sql) {
+    exec(sql, operation = 'statement batch') {
       if (sql === 'BEGIN IMMEDIATE') {
-        query('BEGIN; SELECT pg_advisory_xact_lock(726489031, 1);', []);
+        query('BEGIN; SELECT pg_advisory_xact_lock(726489031, 1);', [], 'transaction start');
       } else {
-        query(sql, []);
+        query(sql, [], operation);
       }
     },
     prepare(sql) {

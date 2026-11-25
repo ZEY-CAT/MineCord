@@ -1,7 +1,9 @@
 const assert = require('node:assert/strict');
-const { spawnSync } = require('node:child_process');
+const { execFile, spawnSync } = require('node:child_process');
+const { createServer } = require('node:net');
 const path = require('node:path');
 const { test } = require('node:test');
+const { promisify } = require('node:util');
 const { usesPostgres, resolvePostgresUrl, resolveDatabasePath, resolveLegacyDataPath, resolvePrivateDataDirectory, resolveDeveloperConfigPath } = require('../server/database-config');
 
 const baseDirectory = path.resolve('test-server-root');
@@ -98,8 +100,34 @@ test('Render server startup sends a pasted PostgreSQL assignment to the PostgreS
   });
   assert.ifError(result.error);
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /MineCord PostgreSQL operation failed \((?:ECONNREFUSED|EACCES|EPERM)\)/);
+  assert.match(result.stderr, /MineCord PostgreSQL operation failed \(connect: network: (?:ECONNREFUSED|EACCES|EPERM)\)/);
   assert.doesNotMatch(result.stderr, /postgresql:\/\/|synthetic|MineCord storage safety/);
+});
+
+test('Render startup requires PostgreSQL TLS and reports a driver failure without a code', async t => {
+  const server = createServer(socket => {
+    socket.once('data', request => {
+      assert.equal(request.toString('hex'), '0000000804d2162f');
+      socket.end('N');
+    });
+  });
+  await new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', resolve);
+  });
+  t.after(() => new Promise(resolve => server.close(resolve)));
+
+  const url = 'postgresql://synthetic:secret-marker@127.0.0.1:' + server.address().port + '/minecord?sslmode=disable';
+  await assert.rejects(promisify(execFile)(process.execPath, ['-e', "require('./server/database')"], {
+    cwd: path.resolve(__dirname, '..'),
+    env: { ...process.env, RENDER_EXTERNAL_URL: renderUrl, DATABASE_URL: url },
+    timeout: 15000
+  }), error => {
+    assert.equal(error.code, 1);
+    assert.match(error.stderr, /MineCord PostgreSQL operation failed \(connect: tls\)/);
+    assert.doesNotMatch(error.stderr, /postgresql:\/\/|synthetic|secret-marker/);
+    return true;
+  });
 });
 
 function repositoryRootForTest() {
