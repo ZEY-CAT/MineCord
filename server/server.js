@@ -114,6 +114,18 @@ app.use((req,res,next)=>{
   next();
 });
 
+// Serve crawler metadata before the static middleware and homepage fallback.
+app.get('/sitemap.xml',(req,res)=>{
+  res.type('application/xml').sendFile(path.join(__dirname,'../public/sitemap.xml'));
+});
+app.get('/robots.txt',(req,res)=>{
+  res.type('text/plain').sendFile(path.join(__dirname,'../public/robots.txt'));
+});
+
+app.get('/privacy',(req,res)=>{
+  res.sendFile(path.join(__dirname,'../public/privacy.html'));
+});
+
 // Landing page at root. Auth results from older links are sent to the app screen.
 app.get('/',(req,res)=>{
   const authQueryKeys=['oauth','auth_error','account_link','account_link_error','minecraft_link','minecraft_link_error','bedrock_link','bedrock_link_error'];

@@ -88,7 +88,7 @@ p{color:var(--muted);line-height:1.7}
 <symbol id="icon-arrow-up-right" viewBox="0 0 24 24"><line x1="18" y1="5" x2="5" y2="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><polyline points="5 5 18 5 5 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
 <symbol id="icon-external-link" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9" fill="none" stroke="currentColor" stroke-width="2"/><line x1="10" y1="14" x2="21" y2="3" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
 </svg>
-</head><body>
+<link rel="canonical" href="https://minecord-8vg2.onrender.com/"></head><body>
 <header class="section hero">
   <div class="container">
     <span class="hero-tagline">Minecraft-focused social platform</span>
@@ -190,5 +190,22 @@ p{color:var(--muted);line-height:1.7}
     <a href="/app" onclick="event.preventDefault();window.location.href='/app'">Web App</a>
   </div>
   <p>MineCord is open source. Not affiliated with Mojang or Microsoft.</p>
+<details id="analytics-settings" hidden>
+  <summary>Analytics settings</summary>
+  <p>Optional Google Analytics helps us count visits to MineCord's public pages. Your choice does not affect access.</p>
+  <label>Age range
+    <select>
+      <option value="">Select an age range</option>
+      <option value="minor">Under 18</option>
+      <option value="adult">18 or older</option>
+      <option value="unspecified">Prefer not to say</option>
+    </select>
+  </label>
+  <button type="button" data-analytics-allow disabled>Allow analytics</button>
+  <button type="button" data-analytics-decline>Keep analytics off</button>
+  <p role="status"></p>
+</details>
+<p><a href="/privacy">Privacy policy</a></p>
+<script src="/public-analytics.js" defer></script>
 </footer>
 </body></html>

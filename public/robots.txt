@@ -1,0 +1,6 @@
+User-agent: *
+Disallow: /app
+Disallow: /api/
+Disallow: /index.html
+
+Sitemap: https://minecord-8vg2.onrender.com/sitemap.xml

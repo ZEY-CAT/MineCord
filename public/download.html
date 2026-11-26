@@ -121,7 +121,7 @@
     .nav-links a:not(.web) { display: none; }
   }
 </style>
-</head>
+<link rel="canonical" href="https://minecord-8vg2.onrender.com/download"></head>
 <body>
 <header class="site">
   <div class="wrap nav">
@@ -184,6 +184,23 @@
       <a href="https://github.com/ZEY-CAT/MineCord/issues" target="_blank" rel="noopener">Report a bug</a>
     </nav>
   </div>
+<details id="analytics-settings" hidden>
+  <summary>Analytics settings</summary>
+  <p>Optional Google Analytics helps us count visits to MineCord's public pages. Your choice does not affect access.</p>
+  <label>Age range
+    <select>
+      <option value="">Select an age range</option>
+      <option value="minor">Under 18</option>
+      <option value="adult">18 or older</option>
+      <option value="unspecified">Prefer not to say</option>
+    </select>
+  </label>
+  <button type="button" data-analytics-allow disabled>Allow analytics</button>
+  <button type="button" data-analytics-decline>Keep analytics off</button>
+  <p role="status"></p>
+</details>
+<p><a href="/privacy">Privacy policy</a></p>
+<script src="/public-analytics.js" defer></script>
 </footer>
 
 <script>
