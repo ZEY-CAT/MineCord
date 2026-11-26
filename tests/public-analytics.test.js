@@ -90,3 +90,26 @@ test('authenticated and query-bearing URLs cannot load the tag', () => {
   assert.doesNotMatch(readFileSync(path.join(publicDir, 'index.html'), 'utf8'),
     /public-analytics\.js|googletagmanager\.com|G-SEMMPDBS1Y/);
 });
+
+test('public pages expose Analytics settings near the top before scripts run', () => {
+  for (const name of ['landing.html', 'download.html']) {
+    const html = readFileSync(path.join(publicDir, name), 'utf8');
+    const start = name === 'landing.html' ? html.indexOf('<header class="section hero">') : html.indexOf('<main');
+    const main = html.slice(start, start + 2700);
+    assert.match(main.slice(0, 1700), /<details id="analytics-settings" class="analytics-settings">\s*<summary>Analytics settings<\/summary>/);
+    assert.match(main, /<select disabled>/);
+    assert.match(main, /data-analytics-allow disabled/);
+    assert.match(main, /role="status">Analytics is off\./);
+  }
+});
+
+test('query-bearing public pages expose consent and withdrawal without loading GA4', () => {
+  const page = visit('/', { saved: 'allowed', search: '?utm_source=example' });
+  assert.equal(page.age.disabled, false);
+  assert.equal(page.decline.disabled, false);
+  assert.equal(page.window['ga-disable-' + measurementId], true);
+  assert.match(page.status.textContent, /off for this URL/);
+  page.decline.click();
+  assert.equal(page.storage.get(preference), 'declined');
+  assert.equal(page.tags.length, 0);
+});

@@ -3,13 +3,15 @@
     '/': 'MineCord',
     '/download': 'Download MineCord'
   };
-  const path = window.location.pathname;
-  if (!Object.hasOwn(pages, path) || window.location.search || window.location.hash) return;
+  const path = window.location.pathname === '/download/' ? '/download' : window.location.pathname;
+  if (!Object.hasOwn(pages, path)) return;
+  const canTrack = !window.location.search && !window.location.hash;
 
   const measurementId = 'G-SEMMPDBS1Y';
   const preference = 'minecord-analytics-consent-v1';
   const disabled = 'ga-disable-' + measurementId;
   const controls = document.querySelector('#analytics-settings');
+  if (!controls) return;
   const age = controls.querySelector('select');
   const allow = controls.querySelector('[data-analytics-allow]');
   const decline = controls.querySelector('[data-analytics-decline]');
@@ -23,11 +25,13 @@
 
   function updateConsent(next) {
     choice = next;
-    window[disabled] = choice !== 'allowed';
+    const active = choice === 'allowed' && canTrack;
+    window[disabled] = !active;
     decline.textContent = choice === 'allowed' ? 'Turn off analytics' : 'Keep analytics off';
-    status.textContent = choice === 'allowed' ? 'Analytics is on.' : 'Analytics is off.';
-    if (choice !== 'allowed') {
-      if (tag) {
+    status.textContent = active ? 'Analytics is on.' : 'Analytics is off.';
+    if (choice === 'allowed' && !canTrack) status.textContent = 'Analytics is off for this URL. Your preference is saved.';
+    if (!active) {
+      if (choice === 'declined') {
         for (const name of ['_ga', '_ga_SEMMPDBS1Y']) {
           document.cookie = name + '=; Max-Age=0; Path=/; Secure; SameSite=Lax';
         }
@@ -76,7 +80,8 @@
     updateConsent(next);
   }
 
-  controls.hidden = false;
+  age.disabled = false;
+  decline.disabled = false;
   age.addEventListener('change', () => {
     allow.disabled = age.value !== 'adult';
     if (age.value === 'minor' || (age.value === 'unspecified' && choice === 'allowed')) saveChoice('declined');
