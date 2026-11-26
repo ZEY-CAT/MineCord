@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const { execFile, spawnSync } = require('node:child_process');
 const { createServer } = require('node:net');
 const path = require('node:path');
+const { rootCertificates } = require('node:tls');
 const { test } = require('node:test');
 const { promisify } = require('node:util');
 const { usesPostgres, resolvePostgresUrl, resolveDatabasePath, resolveLegacyDataPath, resolvePrivateDataDirectory, resolveDeveloperConfigPath } = require('../server/database-config');
@@ -151,3 +152,32 @@ test('an unreadable PostgreSQL CA file fails closed without disclosing its path'
 function repositoryRootForTest() {
   return path.resolve(__dirname, '..');
 }
+
+test('inline PostgreSQL CA takes precedence and rejects malformed PEM without logging it', () => {
+  const env = {
+    ...process.env,
+    RENDER_EXTERNAL_URL: renderUrl,
+    DATABASE_URL: 'postgresql://synthetic:secret-marker@127.0.0.1:1/minecord',
+    MINECORD_POSTGRES_CA_FILE: path.join(__dirname, 'nonexistent-private-ca-marker', 'ca.pem')
+  };
+  const validPem = rootCertificates.slice(0, 2).join('\n');
+  const malformedPem = '-----BEGIN CERTIFICATE-----\nprivate-cert-marker\n-----END CERTIFICATE-----';
+  for (const [value, diagnostic] of [
+    [validPem, /connect: network: (?:ECONNREFUSED|EACCES|EPERM)/],
+    [validPem.replaceAll('\n', '\\n'), /connect: network: (?:ECONNREFUSED|EACCES|EPERM)/],
+    ['   ', /configuration: ca-inline-invalid/],
+    [malformedPem, /configuration: ca-inline-invalid/],
+    [validPem + '\n-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----', /configuration: ca-inline-invalid/]
+  ]) {
+    const result = spawnSync(process.execPath, ['-e', "require('./server/database')"], {
+      cwd: repositoryRootForTest(),
+      env: { ...env, MINECORD_POSTGRES_CA: value },
+      encoding: 'utf8',
+      timeout: 15000
+    });
+    assert.ifError(result.error);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, diagnostic);
+    assert.doesNotMatch(result.stderr + result.stdout, /postgresql:\/\/|secret-marker|private-cert-marker|BEGIN CERTIFICATE|nonexistent-private-ca-marker/);
+  }
+});

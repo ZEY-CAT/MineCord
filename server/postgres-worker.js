@@ -1,3 +1,4 @@
+const { X509Certificate } = require('node:crypto');
 const { readFileSync } = require('node:fs');
 const { workerData } = require('node:worker_threads');
 const { Client, types } = require('pg');
@@ -24,6 +25,7 @@ const diagnosticCodes = new Map([
   ['XX000', 'server']
 ]);
 const driverMessages = new Map([
+  ['Invalid MINECORD_POSTGRES_CA', 'ca-inline-invalid'],
   ['Cannot read MINECORD_POSTGRES_CA_FILE', 'ca-file-unreadable'],
   ['timeout expired', 'timeout'],
   ['The server does not support SSL connections', 'tls'],
@@ -33,6 +35,20 @@ const driverMessages = new Map([
   ['SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a string', 'authentication'],
   ['SASL: SCRAM-SERVER-FIRST-MESSAGE: client password must be a non-empty string', 'authentication']
 ]);
+
+function parseInlineCa(value) {
+  const pem = value.replaceAll('\\n', '\n').trim();
+  const certificatePattern = /-----BEGIN CERTIFICATE-----\s+[A-Za-z0-9+/=\s]+-----END CERTIFICATE-----/g;
+  const certificates = pem.match(certificatePattern);
+  if (!certificates || pem.replace(certificatePattern, '').trim()) {
+    throw new Error('Invalid MINECORD_POSTGRES_CA');
+  }
+  try {
+    return certificates.map(certificate => new X509Certificate(certificate).toString());
+  } catch {
+    throw new Error('Invalid MINECORD_POSTGRES_CA');
+  }
+}
 
 function diagnostic(error, phase) {
   const category = diagnosticCodes.get(error.code);
@@ -55,8 +71,12 @@ async function connect() {
     url.searchParams.delete(parameter);
   }
   const ssl = allowLocalPlaintext ? false : { rejectUnauthorized: true };
+  const inlineCa = process.env.MINECORD_POSTGRES_CA;
   const caFile = process.env.MINECORD_POSTGRES_CA_FILE;
-  if (ssl && caFile) {
+  // An explicitly set inline CA takes precedence, including invalid values.
+  if (ssl && inlineCa !== undefined) {
+    ssl.ca = parseInlineCa(inlineCa);
+  } else if (ssl && caFile) {
     try {
       ssl.ca = readFileSync(caFile, 'utf8');
     } catch {
